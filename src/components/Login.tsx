@@ -18,7 +18,12 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
     setLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // If the user didn't type an email (no @), we append a default domain 
+      // so Firebase Auth can process it as an email.
+      // Adjust this domain if you use a specific one for usernames.
+      const loginEmail = email.includes('@') ? email : `${email}@tanqueteam.com`;
+      
+      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, password);
       const user = userCredential.user;
 
       const appId = "tanqueteam-bjj";
@@ -103,11 +108,11 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
                   <User className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#dc2626] focus:border-transparent transition-shadow"
-                  placeholder="Seu e-mail"
+                  placeholder="Seu e-mail ou usuário"
                   required
                 />
               </div>
