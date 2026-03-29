@@ -156,6 +156,29 @@ export default function Dashboard() {
     initTheme();
 
     const initApp = async () => {
+      // Check for UID in URL parameters (e.g., from external login redirect)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUid = urlParams.get('uid');
+
+      if (urlUid) {
+        try {
+          // Fetch user data from Firestore using the UID from URL
+          const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', urlUid);
+          const studentSnap = await getDoc(studentRef);
+          
+          if (studentSnap.exists()) {
+            const data = studentSnap.data();
+            const userData = { role: 'student', id: urlUid, name: data.name, plan: data.plan };
+            localStorage.setItem('tanque_user_session', JSON.stringify(userData));
+            
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        } catch (error) {
+          console.error("Error fetching user from URL uid:", error);
+        }
+      }
+
       let sessionData = localStorage.getItem('tanque_user_session');
       
       // Mock for preview if no session
@@ -165,8 +188,8 @@ export default function Dashboard() {
       }
 
       if (!sessionData) {
-        setShowLogin(true);
-        setLoading(false);
+        // Redirect to external login page
+        window.location.href = 'https://www.tanqueteambjj.com.br/login.html';
         return;
       }
 
@@ -215,7 +238,7 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('tanque_user_session');
-    setShowLogin(true);
+    window.location.href = 'https://www.tanqueteambjj.com.br/login.html';
   };
 
   const loadStudentData = async (studentId: string) => {
@@ -501,7 +524,7 @@ export default function Dashboard() {
         <button onClick={() => {
           localStorage.removeItem('tanque_user_session');
           setAuthError(null);
-          setShowLogin(true);
+          window.location.href = 'https://www.tanqueteambjj.com.br/login.html';
         }} className="px-6 py-2 bg-brand-red rounded hover:bg-red-700 transition font-bold">
           Ir para Login
         </button>
