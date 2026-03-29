@@ -18,38 +18,27 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
     setLoading(true);
 
     try {
-      // If the user didn't type an email (no @), we append a default domain 
-      // so Firebase Auth can process it as an email.
-      // Adjust this domain if you use a specific one for usernames.
-      const loginEmail = email.includes('@') ? email : `${email}@tanqueteam.com`;
-      
-      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, password);
-      const user = userCredential.user;
-
       const appId = "tanqueteam-bjj";
       let userData: any = null;
 
-      // Try to get student by UID
-      const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', user.uid);
-      const studentSnap = await getDoc(studentRef);
+      // Query the students collection for a matching username/email and password
+      const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
       
-      if (studentSnap.exists()) {
-        const data = studentSnap.data();
-        userData = { role: 'student', id: user.uid, name: data.name, plan: data.plan };
+      // We will check if the input matches either the 'email' field or a 'username' field if you have one.
+      // Assuming the username is stored in the 'email' field for now based on previous context, 
+      // or you might have a dedicated 'username' field. Let's check 'email' first.
+      const q = query(studentsRef, where('email', '==', email), where('password', '==', password));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        // Found a matching student
+        const docSnap = querySnapshot.docs[0];
+        const data = docSnap.data();
+        userData = { role: 'student', id: docSnap.id, name: data.name, plan: data.plan };
       } else {
-        // Try to get student by email
-        const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
-        const q = query(studentsRef, where('email', '==', email));
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-          const docSnap = querySnapshot.docs[0];
-          const data = docSnap.data();
-          userData = { role: 'student', id: docSnap.id, name: data.name, plan: data.plan };
-        } else {
-           // Default to admin if login succeeds but no student record
-           userData = { role: 'admin', id: user.uid, name: user.displayName || 'Administrador', plan: 'administracao' };
-        }
+         // If not found, you might want to check a separate admin collection or hardcode admin credentials for testing
+         // For now, if it fails the DB check, we throw an error.
+         throw new Error("Invalid credentials");
       }
 
       localStorage.setItem('tanque_user_session', JSON.stringify(userData));
