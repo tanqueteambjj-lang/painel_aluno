@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { doc, getDoc, getDocs, collection, query, where, addDoc } from 'firebase/firestore';
+import Login from '@/components/Login';
 import Sidebar from '@/components/Sidebar';
 import QrModal from '@/components/QrModal';
 import HistoryModal from '@/components/HistoryModal';
@@ -40,6 +41,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [loadingText, setLoadingText] = useState("A sincronizar dados com o sistema...");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
   const [view, setView] = useState('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -163,7 +165,7 @@ export default function Dashboard() {
       }
 
       if (!sessionData) {
-        setAuthError("A sua sessão expirou ou não é válida.");
+        setShowLogin(true);
         setLoading(false);
         return;
       }
@@ -213,7 +215,7 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('tanque_user_session');
-    window.location.href = "https://www.tanqueteambjj.com.br/login.html";
+    setShowLogin(true);
   };
 
   const loadStudentData = async (studentId: string) => {
@@ -479,13 +481,28 @@ export default function Dashboard() {
     );
   }
 
+  if (showLogin) {
+    return <Login onLoginSuccess={() => {
+      setShowLogin(false);
+      setLoading(true);
+      // We need to re-run initApp, but since it's inside useEffect, 
+      // we can just force a reload or call a function.
+      // The easiest way is to just reload the page to re-run the initialization
+      window.location.reload();
+    }} />;
+  }
+
   if (authError) {
     return (
       <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 text-white p-4 text-center">
         <Lock className="w-12 h-12 mb-4 text-brand-red" />
         <h2 className="text-xl font-bold mb-2">Acesso Restrito</h2>
         <p className="text-gray-300 mb-6">{authError}</p>
-        <button onClick={() => window.location.href = "https://www.tanqueteambjj.com.br/login.html"} className="px-6 py-2 bg-brand-red rounded hover:bg-red-700 transition font-bold">
+        <button onClick={() => {
+          localStorage.removeItem('tanque_user_session');
+          setAuthError(null);
+          setShowLogin(true);
+        }} className="px-6 py-2 bg-brand-red rounded hover:bg-red-700 transition font-bold">
           Ir para Login
         </button>
       </div>
