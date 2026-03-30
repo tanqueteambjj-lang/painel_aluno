@@ -159,11 +159,14 @@ export default function Dashboard() {
       try {
         // 1. Authenticate anonymously first so we can read from Firestore
         await signInAnonymously(auth);
-      } catch (e) {
+      } catch (e: any) {
         console.error("Auth erro:", e);
-        setAuthError("Erro de autenticação com o servidor.");
-        setLoading(false);
-        return;
+        if (e.code === 'auth/unauthorized-domain') {
+          console.warn("Domínio não autorizado no Firebase. Por favor, adicione este domínio no painel do Firebase Authentication.");
+          // We don't block here immediately, let's see if Firestore allows public reads.
+        } else {
+          // For other errors, we might want to log them but not necessarily block if public reads are allowed.
+        }
       }
 
       // 2. Check for UID in URL parameters (e.g., from external login redirect)
@@ -188,8 +191,13 @@ export default function Dashboard() {
             setLoading(false);
             return;
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error fetching user from URL uid:", error);
+          if (error.code === 'permission-denied' || error.message?.includes('Missing or insufficient permissions')) {
+            setAuthError("Erro de permissão. O domínio atual pode não estar autorizado no Firebase, ou as regras do Firestore bloqueiam a leitura.");
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -202,8 +210,9 @@ export default function Dashboard() {
       }
 
       if (!sessionData) {
-        // Redirect to external login page
-        window.location.href = 'https://www.tanqueteambjj.com.br/login.html';
+        // Instead of redirecting to external site, show the internal login component
+        setShowLogin(true);
+        setLoading(false);
         return;
       }
 
@@ -217,9 +226,13 @@ export default function Dashboard() {
       try {
         await loadStudentData(user.id);
         await loadNotices();
-      } catch (e) {
+      } catch (e: any) {
         console.error("Data load erro:", e);
-        setAuthError("Erro ao carregar dados do servidor.");
+        if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
+          setAuthError("Erro de permissão. O domínio atual pode não estar autorizado no Firebase, ou as regras do Firestore bloqueiam a leitura.");
+        } else {
+          setAuthError("Erro ao carregar dados do servidor.");
+        }
       } finally {
         setLoading(false);
       }

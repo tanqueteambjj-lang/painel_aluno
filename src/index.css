@@ -11,6 +11,11 @@
   --color-brand-light: #EDF2F4;
 }
 
+.glass-effect {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+}
+
 body {
   background-color: #f3f4f6;
   background-image: radial-gradient(#d1d5db 1px, transparent 1px);
