@@ -1,8 +1,6 @@
 import { AlertTriangle, CheckCircle, Clock, FileText, ShieldCheck, QrCode, CreditCard, Loader2, Printer } from 'lucide-react';
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../lib/firebase';
 import ReceiptModal from './ReceiptModal';
 
 const parseDateString = (dateStr: any) => {
@@ -65,23 +63,34 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         return;
       }
 
-      const createPaymentPreference = httpsCallable(functions, 'createPaymentPreference');
-      const result = await createPaymentPreference({ 
-        studentId: currentUserData?.id,
-        paymentMethod: paymentMethod 
-      }) as any;
+      const response = await fetch('/api/create-preference', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: `Plano ${planName}`,
+          quantity: 1,
+          price: planPrice || 100,
+          payer_email: currentUserData?.email || 'test_user_123@testuser.com'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao criar preferência de pagamento');
+      }
+
+      const result = await response.json();
       
-      if (result.data.init_point) {
-        window.location.href = result.data.init_point;
+      if (result.init_point) {
+        window.location.href = result.init_point;
       } else {
         throw new Error('Link de pagamento não retornado');
       }
     } catch (error: any) {
       console.error('Erro ao gerar pagamento:', error);
       let errorMsg = error.message || 'Ocorreu um erro ao processar o pagamento com o Mercado Pago.';
-      if (errorMsg === 'internal') {
-        errorMsg = 'Erro interno no servidor. Isso geralmente ocorre se as Cloud Functions não foram atualizadas.';
-      }
       showAlert('Erro', errorMsg, 'error');
     } finally {
       setIsProcessing(false);

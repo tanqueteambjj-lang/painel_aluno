@@ -143,9 +143,13 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
         throw new Error("Credenciais inválidas");
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro login:", err);
-      setError("Usuário ou senha incorretos.");
+      if (err.code === 'permission-denied' || err.message?.includes('Missing or insufficient permissions')) {
+        setError("Erro de permissão. O domínio atual pode não estar autorizado no Firebase, ou as regras do Firestore bloqueiam a leitura.");
+      } else {
+        setError("Usuário ou senha incorretos.");
+      }
     } finally {
       setLoading(false);
     }
