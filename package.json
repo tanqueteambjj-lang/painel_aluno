@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "vite --port 3000 --host 0.0.0.0",
+    "dev": "PORT=3001 node server.mjs & vite --port 3000 --host 0.0.0.0",
     "build": "vite build && npx shx cp dist/index.html painel_aluno.html && npx shx mkdir -p public && npx shx cp dist/index.html public/painel_aluno.html",
     "start": "node server.mjs",
     "lint": "eslint .",
