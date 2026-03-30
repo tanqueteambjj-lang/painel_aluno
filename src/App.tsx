@@ -156,7 +156,17 @@ export default function Dashboard() {
     initTheme();
 
     const initApp = async () => {
-      // Check for UID in URL parameters (e.g., from external login redirect)
+      try {
+        // 1. Authenticate anonymously first so we can read from Firestore
+        await signInAnonymously(auth);
+      } catch (e) {
+        console.error("Auth erro:", e);
+        setAuthError("Erro de autenticação com o servidor.");
+        setLoading(false);
+        return;
+      }
+
+      // 2. Check for UID in URL parameters (e.g., from external login redirect)
       const urlParams = new URLSearchParams(window.location.search);
       const urlUid = urlParams.get('uid');
 
@@ -173,6 +183,10 @@ export default function Dashboard() {
             
             // Clean up URL
             window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            setAuthError("Matrícula não encontrada no sistema.");
+            setLoading(false);
+            return;
           }
         } catch (error) {
           console.error("Error fetching user from URL uid:", error);
@@ -201,12 +215,11 @@ export default function Dashboard() {
       }
 
       try {
-        await signInAnonymously(auth);
         await loadStudentData(user.id);
         await loadNotices();
       } catch (e) {
-        console.error("Auth erro:", e);
-        setAuthError("Erro de autenticação com o servidor.");
+        console.error("Data load erro:", e);
+        setAuthError("Erro ao carregar dados do servidor.");
       } finally {
         setLoading(false);
       }
