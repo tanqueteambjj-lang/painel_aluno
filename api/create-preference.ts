@@ -1,8 +1,8 @@
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
 export default async function handler(req: any, res: any) {
-  // Configuração de CORS para evitar bloqueios
-  res.setHeader('Access-Control-Allow-Credentials', true);
+  // Configuração de CORS (IMPORTANTE: 'true' deve ser string)
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
@@ -21,7 +21,14 @@ export default async function handler(req: any, res: any) {
     });
 
     const preference = new Preference(client);
-    const { title, quantity, price, payer_email } = req.body || {};
+    
+    // Garante que o body seja lido corretamente
+    let body = req.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (e) { body = {}; }
+    }
+    
+    const { title, quantity, price, payer_email } = body || {};
 
     const result = await preference.create({
       body: {
