@@ -23,7 +23,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
 
-  const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
+const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
   
   let parsedPrice = undefined;
   if (currentUserData?.plan && typeof currentUserData.plan === 'string' && currentUserData.plan.includes(' - R$')) {
