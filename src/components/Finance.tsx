@@ -71,35 +71,68 @@ const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
         return;
       }
 
-      const response = await fetch('/api/create-preference', {
+      // Verifica se o usuário selecionou PIX (baseado no estado paymentMethod)
+      const isPix = typeof paymentMethod !== 'undefined' && paymentMethod === 'pix';
+      const endpoint = isPix ? '/api/create-pix-payment' : '/api/create-preference';
+      
+      const payload = isPix ? {
+        transaction_amount: planPrice || 100,
+        description: `Plano ${planName}`,
+        payer_email: currentUserData?.email || 'test_user_123@testuser.com',
+        payer_first_name: currentUserData?.name?.split(' ')[0] || 'Aluno',
+        payer_last_name: currentUserData?.name?.split(' ').slice(1).join(' ') || 'Tanque',
+        payer_identification: currentUserData?.cpf || '12345678909'
+      } : {
+        title: `Plano ${planName}`,
+        quantity: 1,
+        price: planPrice || 100,
+        payer_email: currentUserData?.email || 'test_user_123@testuser.com'
+      };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: `Plano ${planName}`,
-          quantity: 1,
-          price: planPrice || 100,
-          payer_email: currentUserData?.email || 'test_user_123@testuser.com'
-        }),
+        body: JSON.stringify(payload)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erro ao criar preferência de pagamento');
+      // 1. Lemos a resposta como TEXTO primeiro para evitar o erro de JSON
+      const responseText = await response.text();
+      
+      let data;
+      try {
+        // 2. Tentamos converter para JSON
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        // Se falhar (ex: Vercel retornou HTML de erro 500), capturamos graciosamente
+        console.error("Resposta não-JSON do servidor:", responseText);
+        throw new Error(`Erro interno no servidor. Tente novamente mais tarde.`);
       }
 
-      const result = await response.json();
-      
-      if (result.init_point) {
-        window.location.href = result.init_point;
+      // 3. Verificamos se a resposta da API foi sucesso
+      if (!response.ok) {
+        throw new Error(data.error || data.details || 'Erro ao processar pagamento');
+      }
+
+      // 4. Redirecionamento ou exibição do PIX
+      if (isPix) {
+        if (data.ticket_url) {
+          window.open(data.ticket_url, '_blank');
+          showAlert('Sucesso', 'PIX gerado! Verifique a nova aba do seu navegador.', 'success');
+        } else {
+          throw new Error('Link do PIX não retornado');
+        }
       } else {
-        throw new Error('Link de pagamento não retornado');
+        if (data.init_point) {
+          window.location.href = data.init_point;
+        } else {
+          throw new Error('Link de pagamento não retornado');
+        }
       }
     } catch (error: any) {
       console.error('Erro ao gerar pagamento:', error);
-      let errorMsg = error.message || 'Ocorreu um erro ao processar o pagamento com o Mercado Pago.';
-      showAlert('Erro', errorMsg, 'error');
+      showAlert('Erro', error.message || 'Ocorreu um erro ao processar o pagamento.', 'error');
     } finally {
       setIsProcessing(false);
     }
