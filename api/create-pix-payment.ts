@@ -38,8 +38,7 @@ export default async function handler(req: any, res: any) {
             number: payer_identification || '12345678909'
           }
         }
-      },
-      requestOptions: { idempotencyKey: Math.random().toString(36).substring(7) }
+      }
     });
 
     return res.status(200).json({
