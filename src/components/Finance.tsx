@@ -23,7 +23,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
 
-const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
+  const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
   
   let parsedPrice = undefined;
   if (currentUserData?.plan && typeof currentUserData.plan === 'string' && currentUserData.plan.includes(' - R$')) {
@@ -71,7 +71,6 @@ const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
         return;
       }
 
-      // Define se é PIX ou Cartão/Boleto
       const isPix = typeof paymentMethod !== 'undefined' && paymentMethod === 'pix';
       const endpoint = isPix ? '/api/create-pix-payment' : '/api/create-preference';
       
@@ -97,25 +96,20 @@ const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
         body: JSON.stringify(payload)
       });
 
-      // 1. Lemos a resposta como TEXTO primeiro para evitar o erro de JSON
       const responseText = await response.text();
       
       let data;
       try {
-        // 2. Tentamos converter para JSON
         data = JSON.parse(responseText);
       } catch (parseError) {
-        // Se falhar (ex: Vercel retornou HTML de erro 500), capturamos graciosamente
         console.error("Resposta não-JSON do servidor:", responseText);
         throw new Error(`Erro interno no servidor. Detalhes no console.`);
       }
 
-      // 3. Verificamos se a resposta da API foi sucesso
       if (!response.ok) {
         throw new Error(data.error || data.details || 'Erro ao processar pagamento');
       }
 
-      // 4. Redirecionamento ou exibição do PIX
       if (isPix) {
         if (data.ticket_url) {
           window.open(data.ticket_url, '_blank');

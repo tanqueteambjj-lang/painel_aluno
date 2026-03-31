@@ -1,7 +1,6 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 
 export default async function handler(req: any, res: any) {
-  // Configuração de CORS (IMPORTANTE: 'true' deve ser string)
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -11,10 +10,6 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
-
   try {
     const client = new MercadoPagoConfig({ 
       accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-5825120061754229-022016-ecb35610bbb69399336717aaf09d0539-89303803' 
@@ -22,7 +17,6 @@ export default async function handler(req: any, res: any) {
 
     const payment = new Payment(client);
     
-    // Garante que o body seja lido corretamente
     let body = req.body;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch (e) { body = {}; }
@@ -45,9 +39,7 @@ export default async function handler(req: any, res: any) {
           }
         }
       },
-      requestOptions: {
-        idempotencyKey: Math.random().toString(36).substring(7),
-      }
+      requestOptions: { idempotencyKey: Math.random().toString(36).substring(7) }
     });
 
     return res.status(200).json({
@@ -57,7 +49,7 @@ export default async function handler(req: any, res: any) {
       ticket_url: result.point_of_interaction?.transaction_data?.ticket_url,
     });
   } catch (error: any) {
-    console.error('Error creating PIX payment:', error);
-    return res.status(500).json({ error: 'Failed to create PIX payment', details: error.message });
+    console.error('MercadoPago PIX Error:', error);
+    return res.status(500).json({ error: 'Failed', details: error?.message || String(error) });
   }
 }
