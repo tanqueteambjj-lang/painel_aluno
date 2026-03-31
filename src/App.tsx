@@ -562,8 +562,10 @@ export default function Dashboard() {
 
   const firstName = (currentUserData.name || "Aluno").split(' ')[0];
   const rawPlanKey = currentUserData.plan || 'N/A';
-  const planKey = rawPlanKey.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const planInfo = PLAN_DICT[planKey] || { short: rawPlanKey.toUpperCase(), price: undefined };
+  // Extract base plan name if it contains " - R$"
+  const basePlanName = rawPlanKey.split(' - R$')[0].trim();
+  const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const planInfo = PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined };
   const totalAtt = currentUserData.attendance ? currentUserData.attendance.length : 0;
   const streak = calculateConsecutiveDays(currentUserData.attendance || []);
   const recentGrad = checkForRecentGraduation(currentUserData.progressLog, currentUserData.belt || "Faixa Branca - 0º Grau");

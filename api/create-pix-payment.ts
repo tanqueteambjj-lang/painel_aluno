@@ -1,12 +1,21 @@
-import { MercadoPagoConfig, Payment } from 'mercadopago';
-
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
-    const { transaction_amount, description, payer_email, payer_first_name, payer_last_name, payer_identification } = req.body;
+    const { MercadoPagoConfig, Payment } = await import('mercadopago');
+    
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        console.error('Failed to parse body:', e);
+      }
+    }
+    
+    const { transaction_amount, description, payer_email, payer_first_name, payer_last_name, payer_identification } = body || {};
 
     const client = new MercadoPagoConfig({ 
       accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-5825120061754229-022016-ecb35610bbb69399336717aaf09d0539-89303803' 

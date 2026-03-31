@@ -24,7 +24,15 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
 
   const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
-  const planPrice = planInfo?.price !== undefined ? planInfo.price : (currentUserData?.planPrice || 150.00);
+  
+  let parsedPrice = undefined;
+  if (currentUserData?.plan && typeof currentUserData.plan === 'string' && currentUserData.plan.includes(' - R$')) {
+    const priceStr = currentUserData.plan.split(' - R$')[1].trim().replace(',', '.');
+    const parsed = parseFloat(priceStr);
+    if (!isNaN(parsed)) parsedPrice = parsed;
+  }
+  
+  const planPrice = planInfo?.price !== undefined ? planInfo.price : (parsedPrice !== undefined ? parsedPrice : (currentUserData?.planPrice || 150.00));
   const isFreePlan = planPrice === 0 || currentUserData?.paymentStatus === 'Isento' || currentUserData?.plan?.toLowerCase() === 'isento' || currentUserData?.plan?.toLowerCase() === 'dependente';
   const isInvalidPlan = false;
 
