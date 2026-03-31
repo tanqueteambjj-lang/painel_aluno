@@ -24,9 +24,9 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
 
   const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
-  const planPrice = planInfo?.price;
-  const isFreePlan = planPrice === 0 || currentUserData?.paymentStatus === 'Isento';
-  const isInvalidPlan = planPrice === undefined && !isFreePlan;
+  const planPrice = planInfo?.price !== undefined ? planInfo.price : (currentUserData?.planPrice || 150.00);
+  const isFreePlan = planPrice === 0 || currentUserData?.paymentStatus === 'Isento' || currentUserData?.plan?.toLowerCase() === 'isento' || currentUserData?.plan?.toLowerCase() === 'dependente';
+  const isInvalidPlan = false;
 
   let formattedDueDate = "Não definido";
   if (currentUserData?.dueDate) {
