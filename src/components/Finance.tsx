@@ -71,7 +71,7 @@ const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
         return;
       }
 
-      // Verifica se o usuário selecionou PIX (baseado no estado paymentMethod)
+      // Define se é PIX ou Cartão/Boleto
       const isPix = typeof paymentMethod !== 'undefined' && paymentMethod === 'pix';
       const endpoint = isPix ? '/api/create-pix-payment' : '/api/create-preference';
       
@@ -107,7 +107,7 @@ const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
       } catch (parseError) {
         // Se falhar (ex: Vercel retornou HTML de erro 500), capturamos graciosamente
         console.error("Resposta não-JSON do servidor:", responseText);
-        throw new Error(`Erro interno no servidor. Tente novamente mais tarde.`);
+        throw new Error(`Erro interno no servidor. Detalhes no console.`);
       }
 
       // 3. Verificamos se a resposta da API foi sucesso
