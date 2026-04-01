@@ -103,7 +103,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         data = JSON.parse(responseText);
       } catch (parseError) {
         console.error("Resposta não-JSON do servidor:", responseText);
-        throw new Error(`Erro interno no servidor. Detalhes no console.`);
+        throw new Error(`Erro interno no servidor. Resposta: ${responseText.substring(0, 100)}...`);
       }
 
       if (!response.ok) {
