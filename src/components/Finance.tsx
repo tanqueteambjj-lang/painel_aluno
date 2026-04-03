@@ -173,37 +173,53 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
 
           {/* Payment Section */}
           {!isFreePlan && !isInvalidPlan && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 md:p-8">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                <ShieldCheck className="w-6 h-6 text-green-500" /> Pagamento Seguro
-              </h3>
+            <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 md:p-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-brand-red/10 dark:bg-brand-red/5 rounded-full blur-2xl"></div>
               
-              <div className="mb-8">
-                <p className="text-gray-600 dark:text-gray-300 mb-4">
-                  Você será redirecionado para o ambiente seguro do Mercado Pago, onde poderá escolher pagar via <strong>PIX</strong> ou <strong>Cartão de Crédito</strong>.
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <CreditCard className="w-6 h-6 text-brand-red" /> Finalizar Pagamento
+                  </h3>
+                  <div className="flex gap-2">
+                    <img src="https://logospng.org/download/pix/logo-pix-icone-1024.png" alt="Pix" className="h-6 object-contain grayscale opacity-60" />
+                    <img src="https://logospng.org/download/mastercard/logo-mastercard-2048.png" alt="Mastercard" className="h-6 object-contain grayscale opacity-60" />
+                    <img src="https://logospng.org/download/visa/logo-visa-2048.png" alt="Visa" className="h-6 object-contain grayscale opacity-60" />
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-4 mb-6">
+                  <p className="text-sm text-blue-800 dark:text-blue-200 flex items-start gap-3">
+                    <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                    <span>O pagamento é processado em ambiente 100% seguro pelo <strong>Mercado Pago</strong>. Você poderá escolher pagar via <strong>PIX</strong> ou <strong>Cartão</strong> na próxima tela.</span>
+                  </p>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setPaymentMethod('preference');
+                    handlePayment();
+                  }}
+                  disabled={isProcessing}
+                  className="w-full py-4 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-lg shadow-xl shadow-blue-500/20 border border-blue-400/30"
+                >
+                  {isProcessing ? (
+                    <span className="animate-pulse flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Redirecionando...</span>
+                  ) : (
+                    <>
+                      Pagar Agora
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                    </>
+                  )}
+                </motion.button>
+                
+                <p className="text-center text-[10px] text-gray-400 mt-4 uppercase tracking-wider font-bold">
+                  Powered by Mercado Pago
                 </p>
               </div>
-
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-                onClick={() => {
-                  setPaymentMethod('preference');
-                  handlePayment();
-                }}
-                disabled={isProcessing}
-                className="w-full py-4 rounded-xl font-bold text-white bg-brand-red hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-md"
-              >
-                {isProcessing ? (
-                  <span className="animate-pulse flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Processando...</span>
-                ) : (
-                  <>Realizar Pagamento no Mercado Pago</>
-                )}
-              </motion.button>
-              
-              <p className="text-center text-xs text-gray-400 mt-4 flex items-center justify-center gap-1">
-                <ShieldCheck className="w-3 h-3" /> Pagamento processado com segurança pelo Mercado Pago
-              </p>
             </div>
           )}
         </div>

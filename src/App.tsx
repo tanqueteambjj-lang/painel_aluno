@@ -570,6 +570,10 @@ export default function Dashboard() {
   const streak = calculateConsecutiveDays(currentUserData.attendance || []);
   const recentGrad = checkForRecentGraduation(currentUserData.progressLog, currentUserData.belt || "Faixa Branca - 0º Grau");
 
+  const isNotWhiteBelt = currentUserData.belt && !currentUserData.belt.includes('Branca');
+  const currentDegree = currentUserData.belt ? (parseInt(currentUserData.belt.match(/(\d)º/)?.[1] || '0')) : 0;
+  const currentBeltName = currentUserData.belt ? currentUserData.belt.split('-')[0].trim() : 'Faixa Branca';
+
   // Calendar Logic
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
@@ -600,8 +604,11 @@ export default function Dashboard() {
     { name: "Guerreiro", desc: "50 Treinos concluídos.", icon: ShieldHalf, color: "text-purple-500", req: 50 },
     { name: "Veterano", desc: "100 Treinos. Jiu-Jitsu na veia.", icon: Crown, color: "text-yellow-500", req: 100 },
     { name: "Focado", desc: "5 dias seguidos no tatame.", icon: Zap, color: "text-red-500", customReq: streak >= 5 },
-    { name: "Nova Faixa", desc: "Avançou para uma nova faixa.", icon: Medal, color: "text-brand-red", customReq: recentGrad?.isNewBelt === true },
-    { name: "Mais um Degrau", desc: "Recebeu um novo grau.", icon: Star, color: "text-yellow-600", customReq: recentGrad?.isNewBelt === false },
+    { name: "1º Grau", desc: "Conquistou o primeiro grau.", icon: Star, color: "text-yellow-600", customReq: isNotWhiteBelt || currentDegree >= 1 },
+    { name: "2º Grau", desc: "Conquistou o segundo grau.", icon: Star, color: "text-yellow-600", customReq: isNotWhiteBelt || currentDegree >= 2 },
+    { name: "3º Grau", desc: "Conquistou o terceiro grau.", icon: Star, color: "text-yellow-600", customReq: isNotWhiteBelt || currentDegree >= 3 },
+    { name: "4º Grau", desc: "Conquistou o quarto grau.", icon: Star, color: "text-yellow-600", customReq: isNotWhiteBelt || currentDegree >= 4 },
+    { name: "Nova Faixa", desc: "Avançou para uma nova faixa.", icon: Medal, color: "text-brand-red", customReq: isNotWhiteBelt },
     { name: "Mestre", desc: "500 Treinos. Uma lenda viva.", icon: Swords, color: "text-red-600", req: 500 }
   ];
 
@@ -758,7 +765,7 @@ export default function Dashboard() {
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-brand-red relative overflow-hidden flex flex-col justify-between">
                       {recentGrad && (
                         <div className="absolute top-0 left-0 w-full bg-yellow-400 text-yellow-900 text-center text-xs font-bold py-1 z-10">
-                          <span>{recentGrad.isNewBelt ? "🎉 PARABÉNS PELA NOVA FAIXA! 🎉" : "⭐ PARABÉNS PELO NOVO GRAU! ⭐"}</span>
+                          <span>{recentGrad.isNewBelt ? `🎉 PARABÉNS PELA NOVA FAIXA! (${currentBeltName}) 🎉` : `⭐ PARABÉNS PELO NOVO GRAU! (${currentDegree}º Grau) ⭐`}</span>
                         </div>
                       )}
                       <div>

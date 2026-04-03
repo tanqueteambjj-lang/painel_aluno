@@ -12,24 +12,60 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
     address: userData?.address || '',
     weight: userData?.weight || '',
     height: userData?.height || '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
   const [photoBase64, setPhotoBase64] = useState<string | null>(userData?.photoBase64 || null);
 
   if (!userData) return null;
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress to 70% quality JPEG
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 800 * 1024) {
-        showAlert("Atenção", "A foto é muito grande. Escolha uma menor (máx 800kb).", "error");
-        return;
+      try {
+        const compressedBase64 = await compressImage(file);
+        setPhotoBase64(compressedBase64);
+      } catch (error) {
+        console.error("Erro ao processar imagem:", error);
+        showAlert("Erro", "Não foi possível processar a imagem.", "error");
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoBase64(reader.result as string);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -40,6 +76,10 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
     }
     if (formData.height && (Number(formData.height) < 50 || Number(formData.height) > 300)) {
       showAlert("Atenção", "Por favor, insira uma altura válida em centímetros (entre 50cm e 300cm).", "error");
+      return;
+    }
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      showAlert("Atenção", "As senhas não coincidem. Por favor, confirme a senha corretamente.", "error");
       return;
     }
 
@@ -169,10 +209,18 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                     <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
                   </div>
                 </div>
-                <div className="pt-3 border-t border-gray-100 dark:border-gray-700 mt-2">
-                  <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Nova Senha (Opcional)</label>
-                  <input type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full border border-blue-200 dark:border-blue-800 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="Digite para alterar..." />
-                  <p className="text-[10px] text-gray-400 mt-1">Deixe em branco para manter a senha atual.</p>
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700 mt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Nova Senha (Opcional)</label>
+                    <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full border border-blue-200 dark:border-blue-800 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="Nova senha..." />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Confirmar Senha</label>
+                    <input type="password" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} className="w-full border border-blue-200 dark:border-blue-800 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="Confirme a senha..." />
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[10px] text-gray-400">Deixe em branco para manter a senha atual.</p>
+                  </div>
                 </div>
               </div>
               
