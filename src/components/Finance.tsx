@@ -71,17 +71,9 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         return;
       }
 
-      const isPix = typeof paymentMethod !== 'undefined' && paymentMethod === 'pix';
-      const endpoint = isPix ? '/api/create-pix-payment' : '/api/create-preference';
+      const endpoint = `/api/create-preference`;
       
-      const payload = isPix ? {
-        transaction_amount: planPrice || 100,
-        description: `Plano ${planName}`,
-        payer_email: currentUserData?.email || 'test_user_123@testuser.com',
-        payer_first_name: currentUserData?.name?.split(' ')[0] || 'Aluno',
-        payer_last_name: currentUserData?.name?.split(' ').slice(1).join(' ') || 'Tanque',
-        payer_identification: currentUserData?.cpf || '12345678909'
-      } : {
+      const payload = {
         title: `Plano ${planName}`,
         quantity: 1,
         price: planPrice || 100,
@@ -110,19 +102,10 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         throw new Error(data.error || data.details || 'Erro ao processar pagamento');
       }
 
-      if (isPix) {
-        if (data.ticket_url) {
-          window.open(data.ticket_url, '_blank');
-          showAlert('Sucesso', 'PIX gerado! Verifique a nova aba do seu navegador.', 'success');
-        } else {
-          throw new Error('Link do PIX não retornado');
-        }
+      if (data.init_point) {
+        window.location.href = data.init_point;
       } else {
-        if (data.init_point) {
-          window.location.href = data.init_point;
-        } else {
-          throw new Error('Link de pagamento não retornado');
-        }
+        throw new Error('Link de pagamento não retornado');
       }
     } catch (error: any) {
       console.error('Erro ao gerar pagamento:', error);
@@ -195,57 +178,26 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                 <ShieldCheck className="w-6 h-6 text-green-500" /> Pagamento Seguro
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setPaymentMethod('pix')}
-                  className={`flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left ${
-                    paymentMethod === 'pix' 
-                      ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' 
-                      : 'border-gray-200 dark:border-gray-700 hover:border-teal-300'
-                  }`}
-                >
-                  <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/50 rounded-full flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
-                    <QrCode className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900 dark:text-white text-lg">PIX</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Aprovação imediata</div>
-                  </div>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setPaymentMethod('credit')}
-                  className={`flex items-center gap-4 p-5 rounded-xl border-2 transition-all text-left ${
-                    paymentMethod === 'credit' 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                  }`}
-                >
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-                    <CreditCard className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-gray-900 dark:text-white text-lg">Cartão de Crédito</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Até 12x via Mercado Pago</div>
-                  </div>
-                </motion.button>
+              <div className="mb-8">
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  Você será redirecionado para o ambiente seguro do Mercado Pago, onde poderá escolher pagar via <strong>PIX</strong> ou <strong>Cartão de Crédito</strong>.
+                </p>
               </div>
 
               <motion.button
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
-                onClick={handlePayment}
-                disabled={!paymentMethod || isProcessing}
+                onClick={() => {
+                  setPaymentMethod('preference');
+                  handlePayment();
+                }}
+                disabled={isProcessing}
                 className="w-full py-4 rounded-xl font-bold text-white bg-brand-red hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-md"
               >
                 {isProcessing ? (
                   <span className="animate-pulse flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Processando...</span>
                 ) : (
-                  <>Realizar Pagamento {paymentMethod === 'pix' ? 'com PIX' : paymentMethod === 'credit' ? 'com Cartão' : ''}</>
+                  <>Realizar Pagamento no Mercado Pago</>
                 )}
               </motion.button>
               
