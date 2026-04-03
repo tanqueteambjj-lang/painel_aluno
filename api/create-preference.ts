@@ -1,5 +1,4 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { MercadoPagoConfig, Preference } from 'mercadopago';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -12,6 +11,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    console.log("Starting preference creation...");
+    
+    // Dynamically import mercadopago to avoid top-level crashes
+    const { MercadoPagoConfig, Preference } = await import('mercadopago');
+    console.log("MercadoPago imported successfully.");
+
     const client = new MercadoPagoConfig({ 
       accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-5825120061754229-022016-ecb35610bbb69399336717aaf09d0539-89303803' 
     });
@@ -28,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     
     const { title, quantity, price, payer_email } = body || {};
+    console.log("Payload parsed:", { title, quantity, price, payer_email });
 
     const result = await preference.create({
       body: {
@@ -49,9 +55,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     });
 
+    console.log("Preference created successfully:", result.id);
     return res.status(200).json({ id: result.id, init_point: result.init_point });
   } catch (error: any) {
     console.error('MercadoPago Preference Error:', error);
-    return res.status(500).json({ error: 'Failed', details: error?.message || String(error) });
+    // Return a 200 with error details so Vercel doesn't just show a generic 500 page if it crashes the response
+    return res.status(400).json({ 
+      error: 'Failed to create preference', 
+      details: error?.message || String(error),
+      stack: error?.stack
+    });
   }
 }
