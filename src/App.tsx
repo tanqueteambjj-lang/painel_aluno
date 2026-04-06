@@ -561,7 +561,8 @@ export default function Dashboard() {
     const gradDate = parseDateString(latestGrad.date);
     
     if (gradDate >= fiveDaysAgo) {
-        const isDegree = latestGrad.text.includes('Grau');
+        // Se o texto contém 1º, 2º, 3º ou 4º Grau, é apenas um grau. Caso contrário (ex: 0º Grau ou sem grau), é faixa nova.
+        const isDegree = !!latestGrad.text.match(/[1-9]º Grau/);
         return {
             isNewBelt: !isDegree,
             beltStr: currentBeltStr,
@@ -834,7 +835,7 @@ export default function Dashboard() {
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-brand-red relative overflow-hidden flex flex-col justify-between">
                       {recentGrad && (
                         <div className="absolute top-0 left-0 w-full bg-yellow-400 text-yellow-900 text-center text-xs font-bold py-1 z-10">
-                          <span>{recentGrad.isNewBelt ? `🎉 PARABÉNS PELA NOVA FAIXA! (${currentBeltName}) 🎉` : `⭐ PARABÉNS PELO NOVO GRAU! (${currentDegree}º Grau) ⭐`}</span>
+                          <span>{recentGrad.isNewBelt ? `🎉 PARABÉNS PELA NOVA FAIXA! (${currentUserData.belt}) 🎉` : `⭐ PARABÉNS PELO NOVO GRAU! (${currentUserData.belt}) ⭐`}</span>
                         </div>
                       )}
                       <div>

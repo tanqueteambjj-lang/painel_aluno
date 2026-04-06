@@ -38,8 +38,10 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
 
   let formattedDueDate = "Não definido";
   if (currentUserData?.dueDate) {
-    const dateObj = currentUserData.dueDate.toDate ? currentUserData.dueDate.toDate() : new Date(currentUserData.dueDate);
-    formattedDueDate = dateObj.toLocaleDateString('pt-BR');
+    const dateObj = parseDateString(currentUserData.dueDate);
+    if (!isNaN(dateObj.getTime())) {
+      formattedDueDate = dateObj.toLocaleDateString('pt-BR');
+    }
   }
 
   const histArray = Array.isArray(currentUserData?.paymentHistory) ? currentUserData.paymentHistory : Object.values(currentUserData?.paymentHistory || {});
