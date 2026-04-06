@@ -13,6 +13,9 @@ const parseDateString = (dateStr: any) => {
         return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
       }
     }
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return new Date(`${dateStr}T12:00:00`);
+    }
     return new Date(dateStr);
   }
   return new Date(dateStr);
@@ -37,8 +40,9 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   const isInvalidPlan = false;
 
   let formattedDueDate = "Não definido";
-  if (currentUserData?.dueDate) {
-    const dateObj = parseDateString(currentUserData.dueDate);
+  const dueDateValue = currentUserData?.dueDate || currentUserData?.nextDueDate;
+  if (dueDateValue) {
+    const dateObj = parseDateString(dueDateValue);
     if (!isNaN(dateObj.getTime())) {
       formattedDueDate = dateObj.toLocaleDateString('pt-BR');
     }

@@ -248,8 +248,18 @@ export default function Dashboard() {
                 
                 if (!alreadyProcessed) {
                   // Calculate new due date (add 1 month to current due date or today)
-                  let currentDueDate = studentData.dueDate ? new Date(studentData.dueDate) : new Date();
-                  if (isNaN(currentDueDate.getTime())) currentDueDate = new Date();
+                  const currentDueDateValue = studentData.dueDate || studentData.nextDueDate;
+                  let currentDueDate = currentDueDateValue ? new Date(currentDueDateValue) : new Date();
+                  if (isNaN(currentDueDate.getTime())) {
+                    // Try parsing DD/MM/YYYY if it's a string
+                    if (typeof currentDueDateValue === 'string' && currentDueDateValue.includes('/')) {
+                      const parts = currentDueDateValue.split('/');
+                      if (parts.length === 3) {
+                        currentDueDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+                      }
+                    }
+                    if (isNaN(currentDueDate.getTime())) currentDueDate = new Date();
+                  }
                   
                   // If due date is in the past, start from today
                   if (currentDueDate < new Date()) {
@@ -272,7 +282,8 @@ export default function Dashboard() {
                   
                   await updateDoc(studentRef, {
                     paymentStatus: 'Em dia',
-                    dueDate: newDueDate.toISOString(),
+                    nextDueDate: newDueDate.toISOString().split('T')[0], // Save as YYYY-MM-DD for consistency
+                    dueDate: newDueDate.toISOString(), // Keep both for backward compatibility
                     paymentHistory: [...history, newPayment]
                   });
                   
