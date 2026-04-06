@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { doc, getDoc, getDocs, collection, query, where, addDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc } from 'firebase/firestore';
 import Login from '@/components/Login';
 import Sidebar from '@/components/Sidebar';
 import QrModal from '@/components/QrModal';
@@ -225,6 +225,75 @@ export default function Dashboard() {
 
       try {
         await loadStudentData(user.id);
+
+        // Check for Mercado Pago return
+        const paymentId = urlParams.get('payment_id');
+        const status = urlParams.get('status');
+        
+        if (paymentId && status === 'approved') {
+          try {
+            // Verify payment with backend
+            const verifyRes = await fetch(`/api/verify-payment?payment_id=${paymentId}`);
+            const verifyData = await verifyRes.json();
+            
+            if (verifyRes.ok && verifyData.status === 'approved') {
+              const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', user.id);
+              const studentSnap = await getDoc(studentRef);
+              if (studentSnap.exists()) {
+                const studentData = studentSnap.data();
+                const history = studentData.paymentHistory || [];
+                
+                // Check if this payment_id is already in history to avoid duplicates
+                const alreadyProcessed = history.some((p: any) => p.id === paymentId);
+                
+                if (!alreadyProcessed) {
+                  // Calculate new due date (add 1 month to current due date or today)
+                  let currentDueDate = studentData.dueDate ? new Date(studentData.dueDate) : new Date();
+                  if (isNaN(currentDueDate.getTime())) currentDueDate = new Date();
+                  
+                  // If due date is in the past, start from today
+                  if (currentDueDate < new Date()) {
+                    currentDueDate = new Date();
+                  }
+                  
+                  const newDueDate = new Date(currentDueDate);
+                  newDueDate.setMonth(newDueDate.getMonth() + 1);
+                  
+                  // Determine amount from plan
+                  let planPrice = verifyData.amount || 150; // Use actual paid amount or default
+                  
+                  const newPayment = {
+                    id: paymentId,
+                    date: new Date().toISOString(),
+                    amount: planPrice,
+                    method: verifyData.method || urlParams.get('payment_type') || 'mercadopago',
+                    status: 'approved'
+                  };
+                  
+                  await updateDoc(studentRef, {
+                    paymentStatus: 'Em dia',
+                    dueDate: newDueDate.toISOString(),
+                    paymentHistory: [...history, newPayment]
+                  });
+                  
+                  // Reload student data to reflect changes
+                  await loadStudentData(user.id);
+                  
+                  // Show success message
+                  showAlert('Pagamento Aprovado', 'Seu pagamento foi processado com sucesso e sua assinatura foi atualizada.', 'success');
+                }
+              }
+            } else {
+              console.warn("Pagamento não aprovado ou não verificado:", verifyData);
+            }
+            
+            // Clean up URL parameters
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } catch (err) {
+            console.error("Error updating payment status:", err);
+          }
+        }
+
         await loadNotices();
       } catch (e: any) {
         console.error("Data load erro:", e);
@@ -604,10 +673,10 @@ export default function Dashboard() {
     { name: "Guerreiro", desc: "50 Treinos concluídos.", icon: ShieldHalf, color: "text-purple-500", req: 50 },
     { name: "Veterano", desc: "100 Treinos. Jiu-Jitsu na veia.", icon: Crown, color: "text-yellow-500", req: 100 },
     { name: "Focado", desc: "5 dias seguidos no tatame.", icon: Zap, color: "text-red-500", customReq: streak >= 5 },
-    { name: "1º Grau", desc: "Conquistou o primeiro grau.", icon: Star, color: "text-yellow-600", customReq: isNotWhiteBelt || currentDegree >= 1 },
-    { name: "2º Grau", desc: "Conquistou o segundo grau.", icon: Star, color: "text-yellow-600", customReq: isNotWhiteBelt || currentDegree >= 2 },
-    { name: "3º Grau", desc: "Conquistou o terceiro grau.", icon: Star, color: "text-yellow-600", customReq: isNotWhiteBelt || currentDegree >= 3 },
-    { name: "4º Grau", desc: "Conquistou o quarto grau.", icon: Star, color: "text-yellow-600", customReq: isNotWhiteBelt || currentDegree >= 4 },
+    { name: "1º Grau", desc: "Conquistou o primeiro grau.", icon: Star, color: "text-yellow-600", customReq: currentDegree >= 1 },
+    { name: "2º Grau", desc: "Conquistou o segundo grau.", icon: Star, color: "text-yellow-600", customReq: currentDegree >= 2 },
+    { name: "3º Grau", desc: "Conquistou o terceiro grau.", icon: Star, color: "text-yellow-600", customReq: currentDegree >= 3 },
+    { name: "4º Grau", desc: "Conquistou o quarto grau.", icon: Star, color: "text-yellow-600", customReq: currentDegree >= 4 },
     { name: "Nova Faixa", desc: "Avançou para uma nova faixa.", icon: Medal, color: "text-brand-red", customReq: isNotWhiteBelt },
     { name: "Mestre", desc: "500 Treinos. Uma lenda viva.", icon: Swords, color: "text-red-600", req: 500 }
   ];
