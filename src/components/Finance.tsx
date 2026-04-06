@@ -1,7 +1,9 @@
 import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, CreditCard, Printer, Receipt, Award } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import ReceiptModal from './ReceiptModal';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const parseDateString = (dateStr: any) => {
   if (!dateStr) return new Date();
@@ -23,8 +25,29 @@ const parseDateString = (dateStr: any) => {
 
 export default function Finance({ currentUserData, planInfo }: any) {
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+  const [dbPlans, setDbPlans] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const plansRef = collection(db, 'artifacts', 'tanqueteam-bjj', 'public', 'data', 'plans');
+        const snapshot = await getDocs(plansRef);
+        const plansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setDbPlans(plansData);
+      } catch (error) {
+        console.error("Error fetching plans:", error);
+      }
+    };
+    fetchPlans();
+  }, []);
 
   const planName = planInfo?.short || currentUserData?.plan || 'Plano Padrão';
+  
+  // Try to find the matching plan from DB
+  const matchedPlan = dbPlans.find(p => 
+    p.name?.toLowerCase() === planName.toLowerCase() || 
+    (currentUserData?.plan && currentUserData.plan.toLowerCase().includes(p.name?.toLowerCase()))
+  );
   
   let parsedPrice = undefined;
   if (currentUserData?.plan && typeof currentUserData.plan === 'string' && currentUserData.plan.includes(' - R$')) {
@@ -33,7 +56,9 @@ export default function Finance({ currentUserData, planInfo }: any) {
     if (!isNaN(parsed)) parsedPrice = parsed;
   }
   
-  const planPrice = planInfo?.price !== undefined ? planInfo.price : (parsedPrice !== undefined ? parsedPrice : (currentUserData?.planPrice || 150.00));
+  const planPrice = matchedPlan?.price !== undefined ? matchedPlan.price : (planInfo?.price !== undefined ? planInfo.price : (parsedPrice !== undefined ? parsedPrice : (currentUserData?.planPrice || 150.00)));
+  const basePrice = matchedPlan?.basePrice !== undefined ? matchedPlan.basePrice : planPrice;
+  
   const isFreePlan = planPrice === 0 || currentUserData?.paymentStatus === 'Isento' || currentUserData?.plan?.toLowerCase() === 'isento' || currentUserData?.plan?.toLowerCase() === 'dependente';
   const isInvalidPlan = false;
 
@@ -134,9 +159,21 @@ export default function Finance({ currentUserData, planInfo }: any) {
                 
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Valor Mensal</p>
-                  <p className="text-xl font-bold text-brand-red">
-                    {isFreePlan ? 'Isento' : isInvalidPlan ? '--' : `R$ ${planPrice.toFixed(2).replace('.', ',')}`}
-                  </p>
+                  <div className="flex flex-col">
+                    <p className="text-xl font-bold text-brand-red">
+                      {isFreePlan ? 'Isento' : isInvalidPlan ? '--' : `R$ ${planPrice.toFixed(2).replace('.', ',')}`}
+                    </p>
+                    {!isFreePlan && !isInvalidPlan && basePrice !== planPrice && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Após vencimento: <span className="font-semibold">R$ {basePrice.toFixed(2).replace('.', ',')}</span>
+                      </p>
+                    )}
+                    {!isFreePlan && !isInvalidPlan && basePrice !== planPrice && (
+                      <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
+                        Até o vencimento: <span className="font-semibold">R$ {planPrice.toFixed(2).replace('.', ',')}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div>
