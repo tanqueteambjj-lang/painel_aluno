@@ -114,9 +114,11 @@ export default function Dashboard() {
         link.click();
         showAlert("Sucesso", "Imagem salva! Agora você pode postar no seu Instagram.", "success");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Erro ao gerar imagem para o Instagram:", e);
-      showAlert("Erro", "Não foi possível gerar a imagem para compartilhamento.", "error");
+      if (e.name !== 'AbortError') {
+        showAlert("Erro", "Não foi possível gerar a imagem para compartilhamento.", "error");
+      }
     } finally {
       setIsSharing(false);
     }
@@ -1245,55 +1247,56 @@ export default function Dashboard() {
 
       {/* Hidden Share Card for Instagram */}
       {sharingBadge && (
-        <div className="fixed top-[-9999px] left-[-9999px] z-[-1]">
+        <div style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
           <div 
             ref={shareCardRef} 
-            className="w-[1080px] h-[1080px] bg-gradient-to-br from-zinc-900 to-black flex flex-col items-center justify-center relative overflow-hidden"
+            className="w-[1080px] h-[1080px] flex flex-col items-center justify-center relative overflow-hidden"
+            style={{ background: 'linear-gradient(to bottom right, #18181b, #000000)' }}
           >
             {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] mix-blend-overlay"></div>
+            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
             
             {/* Watermark Logo */}
             <div className="absolute -right-20 -bottom-20 opacity-5 w-[600px] h-[600px] pointer-events-none">
-              <img src="https://iili.io/qC543c7.png" className="w-full h-full object-contain" alt="" />
+              <img src="https://iili.io/qC543c7.png" crossOrigin="anonymous" className="w-full h-full object-contain" alt="" />
             </div>
 
             <div className="relative z-10 flex flex-col items-center text-center px-20">
-              <img src="https://iili.io/qC543c7.png" alt="Tanque Team" className="w-32 h-32 mb-8" />
+              <img src="https://iili.io/qC543c7.png" crossOrigin="anonymous" alt="Tanque Team" className="w-32 h-32 mb-8" />
               
-              <h2 className="text-white text-5xl font-display font-black uppercase tracking-widest mb-4">
+              <h2 className="text-5xl font-display font-black uppercase tracking-widest mb-4" style={{ color: '#ffffff' }}>
                 Nova Conquista!
               </h2>
               
-              <div className="w-64 h-64 bg-white rounded-full flex items-center justify-center shadow-[0_0_100px_rgba(255,255,255,0.2)] mb-12 mt-8">
-                <sharingBadge.icon className={`w-32 h-32 ${sharingBadge.color}`} />
+              <div className="w-64 h-64 rounded-full flex items-center justify-center mb-12 mt-8" style={{ backgroundColor: '#ffffff', boxShadow: '0 0 100px rgba(255,255,255,0.2)' }}>
+                <sharingBadge.icon className="w-32 h-32" style={{ color: sharingBadge.color.includes('blue') ? '#3b82f6' : sharingBadge.color.includes('orange') ? '#f97316' : sharingBadge.color.includes('gray') ? '#6b7280' : sharingBadge.color.includes('purple') ? '#a855f7' : sharingBadge.color.includes('yellow-600') ? '#ca8a04' : sharingBadge.color.includes('yellow') ? '#eab308' : sharingBadge.color.includes('red') ? '#ef4444' : '#ffffff' }} />
               </div>
               
-              <h1 className="text-white text-6xl font-black uppercase tracking-tight mb-6">
+              <h1 className="text-6xl font-black uppercase tracking-tight mb-6" style={{ color: '#ffffff' }}>
                 {sharingBadge.name}
               </h1>
               
-              <p className="text-gray-300 text-3xl max-w-3xl leading-relaxed mb-12">
+              <p className="text-3xl max-w-3xl leading-relaxed mb-12" style={{ color: '#d1d5db' }}>
                 {sharingBadge.desc}
               </p>
               
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 flex items-center gap-6">
+              <div className="backdrop-blur-md rounded-2xl p-8 flex items-center gap-6" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}>
                 {currentUserData?.photoBase64 ? (
-                  <img src={currentUserData.photoBase64} className="w-24 h-24 rounded-full object-cover border-4 border-white" alt="" />
+                  <img src={currentUserData.photoBase64} crossOrigin="anonymous" className="w-24 h-24 rounded-full object-cover border-4" style={{ borderColor: '#ffffff' }} alt="" />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center text-4xl font-bold text-white border-4 border-white">
+                  <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold border-4" style={{ backgroundColor: '#27272a', color: '#ffffff', borderColor: '#ffffff' }}>
                     {currentUserData?.name?.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className="text-left">
-                  <p className="text-gray-400 text-xl uppercase tracking-widest font-bold mb-1">Atleta</p>
-                  <p className="text-white text-3xl font-black uppercase">{currentUserData?.name}</p>
+                  <p className="text-xl uppercase tracking-widest font-bold mb-1" style={{ color: '#9ca3af' }}>Atleta</p>
+                  <p className="text-3xl font-black uppercase" style={{ color: '#ffffff' }}>{currentUserData?.name}</p>
                 </div>
               </div>
             </div>
 
             <div className="absolute bottom-12 w-full text-center">
-              <p className="text-zinc-500 text-2xl font-bold tracking-[0.3em] uppercase">
+              <p className="text-2xl font-bold tracking-[0.3em] uppercase" style={{ color: '#71717a' }}>
                 WWW.TANQUETEAMBJJ.COM.BR
               </p>
             </div>
