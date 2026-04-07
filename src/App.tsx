@@ -11,9 +11,10 @@ import HistoryModal from '@/components/HistoryModal';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import Feed from '@/components/Feed';
 import Finance from '@/components/Finance';
-import { Lock, Menu, Moon, Sun, LogOut, ChartLine, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Trophy, Flame, Dumbbell, ShieldHalf, Crown, Zap, Star, Swords, Footprints, FileText, Share2, Check, X, Clock, QrCode, Printer, Loader2, CreditCard } from 'lucide-react';
+import { Lock, Menu, Moon, Sun, LogOut, ChartLine, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Trophy, Flame, Dumbbell, ShieldHalf, Crown, Zap, Star, Swords, Footprints, FileText, Share2, Check, X, Clock, QrCode, Printer, Loader2, CreditCard, Instagram } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
+import html2canvas from 'html2canvas';
 
 const PLAN_DICT: Record<string, { price: number, short: string }> = {
   'infantil-mensal': { price: 189.90, short: 'Infantil Mensal' },
@@ -63,6 +64,7 @@ export default function Dashboard() {
   const [shareMessage, setShareMessage] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const isSharingRef = useRef(false);
+  const shareCardRef = useRef<HTMLDivElement>(null);
 
   const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', type: 'info' as AlertType });
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
@@ -80,6 +82,44 @@ export default function Dashboard() {
   const handleShareBadge = (badge: any) => {
     setSharingBadge(badge);
     setShareMessage("");
+  };
+
+  const handleShareInstagram = async () => {
+    if (!shareCardRef.current || !sharingBadge || !currentUserData) return;
+    setIsSharing(true);
+    try {
+      const canvas = await html2canvas(shareCardRef.current, {
+        scale: 2,
+        backgroundColor: null,
+        useCORS: true,
+      });
+      
+      const imageBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      
+      if (!imageBlob) throw new Error("Failed to generate image blob");
+
+      const file = new File([imageBlob], 'conquista-tanqueteam.png', { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Minha Conquista na Tanque Team',
+          text: `Acabei de desbloquear: ${sharingBadge.name} na Tanque Team BJJ!`,
+        });
+      } else {
+        // Fallback to download
+        const link = document.createElement('a');
+        link.download = 'conquista-tanqueteam.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showAlert("Sucesso", "Imagem salva! Agora você pode postar no seu Instagram.", "success");
+      }
+    } catch (e) {
+      console.error("Erro ao gerar imagem para o Instagram:", e);
+      showAlert("Erro", "Não foi possível gerar a imagem para compartilhamento.", "error");
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const confirmShareBadge = async () => {
@@ -1187,16 +1227,79 @@ export default function Dashboard() {
                 className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm mb-4 outline-none focus:ring-2 focus:ring-brand-red dark:text-white resize-none"
                 rows={3}
               />
-              <div className="flex gap-2">
-                <button onClick={() => setSharingBadge(null)} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">Cancelar</button>
-                <button onClick={confirmShareBadge} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-white bg-brand-red hover:bg-red-700 transition flex items-center justify-center gap-2 disabled:opacity-50">
-                  {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Compartilhar"}
+              <div className="flex flex-col gap-2">
+                <button onClick={handleShareInstagram} disabled={isSharing} className="w-full py-2 rounded-xl font-bold text-white bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 hover:opacity-90 transition flex items-center justify-center gap-2 disabled:opacity-50">
+                  {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Instagram className="w-5 h-5" /> Compartilhar no Instagram</>}
                 </button>
+                <div className="flex gap-2">
+                  <button onClick={() => setSharingBadge(null)} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">Cancelar</button>
+                  <button onClick={confirmShareBadge} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-white bg-brand-red hover:bg-red-700 transition flex items-center justify-center gap-2 disabled:opacity-50">
+                    {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Postar no Feed"}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Hidden Share Card for Instagram */}
+      {sharingBadge && (
+        <div className="fixed top-[-9999px] left-[-9999px] z-[-1]">
+          <div 
+            ref={shareCardRef} 
+            className="w-[1080px] h-[1080px] bg-gradient-to-br from-zinc-900 to-black flex flex-col items-center justify-center relative overflow-hidden"
+          >
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] mix-blend-overlay"></div>
+            
+            {/* Watermark Logo */}
+            <div className="absolute -right-20 -bottom-20 opacity-5 w-[600px] h-[600px] pointer-events-none">
+              <img src="https://iili.io/qC543c7.png" className="w-full h-full object-contain" alt="" />
+            </div>
+
+            <div className="relative z-10 flex flex-col items-center text-center px-20">
+              <img src="https://iili.io/qC543c7.png" alt="Tanque Team" className="w-32 h-32 mb-8" />
+              
+              <h2 className="text-white text-5xl font-display font-black uppercase tracking-widest mb-4">
+                Nova Conquista!
+              </h2>
+              
+              <div className="w-64 h-64 bg-white rounded-full flex items-center justify-center shadow-[0_0_100px_rgba(255,255,255,0.2)] mb-12 mt-8">
+                <sharingBadge.icon className={`w-32 h-32 ${sharingBadge.color}`} />
+              </div>
+              
+              <h1 className="text-white text-6xl font-black uppercase tracking-tight mb-6">
+                {sharingBadge.name}
+              </h1>
+              
+              <p className="text-gray-300 text-3xl max-w-3xl leading-relaxed mb-12">
+                {sharingBadge.desc}
+              </p>
+              
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8 flex items-center gap-6">
+                {currentUserData?.photoBase64 ? (
+                  <img src={currentUserData.photoBase64} className="w-24 h-24 rounded-full object-cover border-4 border-white" alt="" />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-zinc-800 flex items-center justify-center text-4xl font-bold text-white border-4 border-white">
+                    {currentUserData?.name?.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="text-left">
+                  <p className="text-gray-400 text-xl uppercase tracking-widest font-bold mb-1">Atleta</p>
+                  <p className="text-white text-3xl font-black uppercase">{currentUserData?.name}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute bottom-12 w-full text-center">
+              <p className="text-zinc-500 text-2xl font-bold tracking-[0.3em] uppercase">
+                WWW.TANQUETEAMBJJ.COM.BR
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <HistoryModal 
         isOpen={isHistoryModalOpen} 
