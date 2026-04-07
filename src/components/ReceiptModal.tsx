@@ -31,8 +31,11 @@ export default function ReceiptModal({ isOpen, onClose, receiptData, userData, p
               <div className="flex justify-center mb-4">
                 <img src="https://iili.io/qC543c7.png" className="w-16 h-16 object-contain" alt="Logo" />
               </div>
-              <h2 className="font-display font-black text-2xl uppercase tracking-widest text-gray-900 dark:text-white print:text-black">TANQUE TEAM BJJ</h2>
-              <p className="text-sm text-gray-500 font-bold uppercase tracking-wider mt-1 print:text-gray-600">Recibo de Pagamento</p>
+              <h2 className="font-display font-black text-xl uppercase tracking-widest text-gray-900 dark:text-white print:text-black">TANQUE TEAM ESCOLA DE ARTES MARCIAIS LTDA</h2>
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-1 print:text-gray-600">CNPJ: 65.678.191/0001-90</p>
+              <div className="mt-4 inline-block bg-gray-100 dark:bg-gray-700 px-4 py-1 rounded-full">
+                <p className="text-sm text-gray-700 dark:text-gray-300 font-bold uppercase tracking-wider print:text-gray-800">Recibo de Pagamento</p>
+              </div>
             </div>
             
             <div className="border-t border-b border-gray-200 dark:border-gray-700 py-4 mb-6 print:border-gray-300">

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 export default function QrModal({ isOpen, onClose, userData, planShort, onOpenHistory }: any) {
   if (!userData) return null;
 
-  const isBlocked = userData.paymentStatus === 'Pendente';
+  const isBlocked = userData.enrollmentStatus !== 'Ativo';
 
   return (
     <AnimatePresence>

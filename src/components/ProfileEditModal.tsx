@@ -1,70 +1,91 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { X, Camera, Save, PenSquare } from 'lucide-react';
+import { X, Camera, Save, PenSquare, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Cropper from 'react-easy-crop';
 
 export default function ProfileEditModal({ isOpen, onClose, userData, appId, onSaveSuccess, showAlert }: any) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: userData?.email || '',
     phone: userData?.phone || '',
+    cep: userData?.cep || '',
     address: userData?.address || '',
+    addressNumber: userData?.addressNumber || '',
     weight: userData?.weight || '',
     height: userData?.height || '',
     password: '',
     confirmPassword: ''
   });
   const [photoBase64, setPhotoBase64] = useState<string | null>(userData?.photoBase64 || null);
+  
+  // Cropper state
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [isCropping, setIsCropping] = useState(false);
 
   if (!userData) return null;
 
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
-          let width = img.width;
-          let height = img.height;
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
 
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress to 70% quality JPEG
-        };
-        img.onerror = (error) => reject(error);
-      };
-      reader.onerror = (error) => reject(error);
-    });
+  const getCroppedImg = async (imageSrc: string, pixelCrop: any): Promise<string> => {
+    const image = new Image();
+    image.src = imageSrc;
+    await new Promise((resolve) => (image.onload = resolve));
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('No 2d context');
+    }
+
+    // Set canvas size to match the desired output size (e.g., 800x800)
+    canvas.width = 800;
+    canvas.height = 800;
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      800,
+      800
+    );
+
+    return canvas.toDataURL('image/jpeg', 0.8);
   };
 
-  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        setImageSrc(reader.result as string);
+        setIsCropping(true);
+      });
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropConfirm = async () => {
+    if (imageSrc && croppedAreaPixels) {
       try {
-        const compressedBase64 = await compressImage(file);
-        setPhotoBase64(compressedBase64);
-      } catch (error) {
-        console.error("Erro ao processar imagem:", error);
-        showAlert("Erro", "Não foi possível processar a imagem.", "error");
+        const croppedImageBase64 = await getCroppedImg(imageSrc, croppedAreaPixels);
+        setPhotoBase64(croppedImageBase64);
+        setIsCropping(false);
+        setImageSrc(null);
+      } catch (e) {
+        console.error(e);
+        showAlert("Erro", "Não foi possível cortar a imagem.", "error");
       }
     }
   };
@@ -88,7 +109,9 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
       const updates: any = {
         email: formData.email,
         phone: formData.phone,
+        cep: formData.cep,
         address: formData.address,
+        addressNumber: formData.addressNumber,
         weight: formData.weight,
         height: formData.height,
       };
@@ -138,67 +161,121 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
             
             <div className="p-6">
               <div className="flex flex-col items-center mb-6">
-                <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-gray-100 dark:border-gray-700 bg-gray-200 dark:bg-gray-600 flex-shrink-0 mb-3 group">
-                  {photoBase64 ? (
-                    <img src={photoBase64} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <Camera className="w-8 h-8" />
+                {isCropping ? (
+                  <div className="w-full flex flex-col items-center">
+                    <div className="relative w-full h-64 bg-gray-900 rounded-xl overflow-hidden mb-4">
+                      <Cropper
+                        image={imageSrc || undefined}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={1}
+                        cropShape="round"
+                        showGrid={false}
+                        onCropChange={setCrop}
+                        onCropComplete={onCropComplete}
+                        onZoomChange={setZoom}
+                      />
                     </div>
-                  )}
-                  <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                    <Camera className="w-6 h-6 text-white" />
-                    <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-                  </label>
-                </div>
-                <p className="text-[10px] text-gray-400 text-center">Clique na imagem para alterar<br/>(Máx 800kb)</p>
+                    <div className="w-full px-4 mb-4">
+                      <label className="text-xs text-gray-500 font-bold mb-1 block">Zoom</label>
+                      <input
+                        type="range"
+                        value={zoom}
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        aria-labelledby="Zoom"
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="w-full accent-brand-red"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setIsCropping(false); setImageSrc(null); }} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-300">
+                        Cancelar
+                      </button>
+                      <button onClick={handleCropConfirm} className="px-4 py-2 bg-brand-red text-white rounded-lg text-sm font-bold flex items-center gap-2">
+                        <Check className="w-4 h-4" /> Confirmar Corte
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-gray-100 dark:border-gray-700 bg-gray-200 dark:bg-gray-600 flex-shrink-0 mb-3 group">
+                      {photoBase64 ? (
+                        <img src={photoBase64} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <Camera className="w-8 h-8" />
+                        </div>
+                      )}
+                      <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                        <Camera className="w-6 h-6 text-white" />
+                        <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                      </label>
+                    </div>
+                    <p className="text-[10px] text-gray-400 text-center">Clique na imagem para alterar<br/>(Máx 800kb)</p>
+                  </>
+                )}
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Utilizador (Login)</label>
-                  <input type="text" value={userData.studentLogin || ''} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Endereço Completo</label>
-                  <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+              {!isCropping && (
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Peso (kg)</label>
-                    <input 
-                      type="number" 
-                      step="0.1" 
-                      min="10"
-                      max="300"
-                      value={formData.weight} 
-                      onChange={e => setFormData({...formData, weight: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" 
-                      placeholder="Ex: 75.5" 
-                    />
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Utilizador (Login)</label>
+                    <input type="text" value={userData.studentLogin || ''} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Altura (cm)</label>
-                    <input 
-                      type="number" 
-                      step="1" 
-                      min="50"
-                      max="300"
-                      value={formData.height} 
-                      onChange={e => {
-                        const val = e.target.value.replace(/[,.]/g, '');
-                        setFormData({...formData, height: val});
-                      }} 
-                      onKeyDown={e => {
-                        if (e.key === ',' || e.key === '.') {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" 
-                      placeholder="Ex: 175" 
-                    />
+                  
+                  <div className="grid grid-cols-12 gap-3">
+                    <div className="col-span-4">
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">CEP</label>
+                      <input type="text" value={formData.cep} onChange={e => setFormData({...formData, cep: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="00000-000" />
+                    </div>
+                    <div className="col-span-8">
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Endereço</label>
+                      <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Rua, Avenida..." />
+                    </div>
                   </div>
-                </div>
+                  
+                  <div className="grid grid-cols-12 gap-3">
+                    <div className="col-span-4">
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Número</label>
+                      <input type="text" value={formData.addressNumber} onChange={e => setFormData({...formData, addressNumber: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Nº" />
+                    </div>
+                    <div className="col-span-4">
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Peso (kg)</label>
+                      <input 
+                        type="number" 
+                        step="0.1" 
+                        min="10"
+                        max="300"
+                        value={formData.weight} 
+                        onChange={e => setFormData({...formData, weight: e.target.value})} 
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" 
+                        placeholder="Ex: 75.5" 
+                      />
+                    </div>
+                    <div className="col-span-4">
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Altura (cm)</label>
+                      <input 
+                        type="number" 
+                        step="1" 
+                        min="50"
+                        max="300"
+                        value={formData.height} 
+                        onChange={e => {
+                          const val = e.target.value.replace(/[,.]/g, '');
+                          setFormData({...formData, height: val});
+                        }} 
+                        onKeyDown={e => {
+                          if (e.key === ',' || e.key === '.') {
+                            e.preventDefault();
+                          }
+                        }}
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" 
+                        placeholder="Ex: 175" 
+                      />
+                    </div>
+                  </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">E-mail</label>
@@ -223,6 +300,7 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                   </div>
                 </div>
               </div>
+              )}
               
               <div className="mt-6 flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-700 no-print">
                 <button onClick={onClose} className="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 font-bold text-gray-700 dark:text-gray-300 transition">Cancelar</button>

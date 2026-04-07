@@ -677,6 +677,13 @@ export default function Dashboard() {
     );
   }
 
+  const hasGraduation = (log: any[], keyword: string) => log?.some(entry => entry.type === 'graduation' && entry.text.includes(keyword));
+  const earnedDegree1 = hasGraduation(currentUserData.progressLog, '1º Grau');
+  const earnedDegree2 = hasGraduation(currentUserData.progressLog, '2º Grau');
+  const earnedDegree3 = hasGraduation(currentUserData.progressLog, '3º Grau');
+  const earnedDegree4 = hasGraduation(currentUserData.progressLog, '4º Grau');
+  const earnedNewBelt = currentUserData.progressLog?.some((entry: any) => entry.type === 'graduation' && (!entry.text.match(/[1-9]º Grau/)));
+
   // Badges Logic
   const badges = [
     { name: "Primeiro Passo", desc: "A jornada começa aqui.", icon: Footprints, color: "text-blue-500", req: 0 },
@@ -685,11 +692,11 @@ export default function Dashboard() {
     { name: "Guerreiro", desc: "50 Treinos concluídos.", icon: ShieldHalf, color: "text-purple-500", req: 50 },
     { name: "Veterano", desc: "100 Treinos. Jiu-Jitsu na veia.", icon: Crown, color: "text-yellow-500", req: 100 },
     { name: "Focado", desc: "5 dias seguidos no tatame.", icon: Zap, color: "text-red-500", customReq: streak >= 5 },
-    { name: "1º Grau", desc: "Conquistou o primeiro grau.", icon: Star, color: "text-yellow-600", customReq: currentDegree >= 1 },
-    { name: "2º Grau", desc: "Conquistou o segundo grau.", icon: Star, color: "text-yellow-600", customReq: currentDegree >= 2 },
-    { name: "3º Grau", desc: "Conquistou o terceiro grau.", icon: Star, color: "text-yellow-600", customReq: currentDegree >= 3 },
-    { name: "4º Grau", desc: "Conquistou o quarto grau.", icon: Star, color: "text-yellow-600", customReq: currentDegree >= 4 },
-    { name: "Nova Faixa", desc: "Avançou para uma nova faixa.", icon: Medal, color: "text-brand-red", customReq: isNotWhiteBelt },
+    { name: "1º Grau", desc: "Avançou para o primeiro grau.", icon: Star, color: "text-yellow-600", customReq: earnedDegree1 },
+    { name: "2º Grau", desc: "Avançou para o segundo grau.", icon: Star, color: "text-yellow-600", customReq: earnedDegree2 },
+    { name: "3º Grau", desc: "Avançou para o terceiro grau.", icon: Star, color: "text-yellow-600", customReq: earnedDegree3 },
+    { name: "4º Grau", desc: "Avançou para o quarto grau.", icon: Star, color: "text-yellow-600", customReq: earnedDegree4 },
+    { name: "Nova Faixa", desc: "Avançou para uma nova faixa.", icon: Medal, color: "text-brand-red", customReq: earnedNewBelt },
     { name: "Mestre", desc: "500 Treinos. Uma lenda viva.", icon: Swords, color: "text-red-600", req: 500 }
   ];
 
