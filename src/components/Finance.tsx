@@ -157,23 +157,28 @@ export default function Finance({ currentUserData, planInfo }: any) {
                   <p className="text-xl font-bold text-gray-900 dark:text-white">{planName}</p>
                 </div>
                 
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Valor Mensal</p>
-                  <div className="flex flex-col">
-                    <p className="text-xl font-bold text-brand-red">
-                      {isFreePlan ? 'Isento' : isInvalidPlan ? '--' : `R$ ${planPrice.toFixed(2).replace('.', ',')}`}
+                <div className="md:col-span-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-2">Valor Mensal</p>
+                  {isFreePlan ? (
+                    <p className="text-xl font-bold text-brand-red">Isento</p>
+                  ) : isInvalidPlan ? (
+                    <p className="text-xl font-bold text-gray-400">--</p>
+                  ) : basePrice !== planPrice ? (
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex-1 bg-green-50 dark:bg-green-900/20 px-4 py-3 rounded-xl border border-green-100 dark:border-green-800/30">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-green-600 dark:text-green-400 mb-1">Até o vencimento</p>
+                        <p className="text-xl font-bold text-green-700 dark:text-green-300 leading-none">R$ {planPrice.toFixed(2).replace('.', ',')}</p>
+                      </div>
+                      <div className="flex-1 bg-red-50 dark:bg-red-900/20 px-4 py-3 rounded-xl border border-red-100 dark:border-red-800/30">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-red-600 dark:text-red-400 mb-1">Após o vencimento</p>
+                        <p className="text-xl font-bold text-red-700 dark:text-red-300 leading-none">R$ {basePrice.toFixed(2).replace('.', ',')}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                      R$ {planPrice.toFixed(2).replace('.', ',')}
                     </p>
-                    {!isFreePlan && !isInvalidPlan && basePrice !== planPrice && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Após vencimento: <span className="font-semibold">R$ {basePrice.toFixed(2).replace('.', ',')}</span>
-                      </p>
-                    )}
-                    {!isFreePlan && !isInvalidPlan && basePrice !== planPrice && (
-                      <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
-                        Até o vencimento: <span className="font-semibold">R$ {planPrice.toFixed(2).replace('.', ',')}</span>
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 <div>
