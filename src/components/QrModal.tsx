@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 export default function QrModal({ isOpen, onClose, userData, planShort, onOpenHistory }: any) {
   if (!userData) return null;
 
-  const isBlocked = userData.enrollmentStatus !== 'Ativo';
+  const isBlocked = userData.enrollmentStatus === 'Inativo' || userData.archived;
 
   return (
     <AnimatePresence>
@@ -93,8 +93,10 @@ export default function QrModal({ isOpen, onClose, userData, planShort, onOpenHi
               <div className="bg-gradient-to-b from-zinc-100 to-white p-5 flex flex-col items-center justify-center relative z-10 border-t border-zinc-200 gap-4">
                 <div className="bg-white p-3 rounded-xl shadow-md border border-gray-200">
                   {isBlocked ? (
-                    <div className="flex flex-col items-center justify-center w-[160px] h-[160px] sm:w-[180px] sm:h-[180px] text-center bg-red-50 rounded-lg">
-                      <Lock className="text-red-500 w-16 h-16" />
+                    <div className="flex flex-col items-center justify-center w-[160px] h-[160px] sm:w-[180px] sm:h-[180px] text-center bg-red-50 rounded-lg p-4">
+                      <Lock className="text-red-500 w-12 h-12 mb-2" />
+                      <p className="text-xs text-red-600 font-bold">Acesso Restrito</p>
+                      <p className="text-[10px] text-red-500 mt-1 leading-tight">Por favor, procure a administração.</p>
                     </div>
                   ) : (
                     <QRCodeSVG value={userData.id} size={180} level="M" className="w-[160px] h-[160px] sm:w-[180px] sm:h-[180px]" />
