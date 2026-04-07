@@ -64,11 +64,35 @@ export default function Finance({ currentUserData, planInfo }: any) {
 
   let formattedDueDate = "Não definido";
   const dueDateValue = currentUserData?.dueDate || currentUserData?.nextDueDate;
+  
+  let dynamicPaymentStatus = currentUserData?.paymentStatus || 'Em dia';
+  let daysUntilDue: number | null = null;
+
   if (dueDateValue) {
     const dateObj = parseDateString(dueDateValue);
     if (!isNaN(dateObj.getTime())) {
       formattedDueDate = dateObj.toLocaleDateString('pt-BR');
+      
+      if (!isFreePlan) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const due = new Date(dateObj);
+        due.setHours(0, 0, 0, 0);
+        
+        const diffTime = due.getTime() - today.getTime();
+        daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilDue < 0) {
+          dynamicPaymentStatus = 'Pendente';
+        } else {
+          dynamicPaymentStatus = 'Em dia';
+        }
+      }
     }
+  }
+
+  if (isFreePlan) {
+    dynamicPaymentStatus = 'Isento';
   }
 
   let formattedContractEnd = "Não definido";
@@ -116,11 +140,11 @@ export default function Finance({ currentUserData, planInfo }: any) {
               <div>
                 <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Status da Assinatura</h3>
                 <div className="flex items-center gap-3">
-                  {currentUserData?.paymentStatus === 'Pendente' ? (
+                  {dynamicPaymentStatus === 'Pendente' ? (
                     <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4" /> Pendente
                     </span>
-                  ) : isFreePlan ? (
+                  ) : dynamicPaymentStatus === 'Isento' ? (
                     <span className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
                       <Award className="w-4 h-4" /> Isento
                     </span>
@@ -130,6 +154,11 @@ export default function Finance({ currentUserData, planInfo }: any) {
                     </span>
                   )}
                 </div>
+                {daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7 && dynamicPaymentStatus !== 'Pendente' && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-2 font-medium flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Vence em {daysUntilDue} {daysUntilDue === 1 ? 'dia' : 'dias'}
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-4 md:items-end">

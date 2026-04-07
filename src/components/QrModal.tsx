@@ -5,7 +5,57 @@ import { motion, AnimatePresence } from 'motion/react';
 export default function QrModal({ isOpen, onClose, userData, planShort, onOpenHistory }: any) {
   if (!userData) return null;
 
-  const isBlocked = userData.enrollmentStatus === 'Inativo' || userData.archived;
+  const parseDateString = (dateStr: any) => {
+    if (!dateStr) return new Date();
+    if (dateStr.toDate) return dateStr.toDate();
+    if (typeof dateStr === 'string') {
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+        }
+      }
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return new Date(`${dateStr}T12:00:00`);
+      }
+      return new Date(dateStr);
+    }
+    return new Date(dateStr);
+  };
+
+  let isPaymentPending = false;
+  const dueDateValue = userData?.dueDate || userData?.nextDueDate;
+  const isFreePlan = userData?.paymentStatus === 'Isento' || userData?.plan?.toLowerCase() === 'isento' || userData?.plan?.toLowerCase() === 'dependente' || userData?.planPrice === 0;
+
+  if (dueDateValue && !isFreePlan) {
+    const dateObj = parseDateString(dueDateValue);
+    if (!isNaN(dateObj.getTime())) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(dateObj);
+      due.setHours(0, 0, 0, 0);
+      
+      const diffTime = due.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) {
+        isPaymentPending = true;
+      }
+    }
+  }
+
+  const isInactive = userData.enrollmentStatus === 'Inativo' || userData.archived;
+  const isBlocked = isInactive || isPaymentPending;
+
+  const formatName = (name: string) => {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length > 2) {
+      return `${parts[0]} ${parts[parts.length - 1]}`;
+    }
+    return name;
+  };
+
+  const displayName = formatName(userData.name);
 
   return (
     <AnimatePresence>
@@ -71,7 +121,7 @@ export default function QrModal({ isOpen, onClose, userData, planShort, onOpenHi
                 
                 {/* Info */}
                 <div className="text-left flex-1 flex flex-col justify-center min-w-0">
-                  <h4 className="font-black text-lg sm:text-xl text-white leading-tight uppercase tracking-tight drop-shadow-md mb-2 sm:mb-3 truncate">{userData.name}</h4>
+                  <h4 className="font-black text-lg sm:text-xl text-white leading-tight uppercase tracking-tight drop-shadow-md mb-2 sm:mb-3 truncate" title={userData.name}>{displayName}</h4>
                   
                   <div className="flex flex-col gap-2 sm:gap-3">
                     <div className="flex flex-col">
@@ -96,7 +146,9 @@ export default function QrModal({ isOpen, onClose, userData, planShort, onOpenHi
                     <div className="flex flex-col items-center justify-center w-[160px] h-[160px] sm:w-[180px] sm:h-[180px] text-center bg-red-50 rounded-lg p-4">
                       <Lock className="text-red-500 w-12 h-12 mb-2" />
                       <p className="text-xs text-red-600 font-bold">Acesso Restrito</p>
-                      <p className="text-[10px] text-red-500 mt-1 leading-tight">Por favor, procure a administração.</p>
+                      <p className="text-[10px] text-red-500 mt-1 leading-tight">
+                        {isInactive ? "Matrícula inativa." : "Pagamento pendente."} Procure a administração.
+                      </p>
                     </div>
                   ) : (
                     <QRCodeSVG value={userData.id} size={180} level="M" className="w-[160px] h-[160px] sm:w-[180px] sm:h-[180px]" />
