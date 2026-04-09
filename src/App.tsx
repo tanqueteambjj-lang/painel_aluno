@@ -11,10 +11,9 @@ import HistoryModal from '@/components/HistoryModal';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import Feed from '@/components/Feed';
 import Finance from '@/components/Finance';
-import { Lock, Menu, Moon, Sun, LogOut, ChartLine, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Trophy, Flame, Dumbbell, ShieldHalf, Crown, Zap, Star, Swords, Footprints, FileText, Share2, Check, X, Clock, QrCode, Printer, Loader2, CreditCard, Instagram } from 'lucide-react';
+import { Lock, Menu, Moon, Sun, LogOut, ChartLine, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Trophy, Flame, Dumbbell, ShieldHalf, Crown, Zap, Star, Swords, Footprints, FileText, Share2, Check, X, Clock, QrCode, Printer, Loader2, CreditCard, Bell } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
-import html2canvas from 'html2canvas';
 
 const PLAN_DICT: Record<string, { price: number, short: string }> = {
   'infantil-mensal': { price: 189.90, short: 'Infantil Mensal' },
@@ -69,6 +68,35 @@ export default function Dashboard() {
   const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', type: 'info' as AlertType });
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
+  const [hasUnreadFeed, setHasUnreadFeed] = useState(false);
+  const [hasUnreadNotices, setHasUnreadNotices] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setPushEnabled(Notification.permission === 'granted');
+    }
+  }, []);
+
+  const requestPushPermission = async () => {
+    if (!('Notification' in window)) {
+      showAlert("Aviso", "Seu navegador não suporta notificações push.", "info");
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setPushEnabled(permission === 'granted');
+      if (permission === 'granted') {
+        new Notification("Tanque Team", {
+          body: "Notificações ativadas com sucesso!",
+          icon: "https://iili.io/qC543c7.png"
+        });
+      }
+    } catch (e) {
+      console.error("Erro ao solicitar permissão de notificação:", e);
+    }
+  };
+
   const showAlert = (title: string, message: string, type: AlertType = 'info') => {
     setAlertState({ isOpen: true, title, message, type });
   };
@@ -82,46 +110,6 @@ export default function Dashboard() {
   const handleShareBadge = (badge: any) => {
     setSharingBadge(badge);
     setShareMessage("");
-  };
-
-  const handleShareInstagram = async () => {
-    if (!shareCardRef.current || !sharingBadge || !currentUserData) return;
-    setIsSharing(true);
-    try {
-      const canvas = await html2canvas(shareCardRef.current, {
-        scale: 2,
-        backgroundColor: null,
-        useCORS: true,
-      });
-      
-      const imageBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-      
-      if (!imageBlob) throw new Error("Failed to generate image blob");
-
-      const file = new File([imageBlob], 'conquista-tanqueteam.png', { type: 'image/png' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Minha Conquista na Tanque Team',
-          text: `Acabei de desbloquear: ${sharingBadge.name} na Tanque Team BJJ!`,
-        });
-      } else {
-        // Fallback to download
-        const link = document.createElement('a');
-        link.download = 'conquista-tanqueteam.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        showAlert("Sucesso", "Imagem salva! Agora você pode postar no seu Instagram.", "success");
-      }
-    } catch (e: any) {
-      console.error("Erro ao gerar imagem para o Instagram:", e);
-      if (e.name !== 'AbortError') {
-        showAlert("Erro", "Não foi possível gerar a imagem para compartilhamento.", "error");
-      }
-    } finally {
-      setIsSharing(false);
-    }
   };
 
   const confirmShareBadge = async () => {
@@ -348,6 +336,7 @@ export default function Dashboard() {
         }
 
         await loadNotices();
+        await checkUnreadFeed();
       } catch (e: any) {
         console.error("Data load erro:", e);
         if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
@@ -473,8 +462,40 @@ export default function Dashboard() {
       
       fetchedNotices.sort((a, b) => parseDateString(b.date).getTime() - parseDateString(a.date).getTime());
       setNotices(fetchedNotices);
+
+      // Check for unread notices
+      if (fetchedNotices.length > 0) {
+        const lastViewedNotices = localStorage.getItem('lastViewedNotices');
+        const latestNoticeDate = parseDateString(fetchedNotices[0].date).getTime();
+        if (!lastViewedNotices || parseInt(lastViewedNotices) < latestNoticeDate) {
+          setHasUnreadNotices(true);
+        }
+      }
     } catch (e) {
       console.error("Erro ao carregar avisos:", e);
+    }
+  };
+
+  const checkUnreadFeed = async () => {
+    try {
+      const now = new Date().toISOString();
+      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), where('expiresAt', '>', now));
+      const snap = await getDocs(q);
+      let latestPostTime = 0;
+      snap.forEach(doc => {
+        const data = doc.data();
+        const postTime = parseDateString(data.timestamp).getTime();
+        if (postTime > latestPostTime) latestPostTime = postTime;
+      });
+
+      if (latestPostTime > 0) {
+        const lastViewedFeed = localStorage.getItem('lastViewedFeed');
+        if (!lastViewedFeed || parseInt(lastViewedFeed) < latestPostTime) {
+          setHasUnreadFeed(true);
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao verificar feed:", e);
     }
   };
 
@@ -751,20 +772,35 @@ export default function Dashboard() {
 
       <Sidebar 
         view={view} 
-        setView={(v: string) => { setView(v); setIsMobileMenuOpen(false); }} 
+        setView={(v: string) => { 
+          setView(v); 
+          setIsMobileMenuOpen(false); 
+          if (v === 'feed') {
+            setHasUnreadFeed(false);
+            localStorage.setItem('lastViewedFeed', Date.now().toString());
+          } else if (v === 'dashboard') {
+            setHasUnreadNotices(false);
+            localStorage.setItem('lastViewedNotices', Date.now().toString());
+          }
+        }} 
         isMobileMenuOpen={isMobileMenuOpen} 
         setIsMobileMenuOpen={setIsMobileMenuOpen}
         toggleTheme={toggleTheme}
         isDarkMode={isDarkMode}
         handleLogout={handleLogout}
+        hasUnreadFeed={hasUnreadFeed}
+        hasUnreadNotices={hasUnreadNotices}
       />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
         {/* Mobile Header */}
         <header className="md:hidden bg-brand-dark border-b border-gray-800 text-white p-4 flex justify-between items-center shadow-md z-20 no-print shrink-0">
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white hover:text-brand-red focus:outline-none transition">
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white hover:text-brand-red focus:outline-none transition relative">
               <Menu className="w-6 h-6" />
+              {(hasUnreadFeed || hasUnreadNotices) && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-brand-dark"></span>
+              )}
             </button>
             <div className="flex items-center">
               <div className="relative h-8 w-8 mr-2 shrink-0">
@@ -833,7 +869,12 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="hidden md:block">
+                <div className="hidden md:flex items-center gap-3">
+                  {!pushEnabled && (
+                    <button onClick={requestPushPermission} className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-4 py-2 rounded-full shadow-sm text-sm font-bold border border-blue-200 dark:border-blue-800 flex items-center transition">
+                      <Bell className="w-4 h-4 mr-2" /> Ativar Notificações
+                    </button>
+                  )}
                   <span className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm text-sm font-bold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 flex items-center">
                     <Calendar className="w-4 h-4 mr-2 text-brand-red" /> {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' })}
                   </span>
@@ -1229,80 +1270,16 @@ export default function Dashboard() {
                 className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm mb-4 outline-none focus:ring-2 focus:ring-brand-red dark:text-white resize-none"
                 rows={3}
               />
-              <div className="flex flex-col gap-2">
-                <button onClick={handleShareInstagram} disabled={isSharing} className="w-full py-2 rounded-xl font-bold text-white bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 hover:opacity-90 transition flex items-center justify-center gap-2 disabled:opacity-50">
-                  {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Instagram className="w-5 h-5" /> Compartilhar no Instagram</>}
+              <div className="flex gap-2">
+                <button onClick={() => setSharingBadge(null)} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">Cancelar</button>
+                <button onClick={confirmShareBadge} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-white bg-brand-red hover:bg-red-700 transition flex items-center justify-center gap-2 disabled:opacity-50">
+                  {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Compartilhar"}
                 </button>
-                <div className="flex gap-2">
-                  <button onClick={() => setSharingBadge(null)} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">Cancelar</button>
-                  <button onClick={confirmShareBadge} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-white bg-brand-red hover:bg-red-700 transition flex items-center justify-center gap-2 disabled:opacity-50">
-                    {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Postar no Feed"}
-                  </button>
-                </div>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Hidden Share Card for Instagram */}
-      {sharingBadge && (
-        <div style={{ position: 'absolute', left: '-9999px', top: 0, zIndex: -1 }}>
-          <div 
-            ref={shareCardRef} 
-            className="w-[1080px] h-[1080px] flex flex-col items-center justify-center relative overflow-hidden"
-            style={{ background: 'linear-gradient(to bottom right, #18181b, #000000)' }}
-          >
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
-            
-            {/* Watermark Logo */}
-            <div className="absolute -right-20 -bottom-20 opacity-5 w-[600px] h-[600px] pointer-events-none">
-              <img src="https://iili.io/qC543c7.png" crossOrigin="anonymous" className="w-full h-full object-contain" alt="" />
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center text-center px-20">
-              <img src="https://iili.io/qC543c7.png" crossOrigin="anonymous" alt="Tanque Team" className="w-32 h-32 mb-8" />
-              
-              <h2 className="text-5xl font-display font-black uppercase tracking-widest mb-4" style={{ color: '#ffffff' }}>
-                Nova Conquista!
-              </h2>
-              
-              <div className="w-64 h-64 rounded-full flex items-center justify-center mb-12 mt-8" style={{ backgroundColor: '#ffffff', boxShadow: '0 0 100px rgba(255,255,255,0.2)' }}>
-                <sharingBadge.icon className="w-32 h-32" style={{ color: sharingBadge.color.includes('blue') ? '#3b82f6' : sharingBadge.color.includes('orange') ? '#f97316' : sharingBadge.color.includes('gray') ? '#6b7280' : sharingBadge.color.includes('purple') ? '#a855f7' : sharingBadge.color.includes('yellow-600') ? '#ca8a04' : sharingBadge.color.includes('yellow') ? '#eab308' : sharingBadge.color.includes('red') ? '#ef4444' : '#ffffff' }} />
-              </div>
-              
-              <h1 className="text-6xl font-black uppercase tracking-tight mb-6" style={{ color: '#ffffff' }}>
-                {sharingBadge.name}
-              </h1>
-              
-              <p className="text-3xl max-w-3xl leading-relaxed mb-12" style={{ color: '#d1d5db' }}>
-                {sharingBadge.desc}
-              </p>
-              
-              <div className="backdrop-blur-md rounded-2xl p-8 flex items-center gap-6" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.2)' }}>
-                {currentUserData?.photoBase64 ? (
-                  <img src={currentUserData.photoBase64} crossOrigin="anonymous" className="w-24 h-24 rounded-full object-cover border-4" style={{ borderColor: '#ffffff' }} alt="" />
-                ) : (
-                  <div className="w-24 h-24 rounded-full flex items-center justify-center text-4xl font-bold border-4" style={{ backgroundColor: '#27272a', color: '#ffffff', borderColor: '#ffffff' }}>
-                    {currentUserData?.name?.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="text-left">
-                  <p className="text-xl uppercase tracking-widest font-bold mb-1" style={{ color: '#9ca3af' }}>Atleta</p>
-                  <p className="text-3xl font-black uppercase" style={{ color: '#ffffff' }}>{currentUserData?.name}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="absolute bottom-12 w-full text-center">
-              <p className="text-2xl font-bold tracking-[0.3em] uppercase" style={{ color: '#71717a' }}>
-                WWW.TANQUETEAMBJJ.COM.BR
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       <HistoryModal 
         isOpen={isHistoryModalOpen} 

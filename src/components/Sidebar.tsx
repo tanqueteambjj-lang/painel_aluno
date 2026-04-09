@@ -1,7 +1,7 @@
 import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, CreditCard } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout }: any) {
+export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices }: any) {
   return (
     <aside className={`fixed md:relative inset-y-0 left-0 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 w-64 bg-brand-dark text-white flex flex-col shadow-2xl z-40 transition-transform duration-300 ease-in-out h-full border-r border-gray-800`}>
       <div className="p-6 flex items-center justify-center border-b border-gray-800 relative">
@@ -19,17 +19,23 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
           whileHover={{ scale: 1.02, x: 4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setView('dashboard')} 
-          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left ${view === 'dashboard' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
+          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left relative ${view === 'dashboard' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
           <ChartLine className="w-6 h-6" />
           <span className="font-bold ml-2">Dashboard</span>
+          {hasUnreadNotices && (
+            <span className="absolute top-3 right-4 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+          )}
         </motion.button>
         <motion.button 
           whileHover={{ scale: 1.02, x: 4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setView('feed')} 
-          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left ${view === 'feed' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
+          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left relative ${view === 'feed' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
           <Users className="w-6 h-6" />
           <span className="ml-2">Feed da Equipe</span>
+          {hasUnreadFeed && (
+            <span className="absolute top-3 right-4 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+          )}
         </motion.button>
         <motion.button 
           whileHover={{ scale: 1.02, x: 4 }}
