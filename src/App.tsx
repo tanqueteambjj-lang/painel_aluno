@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
-import confetti from 'canvas-confetti';
 import Login from '@/components/Login';
 import Sidebar from '@/components/Sidebar';
 import QrModal from '@/components/QrModal';
@@ -618,12 +617,6 @@ export default function Dashboard() {
         const currentYearStr = today.getFullYear().toString();
         if (lastCelebration !== currentYearStr) {
           localStorage.setItem(`birthday_celebrated_${userData.id}`, currentYearStr);
-          confetti({
-            particleCount: 150,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6']
-          });
           showAlert(`🎉 **Feliz Aniversário, ${userData.name.split(' ')[0]}!** 🎉\nObrigado por fazer parte da nossa equipe. O tatame é melhor com você!`, 'success');
 
           // Share to Feed automatically
