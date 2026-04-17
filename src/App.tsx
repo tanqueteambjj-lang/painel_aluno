@@ -1214,19 +1214,14 @@ export default function Dashboard() {
                               setShareMessage("");
                             }
                           }}
-                          className={`flex flex-col items-center justify-center p-3 text-center rounded-lg border transition ${b.earned ? 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600 hover:shadow-md cursor-pointer group relative' : 'bg-gray-100/50 dark:bg-gray-800/50 border-transparent opacity-60 grayscale'}`}>
-                          {b.earned && (
-                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition text-brand-red bg-red-100 dark:bg-red-900/30 p-1.5 rounded-full">
-                              <Share2 className="w-3 h-3" />
-                            </div>
-                          )}
+                          className={`flex flex-col items-center justify-center p-3 text-center rounded-lg border transition ${b.earned ? 'bg-gray-50 dark:bg-gray-700 border-brand-red/20 dark:border-red-900/30 hover:border-brand-red/50 hover:shadow-md cursor-pointer group' : 'bg-gray-100/50 dark:bg-gray-800/50 border-transparent opacity-60 grayscale'}`}>
                           <div className={`mb-2 p-2 rounded-full shadow-sm relative ${b.earned ? 'bg-white dark:bg-gray-800' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
                             {b.icon}
                           </div>
                           <span className={`font-bold text-xs ${b.earned ? 'text-brand-dark dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>{b.name}</span>
-                          <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 leading-tight">{b.desc}</span>
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 leading-tight mb-2">{b.desc}</span>
                           {b.earned && (
-                            <span className="text-[9px] font-bold text-brand-red mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition"><Share2 className="w-3 h-3" /> Compartilhar</span>
+                            <span className="text-[10px] font-bold text-brand-red mt-auto flex items-center gap-1 bg-brand-red/10 dark:bg-red-900/30 px-2.5 py-1 rounded-full"><Share2 className="w-3 h-3" /> Compartilhar</span>
                           )}
                         </div>
                       ))}
