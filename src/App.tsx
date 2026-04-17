@@ -12,7 +12,7 @@ import ProfileEditModal from '@/components/ProfileEditModal';
 import Feed from '@/components/Feed';
 import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
-import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -174,6 +174,13 @@ export default function Dashboard() {
       };
       
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), post);
+      try {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', currentUserData.id), {
+          feedPosts: (currentUserData.feedPosts || 0) + 1
+        });
+      } catch (err) {
+        console.error("Could not update feedPosts count", err);
+      }
       setSharingBadge(null);
       setShareMessage("");
       showAlert("Sucesso", "Conquista compartilhada no Feed com sucesso!", "success");
@@ -809,6 +816,67 @@ export default function Dashboard() {
     );
   }
 
+  const computeAchievements = () => {
+    if (!currentUserData) return [];
+    
+    let maxConsecutive = 0;
+    let currentConsecutive = 0;
+    if (currentUserData.attendance && currentUserData.attendance.length > 0) {
+      const sortedDates = [...currentUserData.attendance].sort();
+      let prevDate: Date | null = null;
+      for (const d of sortedDates) {
+        const dateObj = new Date(d + 'T12:00:00');
+        if (!prevDate) {
+          currentConsecutive = 1;
+          maxConsecutive = 1;
+        } else {
+          const diffDays = Math.round((dateObj.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays === 1) {
+            currentConsecutive++;
+            if (currentConsecutive > maxConsecutive) maxConsecutive = currentConsecutive;
+          } else if (diffDays > 1) {
+            currentConsecutive = 1;
+          }
+        }
+        prevDate = dateObj;
+      }
+    }
+
+    const hasDegree = currentUserData.belt && !!currentUserData.belt.match(/(\d)º/) && parseInt(currentUserData.belt.match(/(\d)º/)[1]) > 0;
+    const isNewBelt = currentUserData.belt && (!currentUserData.belt.includes("Branca") || hasDegree);
+    
+    // Check if posted anything to feed
+    const hasPosted = !!(currentUserData.feedPosts && currentUserData.feedPosts > 0);
+    // Check if any attendance was on weekend
+    const isWeekendWarrior = currentUserData.attendance && currentUserData.attendance.some((d: string) => {
+      const day = new Date(d + 'T12:00:00').getDay();
+      return day === 0 || day === 6;
+    });
+    // Check if black belt
+    const isBlackBelt = currentUserData.belt && currentUserData.belt.toLowerCase().includes("preta");
+    
+    const possibleBadges = [
+      { id: 'first_class', name: "Primeiro Treino", desc: "Suor e dedicação no primeiro dia.", icon: <Star className="w-5 h-5 text-yellow-500" />, earned: totalAtt >= 1 },
+      { id: 'beginner', name: "Iniciante", desc: "10 treinos no tatame.", icon: <Medal className="w-5 h-5 text-gray-400" />, earned: totalAtt >= 10 },
+      { id: 'monthly_focus', name: "Foco Mensal", desc: "Mais de 10 treinos no mês.", icon: <Calendar className="w-5 h-5 text-blue-500" />, earned: monthAttCount >= 10 },
+      { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, earned: maxConsecutive >= 5 },
+      { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, earned: isWeekendWarrior },
+      { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, earned: hasPosted },
+      { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <Star className="w-5 h-5 text-yellow-600" />, earned: hasDegree },
+      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, earned: currentUserData.belt && !currentUserData.belt.includes("Branca") },
+      { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, earned: totalAtt >= 50 },
+      { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, earned: totalAtt >= 100 },
+      { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, earned: totalAtt >= 200 },
+      { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, earned: totalAtt >= 500 },
+      { id: 'rato_tatame', name: "Rato de Tatame", desc: "Mais de 20 treinos num único mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, earned: monthAttCount >= 20 },
+      { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Target className="w-5 h-5 text-gray-900 dark:text-gray-200" />, earned: isBlackBelt },
+    ];
+    
+    return possibleBadges;
+  };
+
+  const earnedBadges = computeAchievements();
+
   return (
     <div className="flex h-screen overflow-hidden relative w-full bg-transparent text-gray-900 dark:text-gray-100 transition-colors duration-200">
       {/* Mobile Sidebar Overlay */}
@@ -1081,9 +1149,9 @@ export default function Dashboard() {
               </div>
 
               {/* Ranking & Achievements */}
-              <div className="grid grid-cols-1 gap-6 mb-8 no-print">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 no-print">
                 {/* Ranking */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border-t-4 border-brand-dark dark:border-gray-600 flex flex-col">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-t-4 border-brand-dark dark:border-gray-600 flex flex-col h-full">
                   <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center shrink-0">
                     <div>
                       <h3 className="font-display text-xl font-bold text-brand-dark dark:text-white flex items-center gap-2"><Flame className="text-orange-500 w-5 h-5" /> Top 5 - Frequência</h3>
@@ -1091,7 +1159,7 @@ export default function Dashboard() {
                     </div>
                     <span className="text-xs font-bold text-brand-dark dark:text-gray-200 bg-gray-200 dark:bg-gray-600 px-3 py-1 rounded-full uppercase tracking-wider shadow-inner">{monthNames[new Date().getMonth()]}</span>
                   </div>
-                  <div className="p-0 flex-1 overflow-x-auto max-h-[300px]">
+                  <div className="p-0 flex-1 overflow-y-auto max-h-[300px]">
                     <table className="w-full text-left text-sm">
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                         {ranking.length === 0 ? (
@@ -1116,6 +1184,27 @@ export default function Dashboard() {
                         )}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+
+                {/* Achievements Widget */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-t-4 border-yellow-500 flex flex-col h-full">
+                  <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 shrink-0">
+                    <h3 className="font-display text-xl font-bold text-brand-dark dark:text-white flex items-center gap-2"><Trophy className="text-yellow-500 w-5 h-5" /> Suas Conquistas</h3>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Medalhas Desbloqueadas</p>
+                  </div>
+                  <div className="p-4 flex-1 overflow-y-auto max-h-[300px]">
+                    <div className="grid grid-cols-2 gap-3">
+                      {earnedBadges.map((b, i) => (
+                        <div key={b.id} className={`flex flex-col items-center justify-center p-3 text-center rounded-lg border transition ${b.earned ? 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600 hover:shadow-md' : 'bg-gray-100/50 dark:bg-gray-800/50 border-transparent opacity-60 grayscale'}`}>
+                          <div className={`mb-2 p-2 rounded-full shadow-sm relative ${b.earned ? 'bg-white dark:bg-gray-800' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
+                            {b.icon}
+                          </div>
+                          <span className={`font-bold text-xs ${b.earned ? 'text-brand-dark dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>{b.name}</span>
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 leading-tight">{b.desc}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
