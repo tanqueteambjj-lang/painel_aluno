@@ -842,10 +842,18 @@ export default function Dashboard() {
       }
     }
 
-    const hasDegree = currentUserData.belt && !!currentUserData.belt.match(/(\d)º/) && parseInt(currentUserData.belt.match(/(\d)º/)[1]) > 0;
-    
-    // Check if new belt (anything other than Branca)
-    const isNewBelt = currentUserData.belt && !currentUserData.belt.toLowerCase().includes("branca");
+    let earnedNewBelt = false;
+    let earnedDegree = false;
+    if (currentUserData.progressLog && currentUserData.progressLog.length > 0) {
+      const graduations = currentUserData.progressLog.filter((log: any) => log.type === 'graduation');
+      for (const grad of graduations) {
+        if (grad.text && grad.text.match(/[1-9]º Grau/)) {
+          earnedDegree = true;
+        } else {
+          earnedNewBelt = true;
+        }
+      }
+    }
     
     // Check if posted anything to feed
     const hasPosted = !!(currentUserData.feedPosts && currentUserData.feedPosts > 0);
@@ -864,8 +872,8 @@ export default function Dashboard() {
       { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, earned: maxConsecutive >= 5 },
       { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, earned: isWeekendWarrior },
       { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, earned: hasPosted },
-      { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <Star className="w-5 h-5 text-yellow-600" />, earned: hasDegree },
-      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, earned: isNewBelt },
+      { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <Star className="w-5 h-5 text-yellow-600" />, earned: earnedDegree },
+      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, earned: earnedNewBelt },
       { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, earned: totalAtt >= 50 },
       { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, earned: totalAtt >= 100 },
       { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, earned: totalAtt >= 200 },
@@ -1206,12 +1214,20 @@ export default function Dashboard() {
                               setShareMessage("");
                             }
                           }}
-                          className={`flex flex-col items-center justify-center p-3 text-center rounded-lg border transition ${b.earned ? 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600 hover:shadow-md cursor-pointer' : 'bg-gray-100/50 dark:bg-gray-800/50 border-transparent opacity-60 grayscale'}`}>
+                          className={`flex flex-col items-center justify-center p-3 text-center rounded-lg border transition ${b.earned ? 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600 hover:shadow-md cursor-pointer group relative' : 'bg-gray-100/50 dark:bg-gray-800/50 border-transparent opacity-60 grayscale'}`}>
+                          {b.earned && (
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition text-brand-red bg-red-100 dark:bg-red-900/30 p-1.5 rounded-full">
+                              <Share2 className="w-3 h-3" />
+                            </div>
+                          )}
                           <div className={`mb-2 p-2 rounded-full shadow-sm relative ${b.earned ? 'bg-white dark:bg-gray-800' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
                             {b.icon}
                           </div>
                           <span className={`font-bold text-xs ${b.earned ? 'text-brand-dark dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>{b.name}</span>
                           <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 leading-tight">{b.desc}</span>
+                          {b.earned && (
+                            <span className="text-[9px] font-bold text-brand-red mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition"><Share2 className="w-3 h-3" /> Compartilhar</span>
+                          )}
                         </div>
                       ))}
                     </div>
