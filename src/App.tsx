@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
-import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import confetti from 'canvas-confetti';
 import Login from '@/components/Login';
 import Sidebar from '@/components/Sidebar';
 import QrModal from '@/components/QrModal';
@@ -11,6 +12,8 @@ import HistoryModal from '@/components/HistoryModal';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import Feed from '@/components/Feed';
 import Finance from '@/components/Finance';
+import Ranking from '@/components/Ranking';
+import NotificationList from '@/components/NotificationList';
 import { Lock, Menu, Moon, Sun, LogOut, ChartLine, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Trophy, Flame, Dumbbell, ShieldHalf, Crown, Zap, Star, Swords, Footprints, FileText, Share2, Check, X, Clock, QrCode, Printer, Loader2, CreditCard, Bell } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
@@ -71,12 +74,26 @@ export default function Dashboard() {
   const [hasUnreadFeed, setHasUnreadFeed] = useState(false);
   const [hasUnreadNotices, setHasUnreadNotices] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
+  
+  const listenersRef = useRef<{ notices?: any, feed?: any, student?: any }>({});
+  const initialLoadRef = useRef(true);
 
   useEffect(() => {
     if ('Notification' in window) {
       setPushEnabled(Notification.permission === 'granted');
     }
+    // Check initial load safety
+    setTimeout(() => { initialLoadRef.current = false; }, 3000);
   }, []);
+
+  const sendPushNotification = (title: string, body: string) => {
+    if (pushEnabled && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, {
+        body,
+        icon: "https://iili.io/qC543c7.png"
+      });
+    }
+  };
 
   const requestPushPermission = async () => {
     if (!('Notification' in window)) {
@@ -335,8 +352,8 @@ export default function Dashboard() {
           }
         }
 
-        await loadNotices();
-        await checkUnreadFeed();
+        loadNotices();
+        checkUnreadFeed();
       } catch (e: any) {
         console.error("Data load erro:", e);
         if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
@@ -350,6 +367,12 @@ export default function Dashboard() {
     };
 
     initApp();
+    
+    return () => {
+      if (listenersRef.current.student) listenersRef.current.student();
+      if (listenersRef.current.notices) listenersRef.current.notices();
+      if (listenersRef.current.feed) listenersRef.current.feed();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -380,35 +403,53 @@ export default function Dashboard() {
 
   const loadStudentData = async (studentId: string) => {
     try {
-      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
-      const docSnap = await getDoc(docRef);
+      if (listenersRef.current.student) listenersRef.current.student();
 
-      if (docSnap.exists()) {
-        const data: any = { id: docSnap.id, ...docSnap.data() };
-        setCurrentUserData(data);
-        
-        if (data.plan && data.plan.includes('combo')) {
-          await loadDependents(data.id);
-        } else {
-          setDependents([]);
-        }
-        await loadRanking();
-      } else {
-        // Fallback for mock
-        if (process.env.NODE_ENV === 'development') {
-          setCurrentUserData({ 
-            id: studentId, 
-            name: 'Aluno Preview', 
-            plan: 'adulto-mensal',
-            belt: 'Faixa Branca - 0º Grau',
-            enrollmentStatus: 'Ativo',
-            paymentStatus: 'Em dia',
-            attendance: []
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
+      listenersRef.current.student = onSnapshot(docRef, async (docSnap) => {
+        if (docSnap.exists()) {
+          const data: any = { id: docSnap.id, ...docSnap.data() };
+          
+          setCurrentUserData(prev => {
+            // Check for notifications
+            if (prev && !initialLoadRef.current) {
+              if (prev.paymentStatus !== data.paymentStatus) {
+                if (data.paymentStatus === 'Atrasado' || data.paymentStatus === 'Pendente') {
+                  sendPushNotification("Aviso Financeiro", "Seu pagamento está pendente. Regularize na aba Financeiro.");
+                } else if (data.paymentStatus === 'Em dia') {
+                  sendPushNotification("Pagamento Confirmado", "Seu pagamento foi aprovado! Status: Em dia.");
+                }
+              }
+            }
+            // Trigger checkBirthday and checkMissing logically just once per load ideally, but doing it in state update is ok
+            checkBirthday(data);
+            checkMissing(data);
+            return data;
           });
+          
+          if (data.plan && data.plan.includes('combo')) {
+            await loadDependents(data.id);
+          } else {
+            setDependents([]);
+          }
+          await loadRanking();
         } else {
-          setAuthError("Matrícula não encontrada no sistema.");
+          // Fallback for mock
+          if (process.env.NODE_ENV === 'development') {
+            setCurrentUserData({ 
+              id: studentId, 
+              name: 'Aluno Preview', 
+              plan: 'adulto-mensal',
+              belt: 'Faixa Branca - 0º Grau',
+              enrollmentStatus: 'Ativo',
+              paymentStatus: 'Em dia',
+              attendance: []
+            });
+          } else {
+            setAuthError("Matrícula não encontrada no sistema.");
+          }
         }
-      }
+      });
     } catch (error) {
       console.error("Erro ao carregar dados do aluno:", error);
     }
@@ -447,53 +488,80 @@ export default function Dashboard() {
     return new Date(dateStr);
   };
 
-  const loadNotices = async () => {
+  const loadNotices = () => {
     try {
+      if (listenersRef.current.notices) listenersRef.current.notices();
+      
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'notices'));
-      const snap = await getDocs(q);
-      const fetchedNotices: any[] = [];
-      const now = new Date();
-      
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.expiresAt && parseDateString(data.expiresAt) < now) return;
-        fetchedNotices.push({ id: docSnap.id, ...data });
-      });
-      
-      fetchedNotices.sort((a, b) => parseDateString(b.date).getTime() - parseDateString(a.date).getTime());
-      setNotices(fetchedNotices);
+      listenersRef.current.notices = onSnapshot(q, (snap) => {
+        const fetchedNotices: any[] = [];
+        const now = new Date();
+        
+        let hasNew = false;
+        snap.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            if (parseDateString(data.date).getTime() > Date.now() - 60000 && !initialLoadRef.current) {
+              hasNew = true;
+              sendPushNotification("Tanque Team: Novo Aviso", data.title || "Temos um recado importante no mural!");
+            }
+          }
+        });
 
-      // Check for unread notices
-      if (fetchedNotices.length > 0) {
-        const lastViewedNotices = localStorage.getItem('lastViewedNotices');
-        const latestNoticeDate = parseDateString(fetchedNotices[0].date).getTime();
-        if (!lastViewedNotices || parseInt(lastViewedNotices) < latestNoticeDate) {
-          setHasUnreadNotices(true);
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.expiresAt && parseDateString(data.expiresAt) < now) return;
+          fetchedNotices.push({ id: docSnap.id, ...data });
+        });
+        
+        fetchedNotices.sort((a, b) => parseDateString(b.date).getTime() - parseDateString(a.date).getTime());
+        setNotices(fetchedNotices);
+
+        // Check for unread notices
+        if (fetchedNotices.length > 0) {
+          const lastViewedNotices = localStorage.getItem('lastViewedNotices');
+          const latestNoticeDate = parseDateString(fetchedNotices[0].date).getTime();
+          if (!lastViewedNotices || parseInt(lastViewedNotices) < latestNoticeDate) {
+            setHasUnreadNotices(true);
+          }
         }
-      }
+      });
     } catch (e) {
       console.error("Erro ao carregar avisos:", e);
     }
   };
 
-  const checkUnreadFeed = async () => {
+  const checkUnreadFeed = () => {
     try {
+      if (listenersRef.current.feed) listenersRef.current.feed();
+
       const now = new Date().toISOString();
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), where('expiresAt', '>', now));
-      const snap = await getDocs(q);
-      let latestPostTime = 0;
-      snap.forEach(doc => {
-        const data = doc.data();
-        const postTime = parseDateString(data.timestamp).getTime();
-        if (postTime > latestPostTime) latestPostTime = postTime;
-      });
+      listenersRef.current.feed = onSnapshot(q, (snap) => {
+        let latestPostTime = 0;
+        
+        snap.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            if (data.studentId !== currentUserData?.id && parseDateString(data.timestamp).getTime() > Date.now() - 60000 && !initialLoadRef.current) {
+               sendPushNotification("Nova Conquista na Equipe!", `${data.studentName} compartilhou no feed.`);
+            }
+          }
+        });
 
-      if (latestPostTime > 0) {
-        const lastViewedFeed = localStorage.getItem('lastViewedFeed');
-        if (!lastViewedFeed || parseInt(lastViewedFeed) < latestPostTime) {
-          setHasUnreadFeed(true);
+        snap.forEach(doc => {
+          const data = doc.data();
+          const postTime = parseDateString(data.timestamp).getTime();
+          if (postTime > latestPostTime) latestPostTime = postTime;
+        });
+
+        if (latestPostTime > 0) {
+          const lastViewedFeed = localStorage.getItem('lastViewedFeed');
+          if (!lastViewedFeed || parseInt(lastViewedFeed) < latestPostTime) {
+            setHasUnreadFeed(true);
+          }
         }
-      }
+      });
     } catch (e) {
       console.error("Erro ao verificar feed:", e);
     }
@@ -533,6 +601,71 @@ export default function Dashboard() {
     setViewingDependentId(depId);
     await loadStudentData(depId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const checkBirthday = async (userData: any) => {
+    if (!userData || !userData.birthDate) return;
+    const today = new Date();
+    // birthDate is likely YYYY-MM-DD
+    const birthStr = userData.birthDate;
+    const parts = birthStr.split('-');
+    if (parts.length === 3) {
+      const bMonth = parseInt(parts[1]) - 1;
+      const bDay = parseInt(parts[2]);
+      if (today.getMonth() === bMonth && today.getDate() === bDay) {
+        // It's their birthday! Check if we already celebrated this year
+        const lastCelebration = localStorage.getItem(`birthday_celebrated_${userData.id}`);
+        const currentYearStr = today.getFullYear().toString();
+        if (lastCelebration !== currentYearStr) {
+          localStorage.setItem(`birthday_celebrated_${userData.id}`, currentYearStr);
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6']
+          });
+          showAlert(`🎉 **Feliz Aniversário, ${userData.name.split(' ')[0]}!** 🎉\nObrigado por fazer parte da nossa equipe. O tatame é melhor com você!`, 'success');
+
+          // Share to Feed automatically
+          try {
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), {
+              timestamp: new Date().toISOString(),
+              studentId: userData.id,
+              studentName: userData.name,
+              message: "Hoje é meu aniversário! 🎉 Parabéns para mim!",
+              badgeName: "Medalha de Aniversário",
+              badgeDesc: "Completou mais um ano de vida e dedicação!",
+              badgeIcon: "Crown",
+              likes: 0,
+              likedBy: [],
+              comments: []
+            });
+          } catch(e) { console.error("Error sharing birthday to feed:", e); }
+        }
+      }
+    }
+  };
+
+  const checkMissing = (userData: any) => {
+    if (!userData || !userData.attendance || userData.attendance.length === 0) return;
+    const lastClassDate = new Date(userData.attendance[userData.attendance.length - 1] + 'T12:00:00');
+    const today = new Date();
+    const diffTime = Math.abs(today.getTime() - lastClassDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays >= 7) {
+      const lastMissingPush = localStorage.getItem(`missing_push_${userData.id}`);
+      const weekStr = `${today.getFullYear()}_W${Math.floor(today.getTime() / (1000 * 60 * 60 * 24 * 7))}`;
+      if (lastMissingPush !== weekStr) {
+        localStorage.setItem(`missing_push_${userData.id}`, weekStr);
+        if (pushEnabled) {
+          sendPushNotification("O tatame está chamando! 🥋", {
+            body: "Sentimos sua falta nos treinos dessa semana. Que tal vir treinar hoje?",
+            icon: "https://iili.io/qC543c7.png"
+          });
+        }
+      }
+    }
   };
 
   const switchToTitular = async () => {
@@ -739,29 +872,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  const hasGraduation = (log: any[], keyword: string) => log?.some(entry => entry.type === 'graduation' && entry.text.includes(keyword));
-  const earnedDegree1 = hasGraduation(currentUserData.progressLog, '1º Grau');
-  const earnedDegree2 = hasGraduation(currentUserData.progressLog, '2º Grau');
-  const earnedDegree3 = hasGraduation(currentUserData.progressLog, '3º Grau');
-  const earnedDegree4 = hasGraduation(currentUserData.progressLog, '4º Grau');
-  const earnedNewBelt = currentUserData.progressLog?.some((entry: any) => entry.type === 'graduation' && (!entry.text.match(/[1-9]º Grau/)));
-
-  // Badges Logic
-  const badges = [
-    { name: "Primeiro Passo", desc: "A jornada começa aqui.", icon: Footprints, color: "text-blue-500", req: 0 },
-    { name: "Iniciante", desc: "10 Treinos concluídos.", icon: Flame, color: "text-orange-500", req: 10 },
-    { name: "Consistente", desc: "25 Treinos concluídos.", icon: Dumbbell, color: "text-gray-500", req: 25 },
-    { name: "Guerreiro", desc: "50 Treinos concluídos.", icon: ShieldHalf, color: "text-purple-500", req: 50 },
-    { name: "Veterano", desc: "100 Treinos. Jiu-Jitsu na veia.", icon: Crown, color: "text-yellow-500", req: 100 },
-    { name: "Focado", desc: "5 dias seguidos no tatame.", icon: Zap, color: "text-red-500", customReq: streak >= 5 },
-    { name: "1º Grau", desc: "Avançou para o primeiro grau.", icon: Star, color: "text-yellow-600", customReq: earnedDegree1 },
-    { name: "2º Grau", desc: "Avançou para o segundo grau.", icon: Star, color: "text-yellow-600", customReq: earnedDegree2 },
-    { name: "3º Grau", desc: "Avançou para o terceiro grau.", icon: Star, color: "text-yellow-600", customReq: earnedDegree3 },
-    { name: "4º Grau", desc: "Avançou para o quarto grau.", icon: Star, color: "text-yellow-600", customReq: earnedDegree4 },
-    { name: "Nova Faixa", desc: "Avançou para uma nova faixa.", icon: Medal, color: "text-brand-red", customReq: earnedNewBelt },
-    { name: "Mestre", desc: "500 Treinos. Uma lenda viva.", icon: Swords, color: "text-red-600", req: 500 }
-  ];
 
   return (
     <div className="flex h-screen overflow-hidden relative w-full bg-transparent text-gray-900 dark:text-gray-100 transition-colors duration-200">
@@ -1037,7 +1147,7 @@ export default function Dashboard() {
               </div>
 
               {/* Ranking & Achievements */}
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8 no-print">
+              <div className="grid grid-cols-1 gap-6 mb-8 no-print">
                 {/* Ranking */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border-t-4 border-brand-dark dark:border-gray-600 flex flex-col">
                   <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center shrink-0">
@@ -1072,45 +1182,6 @@ export default function Dashboard() {
                         )}
                       </tbody>
                     </table>
-                  </div>
-                </div>
-
-                {/* Achievements */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-t-4 border-yellow-500 flex flex-col">
-                  <h3 className="font-display text-xl font-bold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2"><Trophy className="text-yellow-500 w-5 h-5" /> As Minhas Conquistas</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">Acompanhe a sua evolução no tatame e partilhe as suas medalhas no Feed!</p>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-y-auto max-h-[300px] pr-2 pb-2">
-                    {badges.map((b, i) => {
-                      const unlocked = b.customReq !== undefined ? b.customReq : totalAtt >= (b.req || 0);
-                      const opacityClass = unlocked ? 'opacity-100 ring-2 ring-yellow-400 dark:ring-yellow-500' : 'opacity-40 grayscale pointer-events-none';
-                      const bgClass = unlocked ? 'bg-gradient-to-b from-white to-gray-100 dark:from-gray-700 dark:to-gray-800' : 'bg-gray-100 dark:bg-gray-800';
-                      
-                      return (
-                        <motion.div 
-                          key={i} 
-                          whileHover={unlocked ? { scale: 1.05, y: -5 } : {}}
-                          className={`flex flex-col items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm ${bgClass} ${opacityClass} transition-colors`}
-                        >
-                          <div className="flex flex-col items-center w-full">
-                            <div className="w-12 h-12 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center text-2xl shadow-inner mb-2 border border-gray-100 dark:border-gray-600">
-                              <b.icon className={`w-6 h-6 ${b.color}`} />
-                            </div>
-                            <p className="text-[10px] font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider text-center leading-tight mb-1 truncate w-full">{b.name}</p>
-                            <p className="text-[8px] text-gray-500 dark:text-gray-400 text-center leading-tight line-clamp-2">{b.desc}</p>
-                          </div>
-                          {unlocked && (
-                            <motion.button 
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => handleShareBadge(b)}
-                              className="mt-2 text-[10px] bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400 px-3 py-1 rounded-full font-bold hover:bg-yellow-200 dark:hover:bg-yellow-900/60 transition"
-                            >
-                              Compartilhar
-                            </motion.button>
-                          )}
-                        </motion.div>
-                      );
-                    })}
                   </div>
                 </div>
               </div>
@@ -1161,6 +1232,19 @@ export default function Dashboard() {
                 transition={{ duration: 0.3 }}
               >
                 <Finance currentUserData={currentUserData} planInfo={planInfo} showAlert={showAlert} />
+              </motion.div>
+            )}
+
+            {/* RANKING VIEW */}
+            {view === 'ranking' && (
+              <motion.div
+                key="ranking"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Ranking appId={appId} db={db} currentUserData={currentUserData} ranking={ranking} />
               </motion.div>
             )}
 
