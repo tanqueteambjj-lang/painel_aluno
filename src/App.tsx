@@ -843,7 +843,9 @@ export default function Dashboard() {
     }
 
     const hasDegree = currentUserData.belt && !!currentUserData.belt.match(/(\d)º/) && parseInt(currentUserData.belt.match(/(\d)º/)[1]) > 0;
-    const isNewBelt = currentUserData.belt && (!currentUserData.belt.includes("Branca") || hasDegree);
+    
+    // Check if new belt (anything other than Branca)
+    const isNewBelt = currentUserData.belt && !currentUserData.belt.toLowerCase().includes("branca");
     
     // Check if posted anything to feed
     const hasPosted = !!(currentUserData.feedPosts && currentUserData.feedPosts > 0);
@@ -863,7 +865,7 @@ export default function Dashboard() {
       { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, earned: isWeekendWarrior },
       { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, earned: hasPosted },
       { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <Star className="w-5 h-5 text-yellow-600" />, earned: hasDegree },
-      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, earned: currentUserData.belt && !currentUserData.belt.includes("Branca") },
+      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, earned: isNewBelt },
       { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, earned: totalAtt >= 50 },
       { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, earned: totalAtt >= 100 },
       { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, earned: totalAtt >= 200 },
@@ -1196,7 +1198,15 @@ export default function Dashboard() {
                   <div className="p-4 flex-1 overflow-y-auto max-h-[300px]">
                     <div className="grid grid-cols-2 gap-3">
                       {earnedBadges.map((b, i) => (
-                        <div key={b.id} className={`flex flex-col items-center justify-center p-3 text-center rounded-lg border transition ${b.earned ? 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600 hover:shadow-md' : 'bg-gray-100/50 dark:bg-gray-800/50 border-transparent opacity-60 grayscale'}`}>
+                        <div 
+                          key={b.id} 
+                          onClick={() => {
+                            if (b.earned) {
+                              setSharingBadge(b);
+                              setShareMessage("");
+                            }
+                          }}
+                          className={`flex flex-col items-center justify-center p-3 text-center rounded-lg border transition ${b.earned ? 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600 hover:shadow-md cursor-pointer' : 'bg-gray-100/50 dark:bg-gray-800/50 border-transparent opacity-60 grayscale'}`}>
                           <div className={`mb-2 p-2 rounded-full shadow-sm relative ${b.earned ? 'bg-white dark:bg-gray-800' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
                             {b.icon}
                           </div>
@@ -1364,7 +1374,14 @@ export default function Dashboard() {
             >
               <h3 className="font-bold text-lg mb-4 dark:text-white">Compartilhar Conquista</h3>
               <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <sharingBadge.icon className={`w-8 h-8 ${sharingBadge.color}`} />
+                <div className="flex items-center justify-center scale-125 w-8 h-8 shrink-0">
+                  {sharingBadge.icon && typeof sharingBadge.icon === 'object' && 'props' in sharingBadge.icon 
+                    ? sharingBadge.icon 
+                    : sharingBadge.icon && typeof sharingBadge.icon === 'function' 
+                      ? <sharingBadge.icon className={`w-full h-full ${sharingBadge.color || ''}`} /> 
+                      : <Trophy className="w-8 h-8 text-yellow-500" />
+                  }
+                </div>
                 <div>
                   <p className="font-bold dark:text-white">{sharingBadge.name}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{sharingBadge.desc}</p>
