@@ -7,6 +7,7 @@ import Cropper from 'react-easy-crop';
 
 export default function ProfileEditModal({ isOpen, onClose, userData, appId, onSaveSuccess, showAlert }: any) {
   const [loading, setLoading] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [formData, setFormData] = useState({
     email: userData?.email || '',
     phone: userData?.phone || '',
@@ -124,13 +125,17 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
 
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', userData.id), updates);
       
-      showAlert("Sucesso", "Perfil atualizado com sucesso!", "success");
-      onSaveSuccess();
-      onClose();
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setLoading(false);
+        showAlert("Sucesso", "Perfil atualizado com sucesso!", "success");
+        onSaveSuccess();
+        onClose();
+      }, 1500);
     } catch (e) {
       console.error(e);
       showAlert("Erro", "Erro ao atualizar perfil.", "error");
-    } finally {
       setLoading(false);
     }
   };
@@ -304,8 +309,10 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
               
               <div className="mt-6 flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-700 no-print">
                 <button onClick={onClose} className="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 font-bold text-gray-700 dark:text-gray-300 transition">Cancelar</button>
-                <button onClick={handleSave} disabled={loading} className="px-5 py-2 bg-brand-red text-white rounded-lg text-sm hover:bg-red-700 font-bold transition shadow-md flex items-center justify-center gap-2 w-32 disabled:opacity-50">
-                  {loading ? <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span> : <><Save className="w-4 h-4" /> Salvar</>}
+                <button onClick={handleSave} disabled={loading || saveSuccess} className={`px-5 py-2 text-white rounded-lg text-sm font-bold transition shadow-md flex items-center justify-center gap-2 w-32 disabled:opacity-50 ${saveSuccess ? 'bg-green-500 hover:bg-green-600' : 'bg-brand-red hover:bg-red-700'}`}>
+                  {loading && !saveSuccess ? <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span> :
+                   saveSuccess ? <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-1"><Check className="w-4 h-4" /> Salvo!</motion.div> :
+                   <><Save className="w-4 h-4" /> Salvar</>}
                 </button>
               </div>
             </div>

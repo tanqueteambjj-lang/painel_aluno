@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, where } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, where, onSnapshot } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ThumbsUp, Trash2, RefreshCw, Users, Frown, Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy } from 'lucide-react';
-import { motion } from 'motion/react';
+import { ThumbsUp, Trash2, RefreshCw, Users, Frown, Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy, MessageCircle, Send } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 const ICON_MAP: Record<string, any> = {
   Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy
@@ -28,6 +28,8 @@ const parseDateString = (dateStr: any) => {
 export default function Feed({ currentUserData, appId, showAlert, showConfirm }: any) {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
 
   const renderBeltSVG = (beltStr: string) => {
     if (!beltStr) return null;
@@ -60,40 +62,35 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
     );
   };
 
-  const loadFeedData = async () => {
-    setLoading(true);
-    try {
+  useEffect(() => {
+    let unsub = () => {};
+    if (appId) {
+      setLoading(true);
       const now = new Date().toISOString();
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), where('expiresAt', '>', now));
-      const snap = await getDocs(q);
-      
-      let fetchedPosts: any[] = [];
-      snap.forEach(doc => {
-        fetchedPosts.push({ id: doc.id, ...doc.data() });
+      unsub = onSnapshot(q, (snap) => {
+        const fetchedPosts: any[] = [];
+        snap.forEach(doc => {
+          fetchedPosts.push({ id: doc.id, ...doc.data() });
+        });
+
+        fetchedPosts.sort((a, b) => parseDateString(b.timestamp).getTime() - parseDateString(a.timestamp).getTime());
+        setPosts(fetchedPosts);
+        setLoading(false);
+      }, (err) => {
+        console.error("Erro ao carregar feed:", err);
+        setLoading(false);
       });
-
-      fetchedPosts.sort((a, b) => parseDateString(b.timestamp).getTime() - parseDateString(a.timestamp).getTime());
-      setPosts(fetchedPosts);
-    } catch (e) {
-      console.error("Erro ao carregar feed:", e);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (appId) {
-      loadFeedData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appId]);
+    return () => unsub();
+  }, [appId, db, showAlert]);
 
   const deleteFeedPost = (postId: string) => {
     showConfirm("Apagar Publicação", "Tem certeza que deseja apagar esta publicação do Feed?", async () => {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feed', postId));
         setPosts(posts.filter(p => p.id !== postId));
-      } catch (e) {
+      } catch {
         showAlert("Erro", "Erro ao excluir publicação.", "error");
       }
     });
@@ -135,6 +132,26 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
     }
   };
 
+  const handleCommentSubmit = async (postId: string) => {
+    if (!commentText.trim() || !currentUserData) return;
+    try {
+      const feedRef = doc(db, 'artifacts', appId, 'public', 'data', 'feed', postId);
+      const newComment = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: commentText.trim(),
+        authorId: currentUserData.id,
+        authorName: currentUserData.name.split(' ')[0],
+        timestamp: new Date().toISOString()
+      };
+      await updateDoc(feedRef, {
+        comments: arrayUnion(newComment)
+      });
+      setCommentText("");
+    } catch (e) {
+      console.error("Erro ao enviar comentário", e);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4 flex justify-between items-end">
@@ -144,14 +161,6 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Veja as conquistas recentes da sua escola. Os compartilhamentos desaparecem após 24 horas.</p>
         </div>
-        <motion.button 
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={loadFeedData} 
-          className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-3 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-bold flex items-center gap-2 transition"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
-        </motion.button>
       </div>
 
       <div className="max-w-2xl mx-auto space-y-6">
@@ -187,7 +196,6 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                   <div className="flex items-center gap-3">
                     {post.studentPhoto ? (
                       <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={post.studentPhoto} loading="lazy" className="w-full h-full object-cover" alt="Avatar" />
                       </div>
                     ) : (
@@ -249,8 +257,67 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                         <span className="text-xs text-gray-500 dark:text-gray-400">{post.likes}</span>
                       )}
                     </motion.button>
+
+                    <motion.button 
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setOpenCommentPostId(openCommentPostId === post.id ? null : post.id)} 
+                      className="flex items-center gap-1.5 font-bold transition group outline-none text-gray-400 dark:text-gray-500 hover:text-brand-red"
+                      title="Comentar"
+                    >
+                      <MessageCircle className="w-5 h-5 group-hover:text-brand-red" />
+                      {post.comments?.length > 0 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{post.comments.length}</span>
+                      )}
+                    </motion.button>
                   </div>
                 </div>
+
+                {/* Comments Section */}
+                <AnimatePresence>
+                  {(openCommentPostId === post.id || (post.comments && post.comments.length > 0)) && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3"
+                    >
+                      {post.comments?.map((comment: any) => (
+                        <div key={comment.id} className="flex gap-2">
+                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 mt-0.5">
+                            {comment.authorName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-2xl rounded-tl-none px-3 py-2 flex-1">
+                            <h5 className="text-xs font-bold text-gray-900 dark:text-white leading-none mb-1">{comment.authorName}</h5>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">{comment.text}</p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {openCommentPostId === post.id && (
+                        <div className="flex items-center gap-2 mt-2 sticky bottom-0 bg-white dark:bg-gray-800 py-2">
+                          <input 
+                            type="text" 
+                            className="flex-1 bg-gray-100 dark:bg-gray-700 border-transparent focus:border-brand-red focus:ring-0 rounded-full px-4 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-500"
+                            placeholder="Adicione um comentário..."
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleCommentSubmit(post.id);
+                            }}
+                            autoFocus
+                          />
+                          <button 
+                            onClick={() => handleCommentSubmit(post.id)}
+                            disabled={!commentText.trim()}
+                            className="w-9 h-9 rounded-full bg-brand-red text-white flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300 hover:bg-red-700 transition"
+                          >
+                            <Send className="w-4 h-4 ml-[-2px]" />
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             );
           })

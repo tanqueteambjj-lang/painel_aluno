@@ -1,5 +1,5 @@
 import { X, Printer } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function ReceiptModal({ isOpen, onClose, receiptData, userData, planShort }: any) {
   if (!receiptData || !userData) return null;

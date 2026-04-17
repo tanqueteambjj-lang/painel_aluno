@@ -1,8 +1,8 @@
-import { X, Lock, Printer, Camera, FileText } from 'lucide-react';
+import { X, Lock, Camera } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export default function QrModal({ isOpen, onClose, userData, planShort, onOpenHistory }: any) {
+export default function QrModal({ isOpen, onClose, userData, planShort }: any) {
   if (!userData) return null;
 
   const parseDateString = (dateStr: any) => {

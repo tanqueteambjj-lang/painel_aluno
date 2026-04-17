@@ -1,4 +1,4 @@
-import { X, Clock, FileText, Printer } from 'lucide-react';
+import { X, Clock, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
 import ReceiptModal from './ReceiptModal';
@@ -23,13 +23,6 @@ export default function HistoryModal({ isOpen, onClose, history, userData, planS
   
   const histArray = Array.isArray(history) ? history : Object.values(history || {});
   histArray.sort((a: any, b: any) => parseDateString(b.timestamp || b.date).getTime() - parseDateString(a.timestamp || a.date).getTime());
-
-  const handlePrintReceipt = (receipt: any) => {
-    setSelectedReceipt({
-      date: parseDateString(receipt.timestamp || receipt.date).toLocaleDateString('pt-BR'),
-      amount: Number(receipt.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-    });
-  };
 
   return (
     <>

@@ -1,6 +1,5 @@
-import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, CreditCard, Printer, Receipt, Award } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
 import ReceiptModal from './ReceiptModal';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';

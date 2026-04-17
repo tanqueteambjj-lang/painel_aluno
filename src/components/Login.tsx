@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { User, Lock, Eye, EyeOff, LogIn, Download, Monitor, ArrowLeft, X, Smartphone, Share, PlusSquare, MoreVertical, Loader2, Check } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, LogIn, ArrowLeft, X, Smartphone, Share, PlusSquare, MoreVertical, Loader2, Check, Download, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }) {

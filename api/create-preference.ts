@@ -25,9 +25,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     let body = req.body;
     if (typeof body === 'string') {
-      try { body = JSON.parse(body); } catch (e) { body = {}; }
+      try { body = JSON.parse(body); } catch { body = {}; }
     } else if (Buffer.isBuffer(body)) {
-      try { body = JSON.parse(body.toString('utf8')); } catch (e) { body = {}; }
+      try { body = JSON.parse(body.toString('utf8')); } catch { body = {}; }
     } else if (!body) {
       body = {};
     }
@@ -57,12 +57,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log("Preference created successfully:", result.id);
     return res.status(200).json({ id: result.id, init_point: result.init_point });
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     console.error('MercadoPago Preference Error:', error);
     // Return a 200 with error details so Vercel doesn't just show a generic 500 page if it crashes the response
     return res.status(400).json({ 
       error: 'Failed to create preference', 
-      details: error?.message || String(error),
+      details: error instanceof Error ? error.message : String(error),
       stack: error?.stack
     });
   }

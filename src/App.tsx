@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import Login from '@/components/Login';
 import Sidebar from '@/components/Sidebar';
@@ -12,8 +12,7 @@ import ProfileEditModal from '@/components/ProfileEditModal';
 import Feed from '@/components/Feed';
 import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
-import NotificationList from '@/components/NotificationList';
-import { Lock, Menu, Moon, Sun, LogOut, ChartLine, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Trophy, Flame, Dumbbell, ShieldHalf, Crown, Zap, Star, Swords, Footprints, FileText, Share2, Check, X, Clock, QrCode, Printer, Loader2, CreditCard, Bell } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -41,7 +40,6 @@ const PLAN_DICT: Record<string, { price: number, short: string }> = {
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
-  const [loadingText, setLoadingText] = useState("A sincronizar dados com o sistema...");
   const [authError, setAuthError] = useState<string | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [view, setView] = useState('dashboard');
@@ -65,10 +63,10 @@ export default function Dashboard() {
   const [shareMessage, setShareMessage] = useState("");
   const [isSharing, setIsSharing] = useState(false);
   const isSharingRef = useRef(false);
-  const shareCardRef = useRef<HTMLDivElement>(null);
 
   const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', type: 'info' as AlertType });
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [loadingText, setLoadingText] = useState("Iniciando...");
 
   const [hasUnreadFeed, setHasUnreadFeed] = useState(false);
   const [hasUnreadNotices, setHasUnreadNotices] = useState(false);
@@ -205,9 +203,9 @@ export default function Dashboard() {
       try {
         // 1. Authenticate anonymously first so we can read from Firestore
         await signInAnonymously(auth);
-      } catch (e: any) {
+      } catch (e: Error | unknown) {
         console.error("Auth erro:", e);
-        if (e.code === 'auth/unauthorized-domain') {
+        if (e instanceof Error && e.message.includes('auth/unauthorized-domain')) {
           console.warn("Domínio não autorizado no Firebase. Por favor, adicione este domínio no painel do Firebase Authentication.");
           // We don't block here immediately, let's see if Firestore allows public reads.
         } else {
@@ -237,9 +235,9 @@ export default function Dashboard() {
             setLoading(false);
             return;
           }
-        } catch (error: any) {
+        } catch (error: Error | unknown) {
           console.error("Error fetching user from URL uid:", error);
-          if (error.code === 'permission-denied' || error.message?.includes('Missing or insufficient permissions')) {
+          if (error instanceof Error && (error.message.includes('permission-denied') || error.message.includes('Missing or insufficient permissions'))) {
             setAuthError("Erro de permissão. O domínio atual pode não estar autorizado no Firebase, ou as regras do Firestore bloqueiam a leitura.");
             setLoading(false);
             return;
@@ -316,7 +314,7 @@ export default function Dashboard() {
                   newDueDate.setMonth(newDueDate.getMonth() + 1);
                   
                   // Determine amount from plan
-                  let planPrice = verifyData.amount || 150; // Use actual paid amount or default
+                  const planPrice = verifyData.amount || 150; // Use actual paid amount or default
                   
                   const newPayment = {
                     id: paymentId,
@@ -353,9 +351,9 @@ export default function Dashboard() {
 
         loadNotices();
         checkUnreadFeed();
-      } catch (e: any) {
+      } catch (e: Error | unknown) {
         console.error("Data load erro:", e);
-        if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
+        if (e instanceof Error && (e.message.includes('permission-denied') || e.message.includes('Missing or insufficient permissions'))) {
           setAuthError("Erro de permissão. O domínio atual pode não estar autorizado no Firebase, ou as regras do Firestore bloqueiam a leitura.");
         } else {
           setAuthError("Erro ao carregar dados do servidor.");
@@ -372,7 +370,6 @@ export default function Dashboard() {
       if (listenersRef.current.notices) listenersRef.current.notices();
       if (listenersRef.current.feed) listenersRef.current.feed();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -461,7 +458,8 @@ export default function Dashboard() {
       
       const deps: any[] = [];
       querySnapshot.forEach((docSnap) => {
-        const dep: any = { id: docSnap.id, ...docSnap.data() };
+        const dep = { id: docSnap.id, ...docSnap.data() };
+        // @ts-expect-error some dynamic typing fields may not be present in type definition
         if(dep.titularId === titularId && dep.plan === 'dependente' && !dep.archived) {
           deps.push(dep);
         }
@@ -472,9 +470,9 @@ export default function Dashboard() {
     }
   };
 
-  const parseDateString = (dateStr: any) => {
+  const parseDateString = (dateStr: string | Date | { toDate?: () => Date } | null | undefined) => {
     if (!dateStr) return new Date();
-    if (dateStr.toDate) return dateStr.toDate();
+    if (typeof dateStr === 'object' && 'toDate' in dateStr && typeof dateStr.toDate === 'function') return dateStr.toDate();
     if (typeof dateStr === 'string') {
       if (dateStr.includes('/')) {
         const parts = dateStr.split('/');
@@ -496,12 +494,10 @@ export default function Dashboard() {
         const fetchedNotices: any[] = [];
         const now = new Date();
         
-        let hasNew = false;
         snap.docChanges().forEach(change => {
           if (change.type === 'added') {
             const data = change.doc.data();
             if (parseDateString(data.date).getTime() > Date.now() - 60000 && !initialLoadRef.current) {
-              hasNew = true;
               sendPushNotification("Tanque Team: Novo Aviso", data.title || "Temos um recado importante no mural!");
             }
           }
@@ -574,7 +570,7 @@ export default function Dashboard() {
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
       const snap = await getDocs(q);
       
-      let rank: any[] = [];
+      const rank: any[] = [];
       snap.forEach(docSnap => {
         const data = docSnap.data();
         if(data.archived || data.enrollmentStatus === 'Inativo') return;
@@ -602,7 +598,7 @@ export default function Dashboard() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const checkBirthday = async (userData: any) => {
+  const checkBirthday = async (userData: Record<string, any>) => {
     if (!userData || !userData.birthDate) return;
     const today = new Date();
     // birthDate is likely YYYY-MM-DD
@@ -633,7 +629,7 @@ export default function Dashboard() {
               likedBy: [],
               comments: []
             });
-          } catch(e) { console.error("Error sharing birthday to feed:", e); }
+          } catch { console.error("Error sharing birthday to feed:"); }
         }
       }
     }
@@ -652,10 +648,7 @@ export default function Dashboard() {
       if (lastMissingPush !== weekStr) {
         localStorage.setItem(`missing_push_${userData.id}`, weekStr);
         if (pushEnabled) {
-          sendPushNotification("O tatame está chamando! 🥋", {
-            body: "Sentimos sua falta nos treinos dessa semana. Que tal vir treinar hoje?",
-            icon: "https://iili.io/qC543c7.png"
-          });
+          sendPushNotification("O tatame está chamando! 🥋", "Sentimos sua falta nos treinos dessa semana. Que tal vir treinar hoje?");
         }
       }
     }
@@ -700,51 +693,6 @@ export default function Dashboard() {
         {stripes}
       </svg>
     );
-  };
-
-  const calculateConsecutiveDays = (attendanceArray: string[]) => {
-    if (!attendanceArray || attendanceArray.length === 0) return 0;
-    
-    const dates = attendanceArray.map(d => {
-        const parts = d.split('-');
-        const dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-        dt.setHours(0,0,0,0);
-        return dt;
-    }).sort((a, b) => b.getTime() - a.getTime());
-
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    const uniqueDates: Date[] = [];
-    let lastTime = 0;
-    dates.forEach(d => {
-        if (d.getTime() !== lastTime) {
-            uniqueDates.push(d);
-            lastTime = d.getTime();
-        }
-    });
-
-    if (uniqueDates.length === 0) return 0;
-
-    let streak = 0;
-    let expectedDate = new Date(today);
-
-    if (uniqueDates[0].getTime() !== today.getTime()) {
-        expectedDate.setDate(expectedDate.getDate() - 1);
-        if (uniqueDates[0].getTime() !== expectedDate.getTime()) {
-            return 0; 
-        }
-    }
-
-    for (let i = 0; i < uniqueDates.length; i++) {
-        if (uniqueDates[i].getTime() === expectedDate.getTime()) {
-            streak++;
-            expectedDate.setDate(expectedDate.getDate() - 1);
-        } else {
-            break;
-        }
-    }
-    return streak;
   };
 
   const checkForRecentGraduation = (progressLog: any[], currentBeltStr: string) => {
@@ -837,12 +785,7 @@ export default function Dashboard() {
   const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const planInfo = PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined };
   const totalAtt = currentUserData.attendance ? currentUserData.attendance.length : 0;
-  const streak = calculateConsecutiveDays(currentUserData.attendance || []);
   const recentGrad = checkForRecentGraduation(currentUserData.progressLog, currentUserData.belt || "Faixa Branca - 0º Grau");
-
-  const isNotWhiteBelt = currentUserData.belt && !currentUserData.belt.includes('Branca');
-  const currentDegree = currentUserData.belt ? (parseInt(currentUserData.belt.match(/(\d)º/)?.[1] || '0')) : 0;
-  const currentBeltName = currentUserData.belt ? currentUserData.belt.split('-')[0].trim() : 'Faixa Branca';
 
   // Calendar Logic
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -907,7 +850,6 @@ export default function Dashboard() {
             </button>
             <div className="flex items-center">
               <div className="relative h-8 w-8 mr-2 shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="https://iili.io/qC543c7.png" loading="lazy" className="w-full h-full object-contain" alt="Logo" />
               </div>
               <span className="font-display font-bold text-lg">TANQUE TEAM</span>
@@ -953,7 +895,6 @@ export default function Dashboard() {
                   <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 shadow-md overflow-hidden flex-shrink-0 relative">
                     {currentUserData.photoBase64 ? (
                       <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={currentUserData.photoBase64} loading="lazy" className="w-full h-full object-cover" alt="Profile" />
                       </>
                     ) : (

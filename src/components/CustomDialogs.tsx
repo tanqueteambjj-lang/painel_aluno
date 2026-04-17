@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, Info, X, HelpCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Info, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export type AlertType = 'info' | 'success' | 'error';

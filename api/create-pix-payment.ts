@@ -20,9 +20,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     let body = req.body;
     if (typeof body === 'string') {
-      try { body = JSON.parse(body); } catch (e) { body = {}; }
+      try { body = JSON.parse(body); } catch { body = {}; }
     } else if (Buffer.isBuffer(body)) {
-      try { body = JSON.parse(body.toString('utf8')); } catch (e) { body = {}; }
+      try { body = JSON.parse(body.toString('utf8')); } catch { body = {}; }
     } else if (!body) {
       body = {};
     }
@@ -52,8 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       qr_code_base64: result.point_of_interaction?.transaction_data?.qr_code_base64,
       ticket_url: result.point_of_interaction?.transaction_data?.ticket_url,
     });
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     console.error('MercadoPago PIX Error:', error);
-    return res.status(500).json({ error: 'Failed', details: error?.message || String(error) });
+    return res.status(500).json({ error: 'Failed', details: error instanceof Error ? error.message : String(error) });
   }
 }

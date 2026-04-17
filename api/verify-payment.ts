@@ -31,11 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       amount: paymentInfo.transaction_amount,
       method: paymentInfo.payment_method_id
     });
-  } catch (error: any) {
+  } catch (error: Error | unknown) {
     console.error('MercadoPago Verify Error:', error);
     return res.status(400).json({ 
       error: 'Failed to verify payment', 
-      details: error?.message || String(error)
+      details: error instanceof Error ? error.message : String(error)
     });
   }
 }
