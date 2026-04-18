@@ -9,6 +9,7 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [formData, setFormData] = useState({
+    nickname: userData?.nickname || '',
     email: userData?.email || '',
     phone: userData?.phone || '',
     cep: userData?.cep || '',
@@ -108,6 +109,7 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
     setLoading(true);
     try {
       const updates: any = {
+        nickname: formData.nickname,
         email: formData.email,
         phone: formData.phone,
         cep: formData.cep,
@@ -225,9 +227,15 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
 
               {!isCropping && (
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Utilizador (Login)</label>
-                    <input type="text" value={userData.studentLogin || ''} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Utilizador (Login)</label>
+                      <input type="text" value={userData.studentLogin || ''} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Apelido (Nome Social)</label>
+                      <input type="text" value={formData.nickname} onChange={e => setFormData({...formData, nickname: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Ex: Zé" />
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-12 gap-3">

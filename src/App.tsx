@@ -160,7 +160,7 @@ export default function Dashboard() {
       
       const post = {
         studentId: currentUserData.id,
-        studentName: currentUserData.name,
+        studentName: currentUserData.nickname || currentUserData.name,
         studentPhoto: currentUserData.photoBase64 || null,
         badgeName: sharingBadge.name,
         badgeDesc: sharingBadge.desc,
@@ -620,14 +620,15 @@ export default function Dashboard() {
         const currentYearStr = today.getFullYear().toString();
         if (lastCelebration !== currentYearStr) {
           localStorage.setItem(`birthday_celebrated_${userData.id}`, currentYearStr);
-          showAlert(`🎉 **Feliz Aniversário, ${userData.name.split(' ')[0]}!** 🎉\nObrigado por fazer parte da nossa equipe. O tatame é melhor com você!`, 'success');
+          const firstName = (userData.nickname || userData.name || "Aluno").split(' ')[0];
+          showAlert(`🎉 **Feliz Aniversário, ${firstName}!** 🎉\nObrigado por fazer parte da nossa equipe. O tatame é melhor com você!`, 'success');
 
           // Share to Feed automatically
           try {
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), {
               timestamp: new Date().toISOString(),
               studentId: userData.id,
-              studentName: userData.name,
+              studentName: userData.nickname || userData.name,
               message: "Hoje é meu aniversário! 🎉 Parabéns para mim!",
               badgeName: "Medalha de Aniversário",
               badgeDesc: "Completou mais um ano de vida e dedicação!",
@@ -785,7 +786,7 @@ export default function Dashboard() {
 
   if (!currentUserData) return null;
 
-  const firstName = (currentUserData.name || "Aluno").split(' ')[0];
+  const firstName = (currentUserData.nickname || currentUserData.name || "Aluno").split(' ')[0];
   const rawPlanKey = currentUserData.plan || 'N/A';
   // Extract base plan name if it contains " - R$"
   const basePlanName = rawPlanKey.split(' - R$')[0].trim();
@@ -1316,6 +1317,10 @@ export default function Dashboard() {
                     <div>
                       <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Nome Completo</label>
                       <div className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-medium shadow-sm overflow-x-auto">{currentUserData.name || '--'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Apelido (Nome Social)</label>
+                      <div className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-medium shadow-sm overflow-x-auto">{currentUserData.nickname || '--'}</div>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-1">Utilizador de Acesso (Login)</label>

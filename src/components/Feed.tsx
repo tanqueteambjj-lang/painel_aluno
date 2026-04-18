@@ -99,7 +99,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
   const likeFeedPost = async (postId: string, hasLiked: boolean, currentLikes: number) => {
     if(!currentUserData) return;
 
-    const userName = currentUserData.name.split(' ')[0];
+    const userName = (currentUserData.nickname || currentUserData.name).split(' ')[0];
 
     try {
       const updateQuery = hasLiked ? 
@@ -140,7 +140,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
         id: Math.random().toString(36).substr(2, 9),
         text: commentText.trim(),
         authorId: currentUserData.id,
-        authorName: currentUserData.name.split(' ')[0],
+        authorName: (currentUserData.nickname || currentUserData.name).split(' ')[0],
         timestamp: new Date().toISOString()
       };
       await updateDoc(feedRef, {
