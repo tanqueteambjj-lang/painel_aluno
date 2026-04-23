@@ -156,14 +156,22 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all border-t-4 border-brand-red"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
           >
             <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-600">
-              <h3 className="text-gray-800 dark:text-white font-display font-bold text-lg flex items-center">
-                <PenSquare className="text-brand-red mr-2 w-5 h-5" /> Alterar Dados
+              <h3 id="modal-title" className="text-gray-800 dark:text-white font-display font-bold text-lg flex items-center">
+                <PenSquare className="text-brand-red mr-2 w-5 h-5" aria-hidden="true" /> Alterar Dados
               </h3>
-              <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition text-xl no-print">
-                <X className="w-5 h-5" />
-              </button>
+              <motion.button 
+                whileTap={{ scale: 0.9 }}
+                onClick={onClose} 
+                className="text-gray-400 hover:text-red-500 transition p-1 no-print"
+                aria-label="Fechar modal"
+              >
+                <X className="w-5 h-5" aria-hidden="true" />
+              </motion.button>
             </div>
             
             <div className="p-6">
@@ -184,43 +192,54 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                       />
                     </div>
                     <div className="w-full px-4 mb-4">
-                      <label className="text-xs text-gray-500 font-bold mb-1 block">Zoom</label>
+                      <label id="zoom-label" className="text-xs text-gray-500 font-bold mb-1 block">Zoom da Imagem</label>
                       <input
                         type="range"
                         value={zoom}
                         min={1}
                         max={3}
                         step={0.1}
-                        aria-labelledby="Zoom"
+                        aria-labelledby="zoom-label"
                         onChange={(e) => setZoom(Number(e.target.value))}
                         className="w-full accent-brand-red"
                       />
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => { setIsCropping(false); setImageSrc(null); }} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-300">
+                      <motion.button 
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => { setIsCropping(false); setImageSrc(null); }} 
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-300"
+                        aria-label="Cancelar corte"
+                      >
                         Cancelar
-                      </button>
-                      <button onClick={handleCropConfirm} className="px-4 py-2 bg-brand-red text-white rounded-lg text-sm font-bold flex items-center gap-2">
-                        <Check className="w-4 h-4" /> Confirmar Corte
-                      </button>
+                      </motion.button>
+                      <motion.button 
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleCropConfirm} 
+                        className="px-4 py-2 bg-brand-red text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-md"
+                        aria-label="Confirmar corte da foto"
+                      >
+                        <Check className="w-4 h-4" aria-hidden="true" /> Confirmar Corte
+                      </motion.button>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-gray-100 dark:border-gray-700 bg-gray-200 dark:bg-gray-600 flex-shrink-0 mb-3 group">
+                    <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-gray-100 dark:border-gray-700 bg-gray-200 dark:bg-gray-600 flex-shrink-0 mb-3 group shadow-inner">
                       {photoBase64 ? (
-                        <img src={photoBase64} alt="Profile" className="w-full h-full object-cover" />
+                        <img src={photoBase64} alt={`Foto de perfil de ${userData.name}`} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <Camera className="w-8 h-8" />
+                          <Camera className="w-8 h-8" aria-hidden="true" />
                         </div>
                       )}
-                      <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
-                        <Camera className="w-6 h-6 text-white" />
-                        <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                      <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity" aria-label="Alterar foto de perfil">
+                        <Camera className="w-6 h-6 text-white" aria-hidden="true" />
+                        <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" aria-hidden="true" />
                       </label>
                     </div>
-                    <p className="text-[10px] text-gray-400 text-center">Clique na imagem para alterar<br/>(Máx 800kb)</p>
+                    <p className="text-[10px] text-gray-400 text-center font-medium">Clique na imagem para alterar<br/>(Melhor formato: Quadrado)</p>
                   </>
                 )}
               </div>
@@ -229,34 +248,35 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Utilizador (Login)</label>
-                      <input type="text" value={userData.studentLogin || ''} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled />
+                      <label htmlFor="login" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Utilizador (Login)</label>
+                      <input id="login" type="text" value={userData.studentLogin || ''} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Apelido (Nome Social)</label>
-                      <input type="text" value={formData.nickname} onChange={e => setFormData({...formData, nickname: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Ex: Zé" />
+                      <label htmlFor="nickname" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Apelido (Nome Social)</label>
+                      <input id="nickname" type="text" value={formData.nickname} onChange={e => setFormData({...formData, nickname: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Ex: Zé" />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-12 gap-3">
                     <div className="col-span-4">
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">CEP</label>
-                      <input type="text" value={formData.cep} onChange={e => setFormData({...formData, cep: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="00000-000" />
+                      <label htmlFor="cep" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">CEP</label>
+                      <input id="cep" type="text" value={formData.cep} onChange={e => setFormData({...formData, cep: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="00000-000" />
                     </div>
                     <div className="col-span-8">
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Endereço</label>
-                      <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Rua, Avenida..." />
+                      <label htmlFor="address" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Endereço</label>
+                      <input id="address" type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Rua, Avenida..." />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-12 gap-3">
                     <div className="col-span-4">
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Número</label>
-                      <input type="text" value={formData.addressNumber} onChange={e => setFormData({...formData, addressNumber: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Nº" />
+                      <label htmlFor="number" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Número</label>
+                      <input id="number" type="text" value={formData.addressNumber} onChange={e => setFormData({...formData, addressNumber: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Nº" />
                     </div>
                     <div className="col-span-4">
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Peso (kg)</label>
+                      <label htmlFor="weight" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Peso (kg)</label>
                       <input 
+                        id="weight"
                         type="number" 
                         step="0.1" 
                         min="10"
@@ -268,8 +288,9 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                       />
                     </div>
                     <div className="col-span-4">
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Altura (cm)</label>
+                      <label htmlFor="height" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Altura (cm)</label>
                       <input 
+                        id="height"
                         type="number" 
                         step="1" 
                         min="50"
@@ -279,11 +300,6 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                           const val = e.target.value.replace(/[,.]/g, '');
                           setFormData({...formData, height: val});
                         }} 
-                        onKeyDown={e => {
-                          if (e.key === ',' || e.key === '.') {
-                            e.preventDefault();
-                          }
-                        }}
                         className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" 
                         placeholder="Ex: 175" 
                       />
@@ -291,37 +307,51 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                   </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">E-mail</label>
-                    <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
+                    <label htmlFor="email" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">E-mail</label>
+                    <input id="email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Telefone</label>
-                    <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
+                    <label htmlFor="phone" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Telefone</label>
+                    <input id="phone" type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700 mt-2">
                   <div>
-                    <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Nova Senha (Opcional)</label>
-                    <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full border border-blue-200 dark:border-blue-800 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="Nova senha..." />
+                    <label htmlFor="pass" className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Nova Senha (Opcional)</label>
+                    <input id="pass" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full border border-blue-200 dark:border-blue-800 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="Nova senha..." />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Confirmar Senha</label>
-                    <input type="password" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} className="w-full border border-blue-200 dark:border-blue-800 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="Confirme a senha..." />
+                    <label htmlFor="confirm" className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Confirmar Senha</label>
+                    <input id="confirm" type="password" value={formData.confirmPassword} onChange={e => setFormData({...formData, confirmPassword: e.target.value})} className="w-full border border-blue-200 dark:border-blue-800 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="Confirme a senha..." />
                   </div>
                   <div className="col-span-2">
-                    <p className="text-[10px] text-gray-400">Deixe em branco para manter a senha atual.</p>
+                    <p className="text-[10px] text-gray-400 italic">Deixe em branco para manter a senha atual.</p>
                   </div>
                 </div>
               </div>
               )}
               
               <div className="mt-6 flex justify-end gap-2 pt-4 border-t border-gray-100 dark:border-gray-700 no-print">
-                <button onClick={onClose} className="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 font-bold text-gray-700 dark:text-gray-300 transition">Cancelar</button>
-                <button onClick={handleSave} disabled={loading || saveSuccess} className={`px-5 py-2 text-white rounded-lg text-sm font-bold transition shadow-md flex items-center justify-center gap-2 w-32 disabled:opacity-50 ${saveSuccess ? 'bg-green-500 hover:bg-green-600' : 'bg-brand-red hover:bg-red-700'}`}>
-                  {loading && !saveSuccess ? <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span> :
-                   saveSuccess ? <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-1"><Check className="w-4 h-4" /> Salvo!</motion.div> :
-                   <><Save className="w-4 h-4" /> Salvar</>}
-                </button>
+                <motion.button 
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onClose} 
+                  className="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-700 font-bold text-gray-700 dark:text-gray-300 transition"
+                  aria-label="Descartar alterações"
+                >
+                  Cancelar
+                </motion.button>
+                <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleSave} 
+                  disabled={loading || saveSuccess} 
+                  className={`px-5 py-2 text-white rounded-lg text-sm font-bold transition shadow-md flex items-center justify-center gap-2 w-32 disabled:opacity-50 ${saveSuccess ? 'bg-green-500 hover:bg-green-600' : 'bg-brand-red hover:bg-red-700'}`}
+                  aria-label="Salvar alterações no perfil"
+                >
+                  {(loading && !saveSuccess) ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> :
+                   saveSuccess ? <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="flex items-center gap-1"><Check className="w-4 h-4" aria-hidden="true" /> Salvo!</motion.div> :
+                   <><Save className="w-4 h-4" aria-hidden="true" /> Salvar</>}
+                </motion.button>
               </div>
             </div>
           </motion.div>

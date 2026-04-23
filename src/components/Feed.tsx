@@ -165,9 +165,9 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
 
       <div className="max-w-2xl mx-auto space-y-6">
         {loading ? (
-          <div className="text-center py-10">
-            <RefreshCw className="w-8 h-8 animate-spin text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">A carregar o feed...</p>
+          <div className="text-center py-10" role="status" aria-live="polite">
+            <RefreshCw className="w-8 h-8 animate-spin text-gray-300 dark:text-gray-600 mx-auto mb-3" aria-hidden="true" />
+            <p className="text-gray-500 dark:text-gray-400 font-medium">A carregar o feed da equipe...</p>
           </div>
         ) : posts.length === 0 ? (
           <motion.div 
@@ -175,7 +175,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
             animate={{ opacity: 1, y: 0 }}
             className="bg-white dark:bg-gray-800 rounded-xl p-10 text-center shadow-sm border border-gray-200 dark:border-gray-700"
           >
-            <Frown className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <Frown className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" aria-hidden="true" />
             <h3 className="font-bold text-gray-600 dark:text-gray-300">O feed está silencioso...</h3>
             <p className="text-sm text-gray-400 mt-1">Nenhuma conquista nova nas últimas 24 horas. Seja o primeiro a compartilhar!</p>
           </motion.div>
@@ -185,33 +185,39 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
             const timeAgo = formatDistanceToNow(parseDateString(post.timestamp), { addSuffix: true, locale: ptBR });
 
             return (
-              <motion.div 
+              <motion.article 
                 key={post.id} 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 border border-gray-100 dark:border-gray-700"
+                aria-labelledby={`post-title-${post.id}`}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
                     {post.studentPhoto ? (
-                      <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0">
-                        <img src={post.studentPhoto} loading="lazy" className="w-full h-full object-cover" alt="Avatar" />
+                      <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gray-200 dark:border-gray-700">
+                        <img src={post.studentPhoto} loading="lazy" className="w-full h-full object-cover" alt={`Avatar de ${post.studentName}`} />
                       </div>
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 shrink-0" aria-hidden="true">
                         {post.studentName.charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div>
-                      <h4 className="font-bold text-gray-800 dark:text-white leading-tight">{post.studentName}</h4>
-                      <p className="text-xs text-gray-500">{timeAgo}</p>
+                      <h4 id={`post-title-${post.id}`} className="font-bold text-gray-800 dark:text-white leading-tight">{post.studentName}</h4>
+                      <time className="text-xs text-gray-500" dateTime={parseDateString(post.timestamp).toISOString()}>{timeAgo}</time>
                     </div>
                   </div>
                   {post.studentId === currentUserData?.id && (
-                    <button onClick={() => deleteFeedPost(post.id)} className="text-gray-400 hover:text-red-500 transition text-sm bg-gray-100 hover:bg-red-50 dark:bg-gray-700 dark:hover:bg-red-900/30 w-8 h-8 rounded-full flex items-center justify-center" title="Apagar Minha Publicação">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <motion.button 
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => deleteFeedPost(post.id)} 
+                      className="text-gray-400 hover:text-red-500 transition text-sm bg-gray-100 hover:bg-red-50 dark:bg-gray-700 dark:hover:bg-red-900/30 w-8 h-8 rounded-full flex items-center justify-center"
+                      aria-label="Apagar minha publicação"
+                    >
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
+                    </motion.button>
                   )}
                 </div>
                 
@@ -221,7 +227,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
 
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4 flex flex-col gap-4 border border-gray-100 dark:border-gray-600">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-3xl shadow-sm shrink-0">
+                    <div className="w-14 h-14 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-3xl shadow-sm shrink-0" aria-hidden="true">
                       {ICON_MAP[post.badgeIcon] ? (
                         (() => {
                           const IconComponent = ICON_MAP[post.badgeIcon];
@@ -232,13 +238,16 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                       )}
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-widest mb-1">Desbloqueou</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-widest mb-1">CONQUISTA DESBLOQUEADA</p>
                       <h5 className="font-display text-xl font-bold text-brand-dark dark:text-gray-100 leading-tight">{post.badgeName}</h5>
                       <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{post.badgeDesc}</p>
                     </div>
                   </div>
                   {post.beltStr && (
-                    <div className="w-full h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 shadow-inner overflow-hidden relative mt-2">
+                    <div 
+                      className="w-full h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 shadow-inner overflow-hidden relative mt-2"
+                      aria-label={`Faixa atualizada: ${post.beltStr}`}
+                    >
                       {renderBeltSVG(post.beltStr)}
                     </div>
                   )}
@@ -250,11 +259,11 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                       whileTap={{ scale: 0.9 }}
                       onClick={() => likeFeedPost(post.id, hasLiked, post.likes || 0)} 
                       className="flex items-center gap-1.5 font-bold transition group outline-none"
-                      title={hasLiked ? "Descurtir" : "Curtir (Oss!)"}
+                      aria-label={hasLiked ? "Remover curtida" : "Curtir publicação (Oss!)"}
                     >
-                      <ThumbsUp className={`w-5 h-5 ${hasLiked ? 'text-brand-red fill-brand-red' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-red'}`} />
+                      <ThumbsUp className={`w-5 h-5 ${hasLiked ? 'text-brand-red fill-brand-red' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-red'}`} aria-hidden="true" />
                       {post.likes > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{post.likes}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400" aria-label={`${post.likes} curtidas`}>{post.likes}</span>
                       )}
                     </motion.button>
 
@@ -262,11 +271,12 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                       whileTap={{ scale: 0.9 }}
                       onClick={() => setOpenCommentPostId(openCommentPostId === post.id ? null : post.id)} 
                       className="flex items-center gap-1.5 font-bold transition group outline-none text-gray-400 dark:text-gray-500 hover:text-brand-red"
-                      title="Comentar"
+                      aria-label={openCommentPostId === post.id ? "Fechar comentários" : "Abrir comentários"}
+                      aria-expanded={openCommentPostId === post.id}
                     >
-                      <MessageCircle className="w-5 h-5 group-hover:text-brand-red" />
+                      <MessageCircle className="w-5 h-5 group-hover:text-brand-red" aria-hidden="true" />
                       {post.comments?.length > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{post.comments.length}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400" aria-label={`${post.comments.length} comentários`}>{post.comments.length}</span>
                       )}
                     </motion.button>
                   </div>
@@ -279,11 +289,11 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3"
+                      className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3 overflow-hidden"
                     >
                       {post.comments?.map((comment: any) => (
                         <div key={comment.id} className="flex gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 mt-0.5">
+                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 mt-0.5" aria-hidden="true">
                             {comment.authorName.charAt(0).toUpperCase()}
                           </div>
                           <div className="bg-gray-50 dark:bg-gray-700/30 rounded-2xl rounded-tl-none px-3 py-2 flex-1">
@@ -305,20 +315,23 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                               if (e.key === 'Enter') handleCommentSubmit(post.id);
                             }}
                             autoFocus
+                            aria-label="Campo de comentário"
                           />
-                          <button 
+                          <motion.button 
+                            whileTap={{ scale: 0.9 }}
                             onClick={() => handleCommentSubmit(post.id)}
                             disabled={!commentText.trim()}
-                            className="w-9 h-9 rounded-full bg-brand-red text-white flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300 hover:bg-red-700 transition"
+                            className="w-9 h-9 rounded-full bg-brand-red text-white flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300 hover:bg-red-700 transition shadow-sm"
+                            aria-label="Enviar comentário"
                           >
-                            <Send className="w-4 h-4 ml-[-2px]" />
-                          </button>
+                            <Send className="w-4 h-4 ml-[-2px]" aria-hidden="true" />
+                          </motion.button>
                         </div>
                       )}
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </motion.div>
+              </motion.article>
             );
           })
         )}

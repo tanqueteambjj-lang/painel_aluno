@@ -737,7 +737,7 @@ export default function Dashboard() {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark"
       >
-        <div className="text-center">
+        <div className="text-center" role="status" aria-live="polite">
           <motion.div 
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
@@ -746,11 +746,11 @@ export default function Dashboard() {
           <motion.h2 
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ repeat: Infinity, duration: 1.5 }}
-            className="text-white font-display text-xl"
+            className="text-white font-display text-xl uppercase"
           >
             A CARREGAR DOJO...
           </motion.h2>
-          <p className="text-gray-400 text-xs mt-2">{loadingText}</p>
+          <p className="text-gray-400 text-xs mt-2 font-medium">{loadingText}</p>
         </div>
       </motion.div>
     );
@@ -769,17 +769,23 @@ export default function Dashboard() {
 
   if (authError) {
     return (
-      <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 text-white p-4 text-center">
-        <Lock className="w-12 h-12 mb-4 text-brand-red" />
+      <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 text-white p-4 text-center" role="alert">
+        <Lock className="w-12 h-12 mb-4 text-brand-red" aria-hidden="true" />
         <h2 className="text-xl font-bold mb-2">Acesso Restrito</h2>
         <p className="text-gray-300 mb-6">{authError}</p>
-        <button onClick={() => {
-          localStorage.removeItem('tanque_user_session');
-          setAuthError(null);
-          window.location.href = 'https://www.tanqueteambjj.com.br/login.html';
-        }} className="px-6 py-2 bg-brand-red rounded hover:bg-red-700 transition font-bold">
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            localStorage.removeItem('tanque_user_session');
+            setAuthError(null);
+            window.location.href = 'https://www.tanqueteambjj.com.br/login.html';
+          }} 
+          className="px-6 py-2 bg-brand-red rounded hover:bg-red-700 transition font-bold shadow-lg"
+          aria-label="Ir para a página de login"
+        >
           Ir para Login
-        </button>
+        </motion.button>
       </div>
     );
   }
@@ -919,28 +925,44 @@ export default function Dashboard() {
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
         {/* Mobile Header */}
-        <header className="md:hidden bg-brand-dark border-b border-gray-800 text-white p-4 flex justify-between items-center shadow-md z-20 no-print shrink-0">
+        <header className="md:hidden bg-brand-dark border-b border-gray-800 text-white p-4 flex justify-between items-center shadow-md z-20 no-print shrink-0" role="banner">
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-white hover:text-brand-red focus:outline-none transition relative">
-              <Menu className="w-6 h-6" />
+            <motion.button 
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+              className="text-white hover:text-brand-red focus:outline-none transition relative p-1"
+              aria-label={isMobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+              aria-expanded={isMobileMenuOpen}
+            >
+              <Menu className="w-6 h-6" aria-hidden="true" />
               {(hasUnreadFeed || hasUnreadNotices) && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-brand-dark"></span>
+                <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-brand-dark" aria-label="Notificações não lidas"></span>
               )}
-            </button>
+            </motion.button>
             <div className="flex items-center">
               <div className="relative h-8 w-8 mr-2 shrink-0">
-                <img src="https://iili.io/qC543c7.png" loading="lazy" className="w-full h-full object-contain" alt="Logo" />
+                <img src="https://iili.io/qC543c7.png" loading="lazy" className="w-full h-full object-contain" alt="Logo Tanque Team" />
               </div>
-              <span className="font-display font-bold text-lg">TANQUE TEAM</span>
+              <span className="font-display font-bold text-lg tracking-tight">TANQUE TEAM</span>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button onClick={toggleTheme} className="text-yellow-400 hover:text-yellow-300 focus:outline-none transition">
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-            <button onClick={handleLogout} className="text-red-400 hover:text-red-500 focus:outline-none transition">
-              <LogOut className="w-5 h-5" />
-            </button>
+          <div className="flex items-center gap-2">
+            <motion.button 
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleTheme} 
+              className="text-yellow-400 hover:text-yellow-300 focus:outline-none transition p-2 rounded-full hover:bg-white/5"
+              aria-label={isDarkMode ? "Ativar modo claro" : "Ativar modo noturno"}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" aria-hidden="true" /> : <Moon className="w-5 h-5" aria-hidden="true" />}
+            </motion.button>
+            <motion.button 
+              whileTap={{ scale: 0.9 }}
+              onClick={handleLogout} 
+              className="text-red-400 hover:text-red-500 focus:outline-none transition p-2 rounded-full hover:bg-white/5"
+              aria-label="Sair do sistema"
+            >
+              <LogOut className="w-5 h-5" aria-hidden="true" />
+            </motion.button>
           </div>
         </header>
 
@@ -957,7 +979,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 relative">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 relative" role="main">
           <AnimatePresence mode="wait">
             {/* DASHBOARD VIEW */}
             {view === 'dashboard' && (
@@ -1006,25 +1028,37 @@ export default function Dashboard() {
 
               {/* Check-in Button */}
               <div className="mb-8 no-print">
-                <button onClick={() => setIsQrModalOpen(true)} className="w-full bg-gradient-to-r from-brand-dark to-gray-800 dark:from-gray-800 dark:to-gray-900 text-white font-bold py-4 px-6 rounded-2xl shadow-xl flex items-center justify-between transition transform hover:-translate-y-1 border border-gray-700 dark:border-gray-600">
+                <motion.button 
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setIsQrModalOpen(true)} 
+                  className="w-full bg-gradient-to-r from-brand-dark to-gray-800 dark:from-gray-800 dark:to-gray-900 text-white font-bold py-4 px-6 rounded-2xl shadow-xl flex items-center justify-between transition border border-gray-700 dark:border-gray-600"
+                  aria-label="Abrir Carteirinha Digital para Check-in"
+                >
                   <div className="flex items-center gap-4 text-left">
                     <div className="w-14 h-14 bg-brand-red rounded-full flex items-center justify-center shadow-inner shrink-0">
-                      <QrCode className="w-8 h-8 text-white" />
+                      <QrCode className="w-8 h-8 text-white" aria-hidden="true" />
                     </div>
                     <div>
                       <span className="block text-lg md:text-xl font-display uppercase tracking-widest text-brand-red">Carteirinha Digital</span>
                       <span className="block text-xs md:text-sm text-gray-300 dark:text-gray-400 font-normal mt-1">Toque aqui para abrir o seu QR Code e realizar o Check-in na Recepção</span>
                     </div>
                   </div>
-                </button>
+                </motion.button>
               </div>
 
               {/* Quick Actions */}
               <div className="mb-8 no-print">
-                <button onClick={() => window.open(`https://api.whatsapp.com/send?text=E aí! Bora treinar Jiu-Jitsu na Tanque Team? 🥋🔥 Vem fazer uma aula experimental! Acesse: https://www.tanqueteambjj.com.br`, '_blank')} className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition transform hover:-translate-y-1">
-                  <Share2 className="w-6 h-6" />
+                <motion.button 
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => window.open(`https://api.whatsapp.com/send?text=E aí! Bora treinar Jiu-Jitsu na Tanque Team? 🥋🔥 Vem fazer uma aula experimental! Acesse: https://www.tanqueteambjj.com.br`, '_blank')} 
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition"
+                  aria-label="Convidar um amigo via WhatsApp"
+                >
+                  <Share2 className="w-6 h-6" aria-hidden="true" />
                   <span className="text-base md:text-lg">Chamar um Amigo pro Treino</span>
-                </button>
+                </motion.button>
               </div>
 
               {/* Notices */}
@@ -1123,17 +1157,33 @@ export default function Dashboard() {
                       <Calendar className="w-4 h-4 text-brand-red" /> Calendário de Treinos
                     </h3>
                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-full px-2 py-1">
-                      <button onClick={() => {
-                        let m = currentCalendarMonth - 1; let y = currentCalendarYear;
-                        if (m < 0) { m = 11; y--; }
-                        setCurrentCalendarMonth(m); setCurrentCalendarYear(y);
-                      }} className="w-6 h-6 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600 hover:text-brand-red rounded-full transition">&lt;</button>
-                      <span className="text-xs font-bold text-brand-dark dark:text-gray-200 min-w-[80px] text-center uppercase">{monthNames[currentCalendarMonth].substring(0,3)}. {currentCalendarYear}</span>
-                      <button onClick={() => {
-                        let m = currentCalendarMonth + 1; let y = currentCalendarYear;
-                        if (m > 11) { m = 0; y++; }
-                        setCurrentCalendarMonth(m); setCurrentCalendarYear(y);
-                      }} className="w-6 h-6 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600 hover:text-brand-red rounded-full transition">&gt;</button>
+                      <motion.button 
+                        whileTap={{ scale: 0.8 }}
+                        onClick={() => {
+                          let m = currentCalendarMonth - 1; let y = currentCalendarYear;
+                          if (m < 0) { m = 11; y--; }
+                          setCurrentCalendarMonth(m); setCurrentCalendarYear(y);
+                        }} 
+                        className="w-6 h-6 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600 hover:text-brand-red rounded-full transition"
+                        aria-label="Mês anterior"
+                      >
+                        &lt;
+                      </motion.button>
+                      <span className="text-xs font-bold text-brand-dark dark:text-gray-200 min-w-[80px] text-center uppercase" aria-live="polite">
+                        {monthNames[currentCalendarMonth].substring(0,3)}. {currentCalendarYear}
+                      </span>
+                      <motion.button 
+                        whileTap={{ scale: 0.8 }}
+                        onClick={() => {
+                          let m = currentCalendarMonth + 1; let y = currentCalendarYear;
+                          if (m > 11) { m = 0; y++; }
+                          setCurrentCalendarMonth(m); setCurrentCalendarYear(y);
+                        }} 
+                        className="w-6 h-6 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600 hover:text-brand-red rounded-full transition"
+                        aria-label="Próximo mês"
+                      >
+                        &gt;
+                      </motion.button>
                     </div>
                   </div>
                   
@@ -1309,8 +1359,16 @@ export default function Dashboard() {
 
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden max-w-4xl mx-auto border-t-4 border-gray-800 dark:border-gray-600">
                 <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
-                  <h3 className="text-gray-800 dark:text-gray-100 font-display font-bold tracking-wide text-lg flex items-center"><FileText className="mr-2 text-brand-red w-5 h-5" /> DADOS CADASTRAIS</h3>
-                  <button onClick={() => setIsProfileEditModalOpen(true)} className="bg-brand-red hover:bg-red-700 text-white px-4 py-2 rounded font-bold shadow transition text-sm flex items-center gap-2">Alterar Dados</button>
+                  <h3 className="text-gray-800 dark:text-gray-100 font-display font-bold tracking-wide text-lg flex items-center"><FileText className="mr-2 text-brand-red w-5 h-5" aria-hidden="true" /> DADOS CADASTRAIS</h3>
+                  <motion.button 
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsProfileEditModalOpen(true)} 
+                    className="bg-brand-red hover:bg-red-700 text-white px-4 py-2 rounded font-bold shadow transition text-sm flex items-center gap-2"
+                    aria-label="Editar dados cadastrais"
+                  >
+                    Alterar Dados
+                  </motion.button>
                 </div>
                 <div className="p-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1387,15 +1445,18 @@ export default function Dashboard() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="share-badge-title"
             >
-              <h3 className="font-bold text-lg mb-4 dark:text-white">Compartilhar Conquista</h3>
+              <h3 id="share-badge-title" className="font-bold text-lg mb-4 dark:text-white">Compartilhar Conquista</h3>
               <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                 <div className="flex items-center justify-center scale-125 w-8 h-8 shrink-0">
                   {sharingBadge.icon && typeof sharingBadge.icon === 'object' && 'props' in sharingBadge.icon 
                     ? sharingBadge.icon 
                     : sharingBadge.icon && typeof sharingBadge.icon === 'function' 
-                      ? <sharingBadge.icon className={`w-full h-full ${sharingBadge.color || ''}`} /> 
-                      : <Trophy className="w-8 h-8 text-yellow-500" />
+                      ? <sharingBadge.icon className={`w-full h-full ${sharingBadge.color || ''}`} aria-hidden="true" /> 
+                      : <Trophy className="w-8 h-8 text-yellow-500" aria-hidden="true" />
                   }
                 </div>
                 <div>
@@ -1409,12 +1470,28 @@ export default function Dashboard() {
                 placeholder="Escreva uma mensagem personalizada..."
                 className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-3 text-sm mb-4 outline-none focus:ring-2 focus:ring-brand-red dark:text-white resize-none"
                 rows={3}
+                aria-label="Mensagem do compartilhamento"
               />
               <div className="flex gap-2">
-                <button onClick={() => setSharingBadge(null)} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">Cancelar</button>
-                <button onClick={confirmShareBadge} disabled={isSharing} className="flex-1 py-2 rounded-xl font-bold text-white bg-brand-red hover:bg-red-700 transition flex items-center justify-center gap-2 disabled:opacity-50">
-                  {isSharing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Compartilhar"}
-                </button>
+                <motion.button 
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSharingBadge(null)} 
+                  disabled={isSharing} 
+                  className="flex-1 py-2 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50"
+                  aria-label="Cancelar compartilhamento"
+                >
+                  Cancelar
+                </motion.button>
+                <motion.button 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={confirmShareBadge} 
+                  disabled={isSharing} 
+                  className="flex-1 py-2 rounded-xl font-bold text-white bg-brand-red hover:bg-red-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  aria-label="Enviar para o Feed"
+                >
+                  {isSharing ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : "Compartilhar"}
+                </motion.button>
               </div>
             </motion.div>
           </motion.div>
