@@ -14,7 +14,7 @@ import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
@@ -1331,19 +1331,6 @@ export default function Dashboard() {
               </motion.div>
             )}
 
-            {/* FINANCE VIEW */}
-            {view === 'finance' && (
-              <motion.div
-                key="finance"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Finance currentUserData={currentUserData} planInfo={planInfo} showAlert={showAlert} />
-              </motion.div>
-            )}
-
             {/* RANKING VIEW */}
             {view === 'ranking' && (
               <motion.div
@@ -1398,16 +1385,20 @@ export default function Dashboard() {
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden max-w-4xl mx-auto border-t-4 border-gray-800 dark:border-gray-600">
-                <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
-                  <h3 className="text-gray-800 dark:text-gray-100 font-display font-bold tracking-wide text-lg flex items-center"><FileText className="mr-2 text-brand-red w-5 h-5" aria-hidden="true" /> DADOS CADASTRAIS</h3>
+                <div className="bg-gray-50 dark:bg-gray-700 px-6 py-6 border-b border-gray-200 dark:border-gray-600 flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="flex items-center">
+                    <FileText className="mr-2 text-brand-red w-6 h-6" aria-hidden="true" />
+                    <h3 className="text-gray-800 dark:text-gray-100 font-display font-bold tracking-wide text-xl uppercase">DADOS CADASTRAIS</h3>
+                  </div>
                   <motion.button 
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, backgroundColor: '#c53030' }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setIsProfileEditModalOpen(true)} 
-                    className="bg-brand-red hover:bg-red-700 text-white px-4 py-2 rounded font-bold shadow transition text-sm flex items-center gap-2"
+                    className="w-full md:w-auto bg-brand-red hover:bg-red-700 text-white px-8 py-3 rounded-xl font-black shadow-lg hover:shadow-xl transition-all text-base flex items-center justify-center gap-3 border-2 border-white/20"
                     aria-label="Editar dados cadastrais"
                   >
-                    Alterar Dados
+                    <UserCog className="w-5 h-5" />
+                    ALTERAR MEUS DADOS
                   </motion.button>
                 </div>
                 <div className="p-8">
@@ -1449,6 +1440,14 @@ export default function Dashboard() {
                       <div className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-medium shadow-sm overflow-x-auto">{currentUserData.address || '--'}</div>
                     </div>
                   </div>
+                </div>
+
+                <div className="mt-12 max-w-4xl mx-auto mb-10 overflow-hidden">
+                  <div className="mb-6 flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 pb-3">
+                    <CreditCard className="w-8 h-8 text-brand-red" />
+                    <h2 className="font-display text-3xl font-bold text-brand-dark dark:text-white uppercase tracking-wider">Meus Pagamentos</h2>
+                  </div>
+                  <Finance currentUserData={currentUserData} planInfo={planInfo} showAlert={showAlert} />
                 </div>
               </div>
               </motion.div>

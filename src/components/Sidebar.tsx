@@ -1,4 +1,4 @@
-import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, CreditCard, Trophy, Calendar, Shield } from 'lucide-react';
+import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, isAdmin }: any) {
@@ -75,17 +75,7 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
           aria-current={view === 'profile' ? 'page' : undefined}
         >
           <UserCog className="w-6 h-6" aria-hidden="true" />
-          <span className="ml-2">Meus Dados</span>
-        </motion.button>
-        <motion.button 
-          whileHover={{ scale: 1.02, x: 4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => { setView('finance'); setIsMobileMenuOpen(false); }} 
-          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left ${view === 'finance' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
-          aria-current={view === 'finance' ? 'page' : undefined}
-        >
-          <CreditCard className="w-6 h-6" aria-hidden="true" />
-          <span className="ml-2">Financeiro</span>
+          <span className="ml-2 font-bold text-base">Meus Dados</span>
         </motion.button>
 
         {isAdmin && (
