@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, getDocs, addDoc, where, deleteDoc, doc, onSnapshot, orderBy } from 'firebase/firestore';
-import { Settings, Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, AlertCircle, ChevronRight, User, XCircle, Camera, Ban, CheckSquare, Square, Trash } from 'lucide-react';
+import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc } from 'firebase/firestore';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { format, addDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { updateDoc } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   const [activeTab, setActiveTab] = useState('bookings');
@@ -13,7 +11,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   
   // Schedule Management
   const [gymSchedule, setGymSchedule] = useState<any[]>([]);
-  const [newClass, setNewClass] = useState({ day: 1, times: '18:00', name: '' });
+  const [newClass, setNewClass] = useState({ days: [1], times: '18:00', name: '' });
+  const [editingClass, setEditingClass] = useState<any>(null);
   
   // Bookings Management
   const [bookings, setBookings] = useState<any[]>([]);
@@ -27,6 +26,75 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   // Student Search
   const [students, setStudents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const removeStudentPhoto = async (studentId: string) => {
+    showConfirm("Remover Foto", "Tem certeza que deseja remover a foto deste aluno?", async () => {
+      try {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'users', studentId), {
+          photoBase64: null
+        });
+        showAlert("Sucesso", "Foto removida.", "success");
+      } catch (e) {
+        console.error(e);
+        showAlert("Erro", "Falha ao remover foto.", "error");
+      }
+    });
+  };
+
+  const muteStudent = async (studentId: string, name: string, hours: number | 'perm') => {
+    const hoursNum = hours === 'perm' ? 87600 : hours; // 10 years for perm
+    const mutedUntil = new Date(Date.now() + (hoursNum as number) * 60 * 60 * 1000).toISOString();
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'users', studentId), {
+        mutedUntil: mutedUntil
+      });
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, mutedUntil } : s));
+      showAlert("Sucesso", `${name} silenciado por ${hours === 'perm' ? 'tempo indeterminado' : hours + ' horas'}.`, "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao silenciar aluno.", "error");
+    }
+  };
+
+  const unmuteStudent = async (studentId: string, name: string) => {
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'users', studentId), {
+        mutedUntil: null
+      });
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, mutedUntil: null } : s));
+      showAlert("Sucesso", `Silenciamento de ${name} removido.`, "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao remover silenciamento.", "error");
+    }
+  };
+
+  const fetchStudents = async () => {
+    if (searchQuery.length < 3) {
+      showAlert("Aviso", "Digite pelo menos 3 letras para buscar.", "info");
+      return;
+    }
+    const q = query(collection(db, 'artifacts', appId, 'public', 'users'), orderBy('name'));
+    const snap = await getDocs(q);
+    const list: any[] = [];
+    snap.forEach(doc => {
+      const data = doc.data();
+      if (data.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          (data.nickname && data.nickname.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (data.studentLogin && data.studentLogin.toLowerCase().includes(searchQuery.toLowerCase()))) {
+        list.push({ id: doc.id, ...data });
+      }
+    });
+    setStudents(list);
+    if (list.length === 0) showAlert("Aviso", "Nenhum aluno encontrado.", "info");
+  };
+
+  useEffect(() => {
+    if (activeTab === 'students' && searchQuery.length >= 3) {
+      const timeoutId = setTimeout(fetchStudents, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [searchQuery, activeTab, appId]);
 
   const weekDays = [
     { id: 0, name: 'Domingo' },
@@ -61,8 +129,23 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     // Feed Listener
     const unsubFeed = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), (snap) => {
       const posts: any[] = [];
-      snap.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
-      setFeedPosts(posts.sort((a,b) => b.timestamp.localeCompare(a.timestamp)));
+      const now = new Date().toISOString();
+      let hasExpired = false;
+
+      snap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.expiresAt && data.expiresAt < now) {
+          hasExpired = true;
+          // Delete expired post
+          deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feed', docSnap.id)).catch(console.error);
+        } else {
+          posts.push({ id: docSnap.id, ...data });
+        }
+      });
+      
+      if (!hasExpired) {
+        setFeedPosts(posts.sort((a,b) => b.timestamp.localeCompare(a.timestamp)));
+      }
       setLoading(false);
     });
 
@@ -78,20 +161,42 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
       showAlert("Aviso", "A aula precisa de um nome.", "error");
       return;
     }
+    if (newClass.days.length === 0) {
+      showAlert("Aviso", "Selecione pelo menos um dia da semana.", "error");
+      return;
+    }
     try {
       const timesArray = newClass.times.split(',').map(t => t.trim()).filter(t => t);
-      for (const t of timesArray) {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'gymSchedule'), {
-          day: Number(newClass.day),
-          time: t,
-          name: newClass.name
-        });
+      for (const day of newClass.days) {
+        for (const t of timesArray) {
+          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'gymSchedule'), {
+            day: Number(day),
+            time: t,
+            name: newClass.name
+          });
+        }
       }
-      setNewClass({ ...newClass, name: '' });
-      showAlert("Sucesso", `${timesArray.length} horário(s) adicionado(s) com sucesso!`, "success");
+      setNewClass({ ...newClass, name: '', days: [1] });
+      showAlert("Sucesso", "Horário(s) adicionado(s) com sucesso!", "success");
     } catch (e) {
       console.error(e);
       showAlert("Erro", "Falha ao adicionar horário.", "error");
+    }
+  };
+
+  const updateClass = async () => {
+    if (!editingClass || !editingClass.name || !editingClass.time) return;
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gymSchedule', editingClass.id), {
+        name: editingClass.name,
+        time: editingClass.time,
+        day: Number(editingClass.day)
+      });
+      setEditingClass(null);
+      showAlert("Sucesso", "Horário atualizado com sucesso!", "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao atualizar horário.", "error");
     }
   };
 
@@ -113,6 +218,18 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
         }
         setSelectedSchedule([]);
         showAlert("Sucesso", "Horários removidos com sucesso!", "success");
+      } catch (e) { console.error(e); }
+    });
+  };
+
+  const deleteDaySchedule = async (dayId: number, dayName: string) => {
+    showConfirm("Apagar Dia Inteiro", `Tem certeza que deseja apagar TODOS os horários de ${dayName}?`, async () => {
+      try {
+        const dayClasses = gymSchedule.filter(c => c.day === dayId);
+        for (const c of dayClasses) {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gymSchedule', c.id));
+        }
+        showAlert("Sucesso", `Horários de ${dayName} removidos.`, "success");
       } catch (e) { console.error(e); }
     });
   };
@@ -151,53 +268,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     showConfirm("Remover Agendamento", `Remover ${studentName} desta aula?`, async () => {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', id));
-      } catch (e) { console.error(e); }
-    });
-  };
-
-  const fetchStudents = async () => {
-    if (searchQuery.length < 3) return;
-    try {
-      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
-      const snap = await getDocs(q);
-      const list: any[] = [];
-      snap.forEach(doc => {
-        const data = doc.data();
-        if (data.name.toLowerCase().includes(searchQuery.toLowerCase()) || data.studentLogin?.includes(searchQuery)) {
-           list.push({ id: doc.id, ...data });
-        }
-      });
-      setStudents(list);
-    } catch (e) { console.error(e); }
-  };
-
-  const removeStudentPhoto = async (studentId: string, studentName: string) => {
-    showConfirm("Remover Foto", `Tem certeza que deseja remover a foto de ${studentName}? A imagem não segue as diretrizes.`, async () => {
-      try {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
-          photoBase64: null
-        });
-        setStudents(prev => prev.map(s => s.id === studentId ? { ...s, photoBase64: null } : s));
-        showAlert("Sucesso", "Foto removida com sucesso.", "success");
-      } catch (e) { console.error(e); }
-    });
-  };
-
-  const muteStudent = async (studentId: string, studentName: string, durationDays: number | 'perm') => {
-    const label = durationDays === 'perm' ? 'Permanentemente' : `${durationDays} dia(s)`;
-    showConfirm("Silenciar Aluno", `Deseja impedir que ${studentName} poste no feed por ${label}?`, async () => {
-      try {
-        let until = "2099-12-31T23:59:59Z";
-        if (durationDays !== 'perm') {
-          const now = new Date();
-          now.setDate(now.getDate() + durationDays);
-          until = now.toISOString();
-        }
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
-          mutedUntil: until
-        });
-        setStudents(prev => prev.map(s => s.id === studentId ? { ...s, mutedUntil: until } : s));
-        showAlert("Sucesso", `O aluno foi silenciado até ${durationDays === 'perm' ? 'sempre' : format(new Date(until), 'dd/MM/yyyy HH:mm')}.`, "success");
       } catch (e) { console.error(e); }
     });
   };
@@ -332,17 +402,28 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dia da Semana</label>
-                          <select 
-                            value={newClass.day}
-                            onChange={(e) => setNewClass({...newClass, day: parseInt(e.target.value)})}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
-                          >
-                            {weekDays.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                          </select>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Dias da Semana</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {weekDays.map(d => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => {
+                                const days = newClass.days.includes(d.id)
+                                  ? newClass.days.filter(id => id !== d.id)
+                                  : [...newClass.days, d.id];
+                                setNewClass({...newClass, days});
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${newClass.days.includes(d.id) ? 'bg-brand-red text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}
+                            >
+                              {newClass.days.includes(d.id) ? <CheckSquare size={12} /> : <Square size={12} />}
+                              {d.name}
+                            </button>
+                          ))}
                         </div>
+                      </div>
+
                       <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Horário(s) (ex: 18:00, 19:30)</label>
                         <input 
@@ -352,7 +433,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                           placeholder="00:00, 00:00"
                           className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
                         />
-                      </div>
                       </div>
 
                       <motion.button
@@ -385,28 +465,74 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                     return (
                       <div key={day.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-3 border-b border-gray-100 dark:border-gray-600 flex justify-between items-center">
-                          <h4 className="font-bold text-sm uppercase tracking-widest text-brand-dark dark:text-white">{day.name}</h4>
-                          <span className="text-[10px] bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded text-gray-500 dark:text-gray-300 font-bold">{dayClasses.length} horários</span>
+                          <div className="flex items-center gap-4">
+                            <h4 className="font-bold text-sm uppercase tracking-widest text-brand-dark dark:text-white">{day.name}</h4>
+                            <span className="text-[10px] bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded text-gray-500 dark:text-gray-300 font-bold">{dayClasses.length} horários</span>
+                          </div>
+                          <button 
+                            onClick={() => deleteDaySchedule(day.id, day.name)}
+                            className="text-[10px] font-bold text-red-500 hover:text-red-700 transition flex items-center gap-1 uppercase"
+                          >
+                            <Trash2 size={12} /> Limpar Dia
+                          </button>
                         </div>
                         <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
                           {dayClasses.map(c => (
                             <div key={c.id} className={`flex items-center justify-between p-4 px-6 group hover:bg-gray-50/50 transition ${selectedSchedule.includes(c.id) ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-4 flex-1">
                                 <button 
                                   onClick={() => toggleScheduleSelection(c.id)}
                                   className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selectedSchedule.includes(c.id) ? 'bg-brand-red border-brand-red text-white' : 'border-gray-300 dark:border-gray-600'}`}
                                 >
                                   {selectedSchedule.includes(c.id) && <CheckSquare size={10} />}
                                 </button>
-                                <span className="font-bold text-brand-red font-mono">{c.time}</span>
-                                <span className="font-bold text-gray-800 dark:text-gray-200 uppercase">{c.name}</span>
+                                {editingClass?.id === c.id ? (
+                                  <div className="flex flex-wrap items-center gap-2 flex-1">
+                                    <select 
+                                      value={editingClass.day}
+                                      onChange={(e) => setEditingClass({...editingClass, day: parseInt(e.target.value)})}
+                                      className="bg-white dark:bg-gray-900 border border-gray-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                                    >
+                                      {weekDays.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                    </select>
+                                    <input 
+                                      type="text" 
+                                      value={editingClass.time}
+                                      onChange={(e) => setEditingClass({...editingClass, time: e.target.value})}
+                                      className="w-16 bg-white dark:bg-gray-900 border border-gray-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                                    />
+                                    <input 
+                                      type="text" 
+                                      value={editingClass.name}
+                                      onChange={(e) => setEditingClass({...editingClass, name: e.target.value})}
+                                      className="flex-1 min-w-[120px] bg-white dark:bg-gray-900 border border-gray-300 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                                    />
+                                    <div className="flex items-center gap-1">
+                                      <button onClick={updateClass} className="p-1 text-green-500 hover:text-green-600 transition"><Check size={16} /></button>
+                                      <button onClick={() => setEditingClass(null)} className="p-1 text-gray-400 hover:text-gray-500 transition"><X size={16} /></button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="font-bold text-brand-red font-mono">{c.time}</span>
+                                    <span className="font-bold text-gray-800 dark:text-gray-200 uppercase">{c.name}</span>
+                                  </>
+                                )}
                               </div>
-                              <button 
-                                onClick={() => removeClass(c.id)}
-                                className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={() => setEditingClass(c)}
+                                  className="text-gray-300 hover:text-brand-red transition opacity-0 group-hover:opacity-100"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => removeClass(c.id)}
+                                  className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -560,14 +686,14 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                       <div className="flex-1 flex gap-1 items-center">
                         <span className="text-[9px] font-bold text-gray-400 uppercase mr-1">Silenciar:</span>
                         {[
-                          { days: 1, label: '1d' },
-                          { days: 7, label: '7d' },
-                          { days: 30, label: '30d' },
-                          { days: 'perm', label: 'PERM' }
+                          { hours: 24, label: '1d' },
+                          { hours: 168, label: '7d' },
+                          { hours: 720, label: '30d' },
+                          { hours: 'perm', label: 'PERM' }
                         ].map(d => (
                           <button
                             key={d.label}
-                            onClick={() => muteStudent(s.id, s.name, d.days as any)}
+                            onClick={() => muteStudent(s.id, s.name, d.hours as any)}
                             className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-1.5 rounded-lg text-[9px] font-bold flex-1 transition-colors flex items-center justify-center gap-1"
                           >
                             <Ban size={10} /> {d.label}
@@ -576,13 +702,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                       </div>
                       {s.mutedUntil && (
                         <button 
-                           onClick={async () => {
-                              try {
-                                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { mutedUntil: null });
-                                setStudents(prev => prev.map(item => item.id === s.id ? { ...item, mutedUntil: null } : item));
-                                showAlert("Sucesso", "Silenciamento removido.", "success");
-                              } catch (e) { console.error(e); }
-                           }}
+                           onClick={() => unmuteStudent(s.id, s.name)}
                            className="px-3 py-1.5 rounded-lg text-[9px] font-bold bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-200 transition-colors"
                         >
                            Restaurar

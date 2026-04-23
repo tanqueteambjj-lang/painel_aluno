@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ThumbsUp, Trash2, RefreshCw, Users, Frown, Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy, MessageCircle, Send, Calendar, Sun, MessageSquare, Award, Shield, Target } from 'lucide-react';
+import { ThumbsUp, Trash2, RefreshCw, Users, Frown, Trophy, MessageCircle, Send, MessageSquare, X, Loader2, Camera, Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Calendar, Sun, Award, Shield, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import React from 'react';
 
 const ICON_MAP: Record<string, any> = {
   Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy, Calendar, Sun, MessageSquare, Award, Shield, Target
@@ -30,6 +31,12 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
   const [loading, setLoading] = useState(true);
   const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  
+  // Posting state
+  const [newPostText, setNewPostText] = useState("");
+  const [newPostImage, setNewPostImage] = useState<string | null>(null);
+  const [isPosting, setIsPosting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const renderBeltSVG = (beltStr: string) => {
     if (!beltStr) return null;
@@ -70,8 +77,8 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), where('expiresAt', '>', now));
       unsub = onSnapshot(q, (snap) => {
         const fetchedPosts: any[] = [];
-        snap.forEach(doc => {
-          fetchedPosts.push({ id: doc.id, ...doc.data() });
+        snap.forEach(docSnap => {
+          fetchedPosts.push({ id: docSnap.id, ...docSnap.data() });
         });
 
         fetchedPosts.sort((a, b) => parseDateString(b.timestamp).getTime() - parseDateString(a.timestamp).getTime());
@@ -83,13 +90,71 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
       });
     }
     return () => unsub();
-  }, [appId, db, showAlert]);
+  }, [appId]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        showAlert("Arquivo muito grande", "A imagem deve ter no máximo 2MB.", "error");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setNewPostImage(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const createPost = async () => {
+    if (!newPostText.trim() && !newPostImage) return;
+    
+    // Check if muted
+    const now = new Date();
+    if (currentUserData.mutedUntil && new Date(currentUserData.mutedUntil) > now) {
+      const remaining = formatDistanceToNow(new Date(currentUserData.mutedUntil), { locale: ptBR });
+      showAlert("Acesso Restrito", `Você está silenciado. Poderá postar novamente em ${remaining}.`, "error");
+      return;
+    }
+
+    setIsPosting(true);
+    try {
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      const post = {
+        studentId: currentUserData.id,
+        studentName: currentUserData.nickname || currentUserData.name,
+        studentPhoto: currentUserData.photoBase64 || null,
+        badgeName: null,
+        badgeDesc: null,
+        badgeIcon: "MessageSquare",
+        postImage: newPostImage,
+        message: newPostText,
+        timestamp: now.toISOString(),
+        expiresAt: expiresAt,
+        likes: 0,
+        likedBy: [],
+        likedByNames: [],
+        comments: [],
+        beltStr: currentUserData.belt || null
+      };
+
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), post);
+      setNewPostText("");
+      setNewPostImage(null);
+      showAlert("Sucesso", "Postagem enviada!", "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao enviar postagem.", "error");
+    } finally {
+      setIsPosting(false);
+    }
+  };
 
   const deleteFeedPost = (postId: string) => {
     showConfirm("Apagar Publicação", "Tem certeza que deseja apagar esta publicação do Feed?", async () => {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feed', postId));
-        setPosts(posts.filter(p => p.id !== postId));
       } catch {
         showAlert("Erro", "Erro ao excluir publicação.", "error");
       }
@@ -104,7 +169,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
     try {
       const updateQuery = hasLiked ? 
           { 
-            likes: currentLikes - 1, 
+            likes: Math.max(0, currentLikes - 1), 
             likedBy: arrayRemove(currentUserData.id),
             likedByNames: arrayRemove(userName)
           } : 
@@ -115,18 +180,6 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
           };
       
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feed', postId), updateQuery);
-      
-      setPosts(posts.map(p => {
-        if (p.id === postId) {
-          return {
-            ...p,
-            likes: hasLiked ? currentLikes - 1 : currentLikes + 1,
-            likedBy: hasLiked ? p.likedBy.filter((id: string) => id !== currentUserData.id) : [...(p.likedBy || []), currentUserData.id],
-            likedByNames: hasLiked ? (p.likedByNames || []).filter((name: string) => name !== userName) : [...(p.likedByNames || []), userName]
-          };
-        }
-        return p;
-      }));
     } catch (e) {
       console.error("Erro ao dar like:", e);
     }
@@ -152,9 +205,17 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <RefreshCw className="w-8 h-8 text-brand-red animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4 flex justify-between items-end">
+    <div className="max-w-4xl mx-auto p-4 pb-20">
+      <div className="mb-6 pb-4 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>
           <h2 className="font-display text-3xl font-bold text-brand-dark dark:text-white flex items-center gap-3">
             <Users className="text-blue-500 w-8 h-8" /> Feed da Equipe
@@ -164,23 +225,81 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
       </div>
 
       <div className="max-w-2xl mx-auto space-y-6">
-        {loading ? (
-          <div className="text-center py-10" role="status" aria-live="polite">
-            <RefreshCw className="w-8 h-8 animate-spin text-gray-300 dark:text-gray-600 mx-auto mb-3" aria-hidden="true" />
-            <p className="text-gray-500 dark:text-gray-400 font-medium">A carregar o feed da equipe...</p>
+        {/* Create Post Area */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl p-4 shadow-xl shadow-brand-red/5 border border-gray-100 dark:border-gray-700/50">
+          <div className="flex gap-4">
+            <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shrink-0 border border-gray-200 dark:border-gray-600">
+              {currentUserData.photoBase64 ? <img src={currentUserData.photoBase64} className="w-full h-full object-cover" /> : <Users size={24} className="text-gray-400" />}
+            </div>
+            <div className="flex-1 space-y-3">
+              <textarea
+                value={newPostText}
+                onChange={(e) => setNewPostText(e.target.value)}
+                placeholder="O que está acontecendo no tatame?"
+                className="w-full bg-gray-50 dark:bg-gray-900/50 border-none rounded-2xl p-3 text-sm resize-none focus:ring-2 focus:ring-brand-red/20 dark:text-white min-h-[80px] outline-none"
+              />
+              
+              <AnimatePresence>
+                {newPostImage && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="relative group rounded-2xl overflow-hidden aspect-video bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700"
+                  >
+                    <img src={newPostImage} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => setNewPostImage(null)}
+                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black transition"
+                    >
+                      <X size={16} />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleImageUpload} 
+                    accept="image/*" 
+                    className="hidden" 
+                  />
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-700 text-gray-500 hover:bg-brand-red/10 hover:text-brand-red transition flex items-center justify-center"
+                    title="Adicionar Foto"
+                  >
+                    <Camera size={20} />
+                  </button>
+                </div>
+                <button
+                  onClick={createPost}
+                  disabled={isPosting || (!newPostText.trim() && !newPostImage)}
+                  className="bg-brand-red text-white px-6 py-2 rounded-full font-bold text-sm hover:bg-brand-red/90 transition shadow-lg shadow-brand-red/20 disabled:opacity-50 disabled:grayscale flex items-center gap-2"
+                >
+                  {isPosting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  Publicar
+                </button>
+              </div>
+            </div>
           </div>
-        ) : posts.length === 0 ? (
+        </div>
+
+        {posts.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-xl p-10 text-center shadow-sm border border-gray-200 dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 rounded-3xl p-12 text-center shadow-xl shadow-brand-red/5 border border-gray-100 dark:border-gray-700/50"
           >
             <Frown className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" aria-hidden="true" />
-            <h3 className="font-bold text-gray-600 dark:text-gray-300">O feed está silencioso...</h3>
-            <p className="text-sm text-gray-400 mt-1">Nenhuma conquista nova nas últimas 24 horas. Seja o primeiro a compartilhar!</p>
+            <h3 className="font-bold text-gray-600 dark:text-gray-300 text-xl">O feed está silencioso...</h3>
+            <p className="text-sm text-gray-400 mt-1">Nenhuma publicação nas últimas 24 horas. Seja o primeiro a motivar a galera!</p>
           </motion.div>
         ) : (
-          posts.map((post, index) => {
+          posts.map((post) => {
             const hasLiked = post.likedBy && post.likedBy.includes(currentUserData?.id);
             const timeAgo = formatDistanceToNow(parseDateString(post.timestamp), { addSuffix: true, locale: ptBR });
 
@@ -189,96 +308,109 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                 key={post.id} 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-5 border border-gray-100 dark:border-gray-700"
-                aria-labelledby={`post-title-${post.id}`}
+                className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl shadow-brand-red/5 border border-gray-100 dark:border-gray-700/50 overflow-hidden group"
               >
-                <div className="flex justify-between items-start mb-4">
+                {/* Header */}
+                <div className="p-5 flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    {post.studentPhoto ? (
-                      <div className="relative w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gray-200 dark:border-gray-700">
-                        <img src={post.studentPhoto} loading="lazy" className="w-full h-full object-cover" alt={`Avatar de ${post.studentName}`} />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 shrink-0" aria-hidden="true">
-                        {post.studentName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <div className="w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shrink-0 border-2 border-brand-red shadow-sm">
+                      {post.studentPhoto ? (
+                        <img src={post.studentPhoto} className="w-full h-full object-cover" alt={`Avatar de ${post.studentName}`} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center font-bold text-gray-400 uppercase">
+                          {post.studentName.charAt(0)}
+                        </div>
+                      )}
+                    </div>
                     <div>
-                      <h4 id={`post-title-${post.id}`} className="font-bold text-gray-800 dark:text-white leading-tight">{post.studentName}</h4>
-                      <time className="text-xs text-gray-500" dateTime={parseDateString(post.timestamp).toISOString()}>{timeAgo}</time>
+                      <h4 className="font-bold text-gray-900 dark:text-white leading-tight flex items-center gap-2">
+                        {post.studentName}
+                        {post.beltStr && (
+                          <span className="text-[9px] bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full text-gray-500 uppercase font-black tracking-tighter">
+                            {post.beltStr}
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[10px] text-gray-400 font-medium">{timeAgo}</p>
                     </div>
                   </div>
-                  {post.studentId === currentUserData?.id && (
-                    <motion.button 
-                      whileTap={{ scale: 0.9 }}
+                  
+                  {(post.studentId === currentUserData?.id || currentUserData.role === 'admin') && (
+                    <button 
                       onClick={() => deleteFeedPost(post.id)} 
-                      className="text-gray-400 hover:text-red-500 transition text-sm bg-gray-100 hover:bg-red-50 dark:bg-gray-700 dark:hover:bg-red-900/30 w-8 h-8 rounded-full flex items-center justify-center"
-                      aria-label="Apagar minha publicação"
+                      className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
                     >
-                      <Trash2 className="w-4 h-4" aria-hidden="true" />
-                    </motion.button>
+                      <Trash2 size={14} />
+                    </button>
                   )}
                 </div>
                 
-                {post.message && (
-                  <p className="text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-wrap">{post.message}</p>
-                )}
-
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4 flex flex-col gap-4 border border-gray-100 dark:border-gray-600">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center text-3xl shadow-sm shrink-0" aria-hidden="true">
-                      {ICON_MAP[post.badgeIcon] ? (
-                        (() => {
-                          const IconComponent = ICON_MAP[post.badgeIcon];
-                          return <IconComponent className="w-8 h-8 text-brand-red" />;
-                        })()
-                      ) : (
-                        <i className={post.badgeIcon}></i>
-                      )}
+                {/* Achievement Area */}
+                {post.badgeName && (
+                  <div className="mx-5 mb-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl flex items-center gap-4 border border-gray-100 dark:border-gray-800/50 shadow-inner">
+                    <div className="w-14 h-14 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-brand-red/10 flex items-center justify-center shrink-0">
+                      {ICON_MAP[post.badgeIcon] ? 
+                        React.createElement(ICON_MAP[post.badgeIcon], { className: "w-8 h-8 text-brand-red" }) : 
+                        <Trophy className="w-8 h-8 text-brand-red" />
+                      }
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-widest mb-1">CONQUISTA DESBLOQUEADA</p>
-                      <h5 className="font-display text-xl font-bold text-brand-dark dark:text-gray-100 leading-tight">{post.badgeName}</h5>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{post.badgeDesc}</p>
+                      <p className="text-[9px] text-gray-400 uppercase font-black tracking-widest mb-0.5">CONQUISTA DESBLOQUEADA</p>
+                      <h5 className="font-bold text-gray-900 dark:text-white text-base leading-tight">{post.badgeName}</h5>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">{post.badgeDesc}</p>
                     </div>
                   </div>
-                  {post.beltStr && (
-                    <div 
-                      className="w-full h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 shadow-inner overflow-hidden relative mt-2"
-                      aria-label={`Faixa atualizada: ${post.beltStr}`}
-                    >
+                )}
+
+                {/* Message */}
+                {post.message && (
+                  <div className="px-5 pb-4">
+                    <p className="text-gray-700 dark:text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
+                      {post.message}
+                    </p>
+                  </div>
+                )}
+
+                {/* Image Post Content */}
+                {post.postImage && (
+                  <div className="px-5 pb-5">
+                    <div className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm">
+                      <img src={post.postImage} className="w-full h-auto max-h-[500px] object-cover" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Belt Visual (If Achievement) */}
+                {post.badgeName && post.beltStr && (
+                  <div className="px-5 pb-4">
+                    <div className="w-full h-8 rounded-lg overflow-hidden shadow-inner border border-gray-100 dark:border-gray-700">
                       {renderBeltSVG(post.beltStr)}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 pt-3 mt-2">
-                  <div className="flex items-center gap-4">
-                    <motion.button 
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => likeFeedPost(post.id, hasLiked, post.likes || 0)} 
-                      className="flex items-center gap-1.5 font-bold transition group outline-none"
-                      aria-label={hasLiked ? "Remover curtida" : "Curtir publicação (Oss!)"}
-                    >
-                      <ThumbsUp className={`w-5 h-5 ${hasLiked ? 'text-brand-red fill-brand-red' : 'text-gray-400 dark:text-gray-500 group-hover:text-brand-red'}`} aria-hidden="true" />
-                      {post.likes > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400" aria-label={`${post.likes} curtidas`}>{post.likes}</span>
-                      )}
-                    </motion.button>
+                {/* Footer Controls */}
+                <div className="px-5 py-3 bg-gray-50/50 dark:bg-gray-900/10 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-6">
+                  <button 
+                    onClick={() => likeFeedPost(post.id, hasLiked, post.likes || 0)}
+                    className={`flex items-center gap-1.5 text-xs font-bold transition-all hover:scale-110 ${
+                      hasLiked ? 'text-brand-red' : 'text-gray-400 dark:text-gray-500'
+                    }`}
+                  >
+                    <ThumbsUp size={18} fill={hasLiked ? 'currentColor' : 'none'} />
+                    <span>{post.likes || 0}</span>
+                  </button>
 
-                    <motion.button 
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => setOpenCommentPostId(openCommentPostId === post.id ? null : post.id)} 
-                      className="flex items-center gap-1.5 font-bold transition group outline-none text-gray-400 dark:text-gray-500 hover:text-brand-red"
-                      aria-label={openCommentPostId === post.id ? "Fechar comentários" : "Abrir comentários"}
-                      aria-expanded={openCommentPostId === post.id}
-                    >
-                      <MessageCircle className="w-5 h-5 group-hover:text-brand-red" aria-hidden="true" />
-                      {post.comments?.length > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400" aria-label={`${post.comments.length} comentários`}>{post.comments.length}</span>
-                      )}
-                    </motion.button>
+                  <button 
+                    onClick={() => setOpenCommentPostId(openCommentPostId === post.id ? null : post.id)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-gray-400 dark:text-gray-500 hover:text-brand-red transition-colors"
+                  >
+                    <MessageCircle size={18} />
+                    <span>{post.comments?.length || 0}</span>
+                  </button>
+
+                  <div className="ml-auto text-[10px] font-bold text-gray-300 flex items-center gap-1">
+                    <RefreshCw size={10} /> 24H
                   </div>
                 </div>
 
@@ -289,25 +421,25 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3 overflow-hidden"
+                      className="px-5 pb-4 space-y-3 overflow-hidden bg-gray-50/30 dark:bg-gray-900/10"
                     >
                       {post.comments?.map((comment: any) => (
                         <div key={comment.id} className="flex gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 mt-0.5" aria-hidden="true">
+                          <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 mt-0.5 border border-gray-200 dark:border-gray-600">
                             {comment.authorName.charAt(0).toUpperCase()}
                           </div>
-                          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-2xl rounded-tl-none px-3 py-2 flex-1">
-                            <h5 className="text-xs font-bold text-gray-900 dark:text-white leading-none mb-1">{comment.authorName}</h5>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">{comment.text}</p>
+                          <div className="bg-white dark:bg-gray-700/50 rounded-2xl rounded-tl-none px-3 py-2 flex-1 shadow-sm border border-gray-100 dark:border-gray-800">
+                            <h5 className="text-[10px] font-bold text-gray-900 dark:text-white leading-none mb-1">{comment.authorName}</h5>
+                            <p className="text-xs text-gray-600 dark:text-gray-300">{comment.text}</p>
                           </div>
                         </div>
                       ))}
 
                       {openCommentPostId === post.id && (
-                        <div className="flex items-center gap-2 mt-2 sticky bottom-0 bg-white dark:bg-gray-800 py-2">
+                        <div className="flex items-center gap-2 py-2">
                           <input 
                             type="text" 
-                            className="flex-1 bg-gray-100 dark:bg-gray-700 border-transparent focus:border-brand-red focus:ring-0 rounded-full px-4 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-500"
+                            className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full px-4 py-2 text-xs text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:ring-1 focus:ring-brand-red/30 focus:border-brand-red"
                             placeholder="Adicione um comentário..."
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
@@ -315,17 +447,14 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                               if (e.key === 'Enter') handleCommentSubmit(post.id);
                             }}
                             autoFocus
-                            aria-label="Campo de comentário"
                           />
-                          <motion.button 
-                            whileTap={{ scale: 0.9 }}
+                          <button 
                             onClick={() => handleCommentSubmit(post.id)}
                             disabled={!commentText.trim()}
-                            className="w-9 h-9 rounded-full bg-brand-red text-white flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300 hover:bg-red-700 transition shadow-sm"
-                            aria-label="Enviar comentário"
+                            className="w-8 h-8 rounded-full bg-brand-red text-white flex items-center justify-center disabled:opacity-30 hover:bg-red-700 transition shadow-md shadow-brand-red/10"
                           >
-                            <Send className="w-4 h-4 ml-[-2px]" aria-hidden="true" />
-                          </motion.button>
+                            <Send size={14} className="ml-[-1px]" />
+                          </button>
                         </div>
                       )}
                     </motion.div>
