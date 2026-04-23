@@ -27,12 +27,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   const [students, setStudents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const removeStudentPhoto = async (studentId: string) => {
-    showConfirm("Remover Foto", "Tem certeza que deseja remover a foto deste aluno?", async () => {
+  const removeStudentPhoto = async (studentId: string, name: string) => {
+    showConfirm("Remover Foto", `Tem certeza que deseja remover a foto de ${name}?`, async () => {
       try {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'users', studentId), {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
           photoBase64: null
         });
+        setStudents(prev => prev.map(s => s.id === studentId ? { ...s, photoBase64: null } : s));
         showAlert("Sucesso", "Foto removida.", "success");
       } catch (e) {
         console.error(e);
@@ -45,7 +46,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     const hoursNum = hours === 'perm' ? 87600 : hours; // 10 years for perm
     const mutedUntil = new Date(Date.now() + (hoursNum as number) * 60 * 60 * 1000).toISOString();
     try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'users', studentId), {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
         mutedUntil: mutedUntil
       });
       setStudents(prev => prev.map(s => s.id === studentId ? { ...s, mutedUntil } : s));
@@ -58,7 +59,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
 
   const unmuteStudent = async (studentId: string, name: string) => {
     try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'users', studentId), {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
         mutedUntil: null
       });
       setStudents(prev => prev.map(s => s.id === studentId ? { ...s, mutedUntil: null } : s));
@@ -69,32 +70,38 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     }
   };
 
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+
   const fetchStudents = async () => {
-    if (searchQuery.length < 3) {
-      showAlert("Aviso", "Digite pelo menos 3 letras para buscar.", "info");
-      return;
-    }
-    const q = query(collection(db, 'artifacts', appId, 'public', 'users'), orderBy('name'));
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'), orderBy('name'));
     const snap = await getDocs(q);
     const list: any[] = [];
     snap.forEach(doc => {
-      const data = doc.data();
-      if (data.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-          (data.nickname && data.nickname.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (data.studentLogin && data.studentLogin.toLowerCase().includes(searchQuery.toLowerCase()))) {
-        list.push({ id: doc.id, ...data });
-      }
+      list.push({ id: doc.id, ...doc.data() });
     });
+    setAllStudents(list);
     setStudents(list);
-    if (list.length === 0) showAlert("Aviso", "Nenhum aluno encontrado.", "info");
   };
 
   useEffect(() => {
-    if (activeTab === 'students' && searchQuery.length >= 3) {
-      const timeoutId = setTimeout(fetchStudents, 500);
-      return () => clearTimeout(timeoutId);
+    if (activeTab === 'students' && allStudents.length === 0) {
+      fetchStudents();
     }
-  }, [searchQuery, activeTab, appId]);
+  }, [activeTab, appId]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setStudents(allStudents);
+    } else {
+      const q = searchQuery.toLowerCase();
+      const filtered = allStudents.filter(s => 
+        (s.name && s.name.toLowerCase().includes(q)) || 
+        (s.nickname && s.nickname.toLowerCase().includes(q)) ||
+        (s.studentLogin && s.studentLogin.toLowerCase().includes(q))
+      );
+      setStudents(filtered);
+    }
+  }, [searchQuery, allStudents]);
 
   const weekDays = [
     { id: 0, name: 'Domingo' },
@@ -623,15 +630,14 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                     type="text" 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && fetchStudents()}
-                    placeholder="Buscar aluno por nome ou login (mínimo 3 letras)..."
+                    placeholder="Buscar aluno por nome ou login..."
                     className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
                   />
                   <button 
                     onClick={fetchStudents}
                     className="absolute right-2 top-2 bg-brand-red px-3 py-1.5 rounded-lg text-white font-bold text-xs"
                   >
-                    Buscar
+                    Recarregar
                   </button>
                 </div>
               </div>
