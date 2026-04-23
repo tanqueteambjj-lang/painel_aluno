@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { X, Camera, Save, PenSquare, Check } from 'lucide-react';
+import { X, Camera, Save, PenSquare, Check, Loader2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Cropper from 'react-easy-crop';
 

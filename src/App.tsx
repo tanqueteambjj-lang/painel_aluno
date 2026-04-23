@@ -12,6 +12,8 @@ import ProfileEditModal from '@/components/ProfileEditModal';
 import Feed from '@/components/Feed';
 import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
+import Scheduling from '@/components/Scheduling';
+import AdminPanel from '@/components/AdminPanel';
 import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
@@ -921,6 +923,7 @@ export default function Dashboard() {
         handleLogout={handleLogout}
         hasUnreadFeed={hasUnreadFeed}
         hasUnreadNotices={hasUnreadNotices}
+        isAdmin={planKey === 'administracao'}
       />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
@@ -1340,6 +1343,32 @@ export default function Dashboard() {
                 transition={{ duration: 0.3 }}
               >
                 <Ranking appId={appId} db={db} currentUserData={currentUserData} ranking={ranking} />
+              </motion.div>
+            )}
+
+            {/* SCHEDULING VIEW */}
+            {view === 'scheduling' && (
+              <motion.div
+                key="scheduling"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Scheduling currentUserData={currentUserData} appId={appId} showAlert={showAlert} />
+              </motion.div>
+            )}
+
+            {/* ADMIN VIEW */}
+            {view === 'admin' && planKey === 'administracao' && (
+              <motion.div
+                key="admin"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <AdminPanel appId={appId} showAlert={showAlert} showConfirm={showConfirm} />
               </motion.div>
             )}
 

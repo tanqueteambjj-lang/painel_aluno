@@ -1,7 +1,7 @@
-import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, CreditCard, Trophy } from 'lucide-react';
+import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, CreditCard, Trophy, Calendar, Shield } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices }: any) {
+export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, isAdmin }: any) {
   return (
     <aside 
       className={`fixed md:relative inset-y-0 left-0 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 w-64 bg-brand-dark text-white flex flex-col shadow-2xl z-40 transition-transform duration-300 ease-in-out h-full border-r border-gray-800`}
@@ -20,7 +20,7 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
           <X className="w-6 h-6" aria-hidden="true" />
         </button>
       </div>
-      <nav className="flex-1 px-4 py-6 space-y-2 flex flex-col overflow-y-auto" role="navigation">
+      <nav className="flex-1 px-4 py-6 space-y-1 flex flex-col overflow-y-auto" role="navigation">
         <motion.button 
           whileHover={{ scale: 1.02, x: 4 }}
           whileTap={{ scale: 0.98 }}
@@ -60,6 +60,16 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
         <motion.button 
           whileHover={{ scale: 1.02, x: 4 }}
           whileTap={{ scale: 0.98 }}
+          onClick={() => { setView('scheduling'); setIsMobileMenuOpen(false); }} 
+          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left ${view === 'scheduling' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
+          aria-current={view === 'scheduling' ? 'page' : undefined}
+        >
+          <Calendar className="w-6 h-6" aria-hidden="true" />
+          <span className="ml-2">Agendar Aula</span>
+        </motion.button>
+        <motion.button 
+          whileHover={{ scale: 1.02, x: 4 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => { setView('profile'); setIsMobileMenuOpen(false); }} 
           className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left ${view === 'profile' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
           aria-current={view === 'profile' ? 'page' : undefined}
@@ -77,6 +87,19 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
           <CreditCard className="w-6 h-6" aria-hidden="true" />
           <span className="ml-2">Financeiro</span>
         </motion.button>
+
+        {isAdmin && (
+          <motion.button 
+            whileHover={{ scale: 1.02, x: 4 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => { setView('admin'); setIsMobileMenuOpen(false); }} 
+            className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left mt-4 border border-dashed border-gray-600 ${view === 'admin' ? 'bg-white text-brand-dark shadow-md' : 'text-yellow-400 hover:bg-gray-800'}`}
+            aria-current={view === 'admin' ? 'page' : undefined}
+          >
+            <Shield className="w-6 h-6" aria-hidden="true" />
+            <span className="ml-2 font-black uppercase italic tracking-wider">Administração</span>
+          </motion.button>
+        )}
         
         <motion.button 
           whileHover={{ scale: 1.02 }}
