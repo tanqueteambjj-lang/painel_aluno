@@ -3,11 +3,11 @@ import { db } from '@/lib/firebase';
 import { collection, query, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, where, onSnapshot } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ThumbsUp, Trash2, RefreshCw, Users, Frown, Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy, MessageCircle, Send } from 'lucide-react';
+import { ThumbsUp, Trash2, RefreshCw, Users, Frown, Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy, MessageCircle, Send, Calendar, Sun, MessageSquare, Award, Shield, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ICON_MAP: Record<string, any> = {
-  Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy
+  Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy, Calendar, Sun, MessageSquare, Award, Shield, Target
 };
 
 const parseDateString = (dateStr: any) => {

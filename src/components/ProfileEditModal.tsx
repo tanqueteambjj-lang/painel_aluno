@@ -240,6 +240,16 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                       </label>
                     </div>
                     <p className="text-[10px] text-gray-400 text-center font-medium">Clique na imagem para alterar<br/>(Melhor formato: Quadrado)</p>
+                    
+                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 text-[10px] leading-relaxed">
+                      <h4 className="font-bold text-blue-700 dark:text-blue-300 mb-1 flex items-center gap-1 uppercase tracking-wider">
+                        <Loader2 className="w-3 h-3 animate-none" /> Diretrizes de Foto
+                      </h4>
+                      <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+                        <li>✅ <span className="font-bold">Recomendado:</span> Rosto nítido, fundo neutro, boa iluminação, resolução mínima de 400px.</li>
+                        <li>❌ <span className="font-bold">Proibido:</span> Sem camisa, óculos escuros/máscaras, fotos em grupo, conteúdo ofensivo, fotos embaçadas.</li>
+                      </ul>
+                    </div>
                   </>
                 )}
               </div>

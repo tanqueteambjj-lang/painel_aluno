@@ -14,9 +14,11 @@ import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const PLAN_DICT: Record<string, { price: number, short: string }> = {
   'infantil-mensal': { price: 189.90, short: 'Infantil Mensal' },
@@ -160,13 +162,22 @@ export default function Dashboard() {
 
       const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
       
+      // Check if muted
+      if (currentUserData.mutedUntil && new Date(currentUserData.mutedUntil) > now) {
+        const remaining = formatDistanceToNow(new Date(currentUserData.mutedUntil), { locale: ptBR });
+        showAlert("Acesso Restrito", `Você foi silenciado pela administração. Poderá postar novamente em ${remaining}.`, "error");
+        setSharingBadge(null);
+        setShareMessage("");
+        return;
+      }
+
       const post = {
         studentId: currentUserData.id,
         studentName: currentUserData.nickname || currentUserData.name,
         studentPhoto: currentUserData.photoBase64 || null,
         badgeName: sharingBadge.name,
         badgeDesc: sharingBadge.desc,
-        badgeIcon: sharingBadge.icon?.displayName || sharingBadge.icon?.name || 'Trophy',
+        badgeIcon: sharingBadge.iconName || 'Trophy',
         beltStr: currentUserData.belt || null,
         message: shareMessage,
         timestamp: now.toISOString(),
@@ -415,22 +426,21 @@ export default function Dashboard() {
         if (docSnap.exists()) {
           const data: any = { id: docSnap.id, ...docSnap.data() };
           
-          setCurrentUserData(prev => {
-            // Check for notifications
-            if (prev && !initialLoadRef.current) {
-              if (prev.paymentStatus !== data.paymentStatus) {
-                if (data.paymentStatus === 'Atrasado' || data.paymentStatus === 'Pendente') {
-                  sendPushNotification("Aviso Financeiro", "Seu pagamento está pendente. Regularize na aba Financeiro.");
-                } else if (data.paymentStatus === 'Em dia') {
-                  sendPushNotification("Pagamento Confirmado", "Seu pagamento foi aprovado! Status: Em dia.");
-                }
+          setCurrentUserData(data);
+          
+          // SIDE EFFECTS - Move out of state setter
+          if (currentUserData && !initialLoadRef.current) {
+            if (currentUserData.paymentStatus !== data.paymentStatus) {
+              if (data.paymentStatus === 'Atrasado' || data.paymentStatus === 'Pendente') {
+                sendPushNotification("Aviso Financeiro", "Seu pagamento está pendente. Regularize na aba Financeiro.");
+              } else if (data.paymentStatus === 'Em dia') {
+                sendPushNotification("Pagamento Confirmado", "Seu pagamento foi aprovado! Status: Em dia.");
               }
             }
-            // Trigger checkBirthday and checkMissing logically just once per load ideally, but doing it in state update is ok
-            checkBirthday(data);
-            checkMissing(data);
-            return data;
-          });
+          }
+          
+          checkBirthday(data);
+          checkMissing(data);
           
           if (data.plan && data.plan.includes('combo')) {
             await loadDependents(data.id);
@@ -875,20 +885,20 @@ export default function Dashboard() {
     const isBlackBelt = currentUserData.belt && currentUserData.belt.toLowerCase().includes("preta");
     
     const possibleBadges = [
-      { id: 'first_class', name: "Primeiro Treino", desc: "Suor e dedicação no primeiro dia.", icon: <Star className="w-5 h-5 text-yellow-500" />, earned: totalAtt >= 1 },
-      { id: 'beginner', name: "Iniciante", desc: "10 treinos no tatame.", icon: <Medal className="w-5 h-5 text-gray-400" />, earned: totalAtt >= 10 },
-      { id: 'monthly_focus', name: "Foco Mensal", desc: "Mais de 10 treinos no mês.", icon: <Calendar className="w-5 h-5 text-blue-500" />, earned: monthAttCount >= 10 },
-      { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, earned: maxConsecutive >= 5 },
-      { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, earned: isWeekendWarrior },
-      { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, earned: hasPosted },
-      { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <Star className="w-5 h-5 text-yellow-600" />, earned: earnedDegree },
-      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, earned: earnedNewBelt },
-      { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, earned: totalAtt >= 50 },
-      { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, earned: totalAtt >= 100 },
-      { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, earned: totalAtt >= 200 },
-      { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, earned: totalAtt >= 500 },
-      { id: 'rato_tatame', name: "Rato de Tatame", desc: "Mais de 20 treinos num único mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, earned: monthAttCount >= 20 },
-      { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Target className="w-5 h-5 text-gray-900 dark:text-gray-200" />, earned: isBlackBelt },
+      { id: 'first_class', name: "Primeiro Treino", desc: "Suor e dedicação no primeiro dia.", icon: <Star className="w-5 h-5 text-yellow-500" />, iconName: 'Star', earned: totalAtt >= 1 },
+      { id: 'beginner', name: "Iniciante", desc: "Frequência inicial: 12 treinos concluídos.", icon: <Medal className="w-5 h-5 text-gray-400" />, iconName: 'Medal', earned: totalAtt >= 12 },
+      { id: 'monthly_focus', name: "Foco Mensal", desc: "Frequência de elite: 20 treinos no mês.", icon: <Target className="w-5 h-5 text-red-500" />, iconName: 'Target', earned: monthAttCount >= 20 },
+      { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, iconName: 'Flame', earned: maxConsecutive >= 5 },
+      { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, iconName: 'Sun', earned: isWeekendWarrior },
+      { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, iconName: 'MessageSquare', earned: hasPosted },
+      { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <ArrowUpCircle className="w-5 h-5 text-yellow-600" />, iconName: 'ArrowUpCircle', earned: earnedDegree },
+      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, iconName: 'Award', earned: earnedNewBelt },
+      { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, iconName: 'Medal', earned: totalAtt >= 50 },
+      { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, iconName: 'Flame', earned: totalAtt >= 100 },
+      { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, iconName: 'Shield', earned: totalAtt >= 200 },
+      { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, iconName: 'Crown', earned: totalAtt >= 500 },
+      { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthAttCount >= 25 },
+      { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: isBlackBelt },
     ];
     
     return possibleBadges;
@@ -897,7 +907,7 @@ export default function Dashboard() {
   const earnedBadges = computeAchievements();
 
   return (
-    <div className="flex h-screen overflow-hidden relative w-full bg-transparent text-gray-900 dark:text-gray-100 transition-colors duration-200">
+    <div className="flex h-screen overflow-hidden relative w-full bg-gray-50 dark:bg-brand-dark text-gray-900 dark:text-gray-100 transition-colors duration-200">
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
@@ -1117,7 +1127,8 @@ export default function Dashboard() {
                             onClick={() => handleShareBadge({
                               name: recentGrad.isNewBelt ? "Nova Faixa" : "Novo Grau",
                               desc: `Avançou para ${currentUserData.belt}`,
-                              icon: recentGrad.isNewBelt ? Medal : Star,
+                              icon: recentGrad.isNewBelt ? <Medal className="w-5 h-5" /> : <Star className="w-5 h-5" />,
+                              iconName: recentGrad.isNewBelt ? 'Medal' : 'Star',
                               color: recentGrad.isNewBelt ? "text-brand-red" : "text-yellow-600"
                             })}
                             className="mt-4 w-full bg-brand-red text-white text-sm font-bold py-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 shadow-md"

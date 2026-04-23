@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, getDocs, addDoc, where, deleteDoc, doc, onSnapshot, orderBy } from 'firebase/firestore';
-import { Settings, Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, AlertCircle, ChevronRight, User } from 'lucide-react';
+import { Settings, Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, AlertCircle, ChevronRight, User, XCircle, Camera, Ban, CheckSquare, Square, Trash } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { updateDoc } from 'firebase/firestore';
 
 export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   const [activeTab, setActiveTab] = useState('bookings');
@@ -12,7 +13,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   
   // Schedule Management
   const [gymSchedule, setGymSchedule] = useState<any[]>([]);
-  const [newClass, setNewClass] = useState({ day: 1, time: '18:00', name: '' });
+  const [newClass, setNewClass] = useState({ day: 1, times: '18:00', name: '' });
   
   // Bookings Management
   const [bookings, setBookings] = useState<any[]>([]);
@@ -20,6 +21,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   
   // Feed Management
   const [feedPosts, setFeedPosts] = useState<any[]>([]);
+  const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState<string[]>([]);
   
   // Student Search
   const [students, setStudents] = useState<any[]>([]);
@@ -76,9 +79,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
       return;
     }
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'gymSchedule'), newClass);
+      const timesArray = newClass.times.split(',').map(t => t.trim()).filter(t => t);
+      for (const t of timesArray) {
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'gymSchedule'), {
+          day: Number(newClass.day),
+          time: t,
+          name: newClass.name
+        });
+      }
       setNewClass({ ...newClass, name: '' });
-      showAlert("Sucesso", "Horário adicionado com sucesso!", "success");
+      showAlert("Sucesso", `${timesArray.length} horário(s) adicionado(s) com sucesso!`, "success");
     } catch (e) {
       console.error(e);
       showAlert("Erro", "Falha ao adicionar horário.", "error");
@@ -89,16 +99,52 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     showConfirm("Remover Horário", "Isso apagará permanentemente esta aula da grade. Continuar?", async () => {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gymSchedule', id));
+        setSelectedSchedule(prev => prev.filter(item => item !== id));
       } catch (e) { console.error(e); }
     });
+  };
+
+  const bulkDeleteSchedule = async () => {
+    if (selectedSchedule.length === 0) return;
+    showConfirm("Remover Lote", `Apagar ${selectedSchedule.length} horários da grade permanentemente?`, async () => {
+      try {
+        for (const id of selectedSchedule) {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gymSchedule', id));
+        }
+        setSelectedSchedule([]);
+        showAlert("Sucesso", "Horários removidos com sucesso!", "success");
+      } catch (e) { console.error(e); }
+    });
+  };
+
+  const toggleScheduleSelection = (id: string) => {
+    setSelectedSchedule(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
 
   const deletePost = async (postId: string) => {
     showConfirm("Remover Post", "Tem certeza que deseja apagar este post do feed?", async () => {
       try {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feed', postId));
+        setSelectedPosts(prev => prev.filter(id => id !== postId));
       } catch (e) { console.error(e); }
     });
+  };
+
+  const bulkDeletePosts = async () => {
+    if (selectedPosts.length === 0) return;
+    showConfirm("Remover Lote", `Apagar ${selectedPosts.length} posts do feed permanentemente?`, async () => {
+      try {
+        for (const id of selectedPosts) {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feed', id));
+        }
+        setSelectedPosts([]);
+        showAlert("Sucesso", "Posts removidos com sucesso!", "success");
+      } catch (e) { console.error(e); }
+    });
+  };
+
+  const togglePostSelection = (postId: string) => {
+    setSelectedPosts(prev => prev.includes(postId) ? prev.filter(id => id !== postId) : [...prev, postId]);
   };
 
   const removeBooking = async (id: string, studentName: string) => {
@@ -123,6 +169,37 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
       });
       setStudents(list);
     } catch (e) { console.error(e); }
+  };
+
+  const removeStudentPhoto = async (studentId: string, studentName: string) => {
+    showConfirm("Remover Foto", `Tem certeza que deseja remover a foto de ${studentName}? A imagem não segue as diretrizes.`, async () => {
+      try {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
+          photoBase64: null
+        });
+        setStudents(prev => prev.map(s => s.id === studentId ? { ...s, photoBase64: null } : s));
+        showAlert("Sucesso", "Foto removida com sucesso.", "success");
+      } catch (e) { console.error(e); }
+    });
+  };
+
+  const muteStudent = async (studentId: string, studentName: string, durationDays: number | 'perm') => {
+    const label = durationDays === 'perm' ? 'Permanentemente' : `${durationDays} dia(s)`;
+    showConfirm("Silenciar Aluno", `Deseja impedir que ${studentName} poste no feed por ${label}?`, async () => {
+      try {
+        let until = "2099-12-31T23:59:59Z";
+        if (durationDays !== 'perm') {
+          const now = new Date();
+          now.setDate(now.getDate() + durationDays);
+          until = now.toISOString();
+        }
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
+          mutedUntil: until
+        });
+        setStudents(prev => prev.map(s => s.id === studentId ? { ...s, mutedUntil: until } : s));
+        showAlert("Sucesso", `O aluno foi silenciado até ${durationDays === 'perm' ? 'sempre' : format(new Date(until), 'dd/MM/yyyy HH:mm')}.`, "success");
+      } catch (e) { console.error(e); }
+    });
   };
 
   return (
@@ -266,15 +343,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                             {weekDays.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                           </select>
                         </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Horário</label>
-                          <input 
-                            type="time" 
-                            value={newClass.time}
-                            onChange={(e) => setNewClass({...newClass, time: e.target.value})}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Horário(s) (ex: 18:00, 19:30)</label>
+                        <input 
+                          type="text" 
+                          value={newClass.times}
+                          onChange={(e) => setNewClass({...newClass, times: e.target.value})}
+                          placeholder="00:00, 00:00"
+                          className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                        />
+                      </div>
                       </div>
 
                       <motion.button
@@ -291,18 +369,35 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
 
                 {/* Grade Horária Atual */}
                 <div className="lg:col-span-2 space-y-6">
+                  {selectedSchedule.length > 0 && (
+                    <div className="flex justify-end p-2">
+                       <button 
+                        onClick={bulkDeleteSchedule}
+                        className="bg-red-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition shadow-lg flex items-center gap-2"
+                      >
+                        <Trash className="w-3.5 h-3.5" /> Apagar Seleção ({selectedSchedule.length})
+                      </button>
+                    </div>
+                  )}
                   {weekDays.map(day => {
                     const dayClasses = gymSchedule.filter(c => c.day === day.id);
                     if (dayClasses.length === 0) return null;
                     return (
                       <div key={day.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-3 border-b border-gray-100 dark:border-gray-600">
+                        <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-3 border-b border-gray-100 dark:border-gray-600 flex justify-between items-center">
                           <h4 className="font-bold text-sm uppercase tracking-widest text-brand-dark dark:text-white">{day.name}</h4>
+                          <span className="text-[10px] bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded text-gray-500 dark:text-gray-300 font-bold">{dayClasses.length} horários</span>
                         </div>
                         <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
                           {dayClasses.map(c => (
-                            <div key={c.id} className="flex items-center justify-between p-4 px-6 group hover:bg-gray-50/50 transition">
+                            <div key={c.id} className={`flex items-center justify-between p-4 px-6 group hover:bg-gray-50/50 transition ${selectedSchedule.includes(c.id) ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
                               <div className="flex items-center gap-4">
+                                <button 
+                                  onClick={() => toggleScheduleSelection(c.id)}
+                                  className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${selectedSchedule.includes(c.id) ? 'bg-brand-red border-brand-red text-white' : 'border-gray-300 dark:border-gray-600'}`}
+                                >
+                                  {selectedSchedule.includes(c.id) && <CheckSquare size={10} />}
+                                </button>
                                 <span className="font-bold text-brand-red font-mono">{c.time}</span>
                                 <span className="font-bold text-gray-800 dark:text-gray-200 uppercase">{c.name}</span>
                               </div>
@@ -330,34 +425,59 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="max-w-2xl mx-auto space-y-4"
+              className="space-y-4"
             >
-              {feedPosts.length === 0 ? (
-                <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-700">
-                  <p className="text-gray-500">Nenhum post no feed.</p>
+              <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="text-brand-red w-5 h-5" />
+                  <span className="font-bold dark:text-white">Gerenciar Feed</span>
+                  <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-0.5 rounded-full text-[10px]">{feedPosts.length} posts</span>
                 </div>
-              ) : (
-                feedPosts.map(post => (
-                  <div key={post.id} className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden shrink-0">
-                      {post.studentPhoto ? <img src={post.studentPhoto} className="w-full h-full object-cover" /> : <User size={20} />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                         <h5 className="font-bold text-sm truncate dark:text-white">{post.studentName}</h5>
-                         <span className="text-[10px] text-gray-400">Expirando: {format(new Date(post.expiresAt), 'dd/MM HH:mm')}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 truncate">{post.badgeName} - {post.message || 'Sem mensagem'}</p>
-                    </div>
-                    <button 
-                      onClick={() => deletePost(post.id)}
-                      className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition shadow-sm"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                {selectedPosts.length > 0 && (
+                  <button 
+                    onClick={bulkDeletePosts}
+                    className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-red-700 transition shadow-md"
+                  >
+                    <Trash className="w-3.5 h-3.5" /> Apagar Selecionados ({selectedPosts.length})
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {feedPosts.length === 0 ? (
+                  <div className="col-span-full text-center py-20 bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-700">
+                    <p className="text-gray-500">Nenhum post no feed.</p>
                   </div>
-                ))
-              )}
+                ) : (
+                  feedPosts.map(post => (
+                    <div key={post.id} className={`bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border transition-all ${selectedPosts.includes(post.id) ? 'border-brand-red ring-2 ring-brand-red/10' : 'border-gray-100 dark:border-gray-700'} flex items-center gap-3`}>
+                      <button 
+                        onClick={() => togglePostSelection(post.id)}
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selectedPosts.includes(post.id) ? 'bg-brand-red border-brand-red text-white' : 'border-gray-300 dark:border-gray-600'}`}
+                      >
+                        {selectedPosts.includes(post.id) && <CheckSquare size={12} />}
+                      </button>
+
+                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shrink-0 border border-gray-100 dark:border-gray-600">
+                        {post.studentPhoto ? <img src={post.studentPhoto} className="w-full h-full object-cover" /> : <User size={20} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                           <h5 className="font-bold text-xs truncate dark:text-white">{post.studentName}</h5>
+                           <span className="text-[9px] text-gray-400">Exp: {format(new Date(post.expiresAt), 'dd/MM')}</span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 truncate">{post.badgeName} - {post.message || 'Sem mensagem'}</p>
+                      </div>
+                      <button 
+                        onClick={() => deletePost(post.id)}
+                        className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition shadow-sm"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
             </motion.div>
           )}
 
@@ -390,26 +510,84 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {students.map(s => (
-                  <div key={s.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 border-2 border-gray-100">
-                      {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={24} className="text-gray-300" />}
-                    </div>
-                    <div className="flex-1">
-                      <h5 className="font-bold dark:text-white text-sm">{s.name} {s.nickname ? `(${s.nickname})` : ''}</h5>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                          s.paymentStatus === 'Em dia' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {s.paymentStatus}
-                        </span>
-                        <span className="text-[10px] text-gray-400 uppercase font-bold">{s.belt}</span>
+                  <div key={s.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col gap-4 relative overflow-hidden transition-all hover:shadow-md">
+                    {s.mutedUntil && new Date(s.mutedUntil) > new Date() && (
+                      <div className="absolute top-0 right-0 bg-red-500 text-white px-3 py-1 text-[9px] font-bold uppercase rounded-bl-lg">Silenciado</div>
+                    )}
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shrink-0 border-2 border-white dark:border-gray-600 shadow-sm relative group">
+                        {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={28} className="text-gray-300" />}
+                        {s.photoBase64 && (
+                          <button 
+                            onClick={() => removeStudentPhoto(s.id, s.name)}
+                            className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                            title="Remover Foto"
+                          >
+                            <Camera size={18} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                           <h5 className="font-bold dark:text-white text-base">{s.name}</h5>
+                           {s.nickname && <span className="text-xs text-gray-400 font-medium tracking-tight">({s.nickname})</span>}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                            s.paymentStatus === 'Em dia' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                          }`}>
+                            {s.paymentStatus}
+                          </span>
+                          <span className="text-[10px] text-gray-400 uppercase font-bold">{s.belt}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                       <p className="text-[10px] text-gray-400 uppercase font-bold">Login: {s.studentLogin}</p>
-                       <p className="text-[10px] text-gray-500 mt-1">{s.plan}</p>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl">
+                      <div>
+                        <p className="text-gray-400 font-bold uppercase text-[9px]">ID Sistema</p>
+                        <p className="dark:text-white font-medium">{s.studentLogin}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 font-bold uppercase text-[9px]">Plano Atual</p>
+                        <p className="dark:text-white font-medium truncate">{s.plan}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                      <div className="flex-1 flex gap-1 items-center">
+                        <span className="text-[9px] font-bold text-gray-400 uppercase mr-1">Silenciar:</span>
+                        {[
+                          { days: 1, label: '1d' },
+                          { days: 7, label: '7d' },
+                          { days: 30, label: '30d' },
+                          { days: 'perm', label: 'PERM' }
+                        ].map(d => (
+                          <button
+                            key={d.label}
+                            onClick={() => muteStudent(s.id, s.name, d.days as any)}
+                            className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-1.5 rounded-lg text-[9px] font-bold flex-1 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <Ban size={10} /> {d.label}
+                          </button>
+                        ))}
+                      </div>
+                      {s.mutedUntil && (
+                        <button 
+                           onClick={async () => {
+                              try {
+                                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', s.id), { mutedUntil: null });
+                                setStudents(prev => prev.map(item => item.id === s.id ? { ...item, mutedUntil: null } : item));
+                                showAlert("Sucesso", "Silenciamento removido.", "success");
+                              } catch (e) { console.error(e); }
+                           }}
+                           className="px-3 py-1.5 rounded-lg text-[9px] font-bold bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-200 transition-colors"
+                        >
+                           Restaurar
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -420,8 +598,4 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
       )}
     </div>
   );
-}
-
-function XCircle({ size, className }: { size: number, className?: string }) {
-  return <Trash2 size={size} className={className} />;
 }
