@@ -115,9 +115,15 @@ export default function Finance({ currentUserData, planInfo }: any) {
   histArray.sort((a: any, b: any) => parseDateString(b.timestamp || b.date).getTime() - parseDateString(a.timestamp || a.date).getTime());
 
   const handlePrintReceipt = (receipt: any) => {
+    const amountNum = Number(receipt.amount);
+    const fullAmountNum = receipt.fullAmount ? Number(receipt.fullAmount) : (basePrice > amountNum ? basePrice : amountNum);
+    const discountNum = receipt.discount ? Number(receipt.discount) : (fullAmountNum > amountNum ? fullAmountNum - amountNum : 0);
+
     setSelectedReceipt({
       date: parseDateString(receipt.timestamp || receipt.date).toLocaleDateString('pt-BR'),
-      amount: Number(receipt.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      amount: amountNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+      fullAmount: fullAmountNum > amountNum ? fullAmountNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+      discount: discountNum > 0 ? discountNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null
     });
   };
 

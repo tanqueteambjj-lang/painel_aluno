@@ -39,14 +39,29 @@ export default function ReceiptModal({ isOpen, onClose, receiptData, userData, p
             </div>
             
             <div className="border-t border-b border-gray-200 dark:border-gray-700 py-4 mb-6 print:border-gray-300">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold print:text-gray-500">Data</p>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold print:text-gray-500">Data do Pagamento</p>
                   <p className="font-bold text-gray-900 dark:text-white print:text-black">{receiptData.date}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold print:text-gray-500">Valor</p>
-                  <p className="font-black text-green-600 dark:text-green-400 text-lg print:text-black">{receiptData.amount}</p>
+                
+                {receiptData.fullAmount && (
+                  <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100 dark:border-gray-700/30 print:border-gray-200">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold print:text-gray-500">Valor Integral</p>
+                    <p className="font-bold text-gray-500 dark:text-gray-400 line-through print:text-gray-400">{receiptData.fullAmount}</p>
+                  </div>
+                )}
+
+                {receiptData.discount && (
+                  <div className="flex justify-between items-center text-sm">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold print:text-gray-500">Desconto Aplicado</p>
+                    <p className="font-bold text-red-500 dark:text-red-400">- {receiptData.discount}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100 dark:border-gray-700/30 print:border-gray-200">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs uppercase font-bold print:text-gray-500">Valor Pago</p>
+                  <p className="font-black text-green-600 dark:text-green-400 text-xl print:text-black">{receiptData.amount}</p>
                 </div>
               </div>
             </div>

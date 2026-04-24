@@ -379,12 +379,20 @@ export default function Dashboard() {
                   newDueDate.setMonth(newDueDate.getMonth() + 1);
                   
                   // Determine amount from plan
-                  const planPrice = verifyData.amount || 150; // Use actual paid amount or default
+                  const paidAmount = verifyData.amount || 150;
+                  const rawPlanKey = studentData.plan || 'N/A';
+                  const basePlanName = rawPlanKey.split(' - R$')[0].trim();
+                  const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                  const planInfo = PLAN_DICT[planKey] || { price: 150 };
+                  const fullAmount = planInfo.basePrice || planInfo.price || 150;
+                  const discount = fullAmount > paidAmount ? fullAmount - paidAmount : 0;
                   
                   const newPayment = {
                     id: paymentId,
                     date: new Date().toISOString(),
-                    amount: planPrice,
+                    amount: paidAmount,
+                    fullAmount: fullAmount,
+                    discount: discount,
                     method: verifyData.method || urlParams.get('payment_type') || 'mercadopago',
                     status: 'approved'
                   };
