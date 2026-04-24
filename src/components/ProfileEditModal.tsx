@@ -5,7 +5,7 @@ import { X, Camera, Save, PenSquare, Check, Loader2, ZoomIn, ZoomOut, RotateCcw 
 import { motion, AnimatePresence } from 'motion/react';
 import Cropper from 'react-easy-crop';
 
-export default function ProfileEditModal({ isOpen, onClose, userData, appId, onSaveSuccess, showAlert }: any) {
+export default function ProfileEditModal({ isOpen, onClose, userData, appId, onSaveSuccess, showAlert, showToast }: any) {
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [formData, setFormData] = useState({
@@ -131,7 +131,11 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
       setTimeout(() => {
         setSaveSuccess(false);
         setLoading(false);
-        showAlert("Sucesso", "Perfil atualizado com sucesso!", "success");
+        if (showToast) {
+          showToast("Perfil atualizado com sucesso!", "success");
+        } else {
+          showAlert("Sucesso", "Perfil atualizado com sucesso!", "success");
+        }
         onSaveSuccess();
         onClose();
       }, 1500);

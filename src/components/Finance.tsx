@@ -1,8 +1,9 @@
-import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ReceiptModal from './ReceiptModal';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { motion } from 'motion/react';
 
 const parseDateString = (dateStr: any) => {
   if (!dateStr) return new Date();
@@ -121,170 +122,168 @@ export default function Finance({ currentUserData, planInfo }: any) {
   };
 
   return (
-    <div className="max-w-5xl mx-auto pb-12">
-      <div className="mb-8">
-        <h2 className="font-display text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-          Financeiro & Contrato
-        </h2>
-        <p className="text-gray-500 dark:text-gray-400 mt-2 text-lg">Acompanhe as informações do seu plano e histórico de pagamentos.</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Plan Details & Contract */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-8 space-y-6">
           
-          {/* Status Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          {/* Status Row */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Status da Assinatura</h3>
-                <div className="flex items-center gap-3">
-                  {dynamicPaymentStatus === 'Pendente' ? (
-                    <span className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4" /> Pendente
-                    </span>
-                  ) : dynamicPaymentStatus === 'Isento' ? (
-                    <span className="bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
-                      <Award className="w-4 h-4" /> Isento
-                    </span>
-                  ) : (
-                    <span className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4" /> Em dia
-                    </span>
-                  )}
-                </div>
-                {daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7 && dynamicPaymentStatus !== 'Pendente' && (
-                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-2 font-medium flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Vence em {daysUntilDue} {daysUntilDue === 1 ? 'dia' : 'dias'}
-                  </p>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Atual</p>
+                {dynamicPaymentStatus === 'Pendente' ? (
+                  <span className="text-red-500 font-black text-lg flex items-center gap-1 uppercase italic">
+                    <AlertTriangle className="w-5 h-5" /> Pendente
+                  </span>
+                ) : dynamicPaymentStatus === 'Isento' ? (
+                  <span className="text-gray-500 font-black text-lg flex items-center gap-1 uppercase italic">
+                    <Award className="w-5 h-5" /> Isento
+                  </span>
+                ) : (
+                  <span className="text-green-500 font-black text-lg flex items-center gap-1 uppercase italic">
+                    <CheckCircle className="w-5 h-5" /> Em dia
+                  </span>
                 )}
               </div>
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                <Shield className="w-6 h-6 text-brand-red" />
+              </div>
+            </div>
 
-              <div className="flex flex-col gap-4 md:items-end">
-                <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-600">
-                  <Clock className="w-5 h-5 text-brand-red" />
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase">Próximo Vencimento</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">{formattedDueDate}</p>
-                  </div>
-                </div>
+            <div className="flex-1 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Próxima Fatura</p>
+                <span className="text-gray-900 dark:text-white font-black text-lg uppercase italic">
+                  {formattedDueDate}
+                </span>
+                {daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7 && dynamicPaymentStatus !== 'Pendente' && (
+                  <p className="text-[10px] text-amber-500 font-bold mt-1 uppercase">Vence em {daysUntilDue}d</p>
+                )}
+              </div>
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
+                <Calendar className="w-6 h-6 text-blue-500" />
               </div>
             </div>
           </div>
 
-          {/* Contract Details Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-6 md:p-8 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-6">
-                <FileText className="w-5 h-5 text-gray-500" /> Detalhes do Contrato
+          {/* Plan Details Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-display font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight flex items-center gap-2">
+                <FileText className="w-4 h-4" /> Detalhes do Contrato
               </h3>
-              
+              <span className="bg-brand-red/10 text-brand-red text-[10px] font-black px-3 py-1 rounded-full uppercase italic">{planName}</span>
+            </div>
+            
+            <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Plano Contratado</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{planName}</p>
-                </div>
-                
                 <div className="md:col-span-2">
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-2">Valor Mensal</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Valor da Mensalidade</p>
                   {isFreePlan ? (
-                    <p className="text-xl font-bold text-brand-red">Isento</p>
-                  ) : isInvalidPlan ? (
-                    <p className="text-xl font-bold text-gray-400">--</p>
+                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl border border-gray-100 dark:border-gray-600">
+                      <p className="text-2xl font-black text-gray-500 italic uppercase">Isento de Mensalidade</p>
+                    </div>
                   ) : basePrice !== planPrice ? (
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="flex-1 bg-green-50 dark:bg-green-900/20 px-4 py-3 rounded-xl border border-green-100 dark:border-green-800/30">
-                        <p className="text-[10px] uppercase tracking-wider font-bold text-green-600 dark:text-green-400 mb-1">Até o vencimento</p>
-                        <p className="text-xl font-bold text-green-700 dark:text-green-300 leading-none">R$ {planPrice.toFixed(2).replace('.', ',')}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-900/30">
+                        <p className="text-[10px] font-bold text-green-600 uppercase mb-1">Pontualidade</p>
+                        <p className="text-2xl font-black text-green-700 dark:text-green-400">R$ {planPrice.toFixed(2).replace('.', ',')}</p>
                       </div>
-                      <div className="flex-1 bg-red-50 dark:bg-red-900/20 px-4 py-3 rounded-xl border border-red-100 dark:border-red-800/30">
-                        <p className="text-[10px] uppercase tracking-wider font-bold text-red-600 dark:text-red-400 mb-1">Após o vencimento</p>
-                        <p className="text-xl font-bold text-red-700 dark:text-red-300 leading-none">R$ {basePrice.toFixed(2).replace('.', ',')}</p>
+                      <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Valor Integral</p>
+                        <p className="text-2xl font-black text-gray-600 dark:text-gray-400">R$ {basePrice.toFixed(2).replace('.', ',')}</p>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">
+                    <p className="text-3xl font-black text-gray-900 dark:text-white italic">
                       R$ {planPrice.toFixed(2).replace('.', ',')}
                     </p>
                   )}
                 </div>
 
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Data de Matrícula</p>
-                  <p className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-400" /> {formattedRegistration}
-                  </p>
+                <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-lg flex items-center justify-center shadow-sm">
+                    <Clock className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Matrícula</p>
+                    <p className="font-bold text-gray-900 dark:text-white text-sm uppercase">{formattedRegistration}</p>
+                  </div>
                 </div>
 
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Vencimento do Contrato</p>
-                  <p className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-400" /> {formattedContractEnd}
-                  </p>
+                <div className="flex items-center gap-4 bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-lg flex items-center justify-center shadow-sm">
+                    <Calendar className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fim do Contrato</p>
+                    <p className="font-bold text-gray-900 dark:text-white text-sm uppercase">{formattedContractEnd}</p>
+                  </div>
                 </div>
               </div>
             </div>
 
             {currentUserData?.hasPromotion && currentUserData?.promoNote && (
-              <div className="p-6 bg-yellow-50 dark:bg-yellow-900/20 border-t border-yellow-100 dark:border-yellow-800/30">
-                <div className="flex items-start gap-3">
-                  <Award className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-bold text-yellow-800 dark:text-yellow-400 mb-1">Condição Especial Aplicada</p>
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300">{currentUserData.promoNote}</p>
-                  </div>
-                </div>
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/10 border-t border-amber-100 dark:border-amber-900/20 flex items-start gap-3">
+                <Award className="w-5 h-5 text-amber-500 shrink-0" />
+                <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                  <span className="font-black uppercase text-[10px] tracking-wider block mb-0.5">Nota da Promoção</span>
+                  {currentUserData.promoNote}
+                </p>
               </div>
             )}
           </div>
-
         </div>
 
         {/* Right Column: History */}
-        <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-gray-500" /> Histórico de Pagamentos
-            </h3>
+        <div className="lg:col-span-4 h-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col h-full overflow-hidden">
+            <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-display font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight flex items-center gap-2">
+                <Receipt className="w-4 h-4" /> Recibos
+              </h3>
+            </div>
             
-            <div className="space-y-4">
+            <div className="p-4 flex-1 overflow-y-auto space-y-3 max-h-[600px]">
               {histArray.length === 0 ? (
-                <div className="text-center py-8 flex flex-col items-center">
-                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-3">
-                    <Receipt className="w-8 h-8 text-gray-300 dark:text-gray-500" />
-                  </div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Nenhum pagamento registrado.</p>
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Receipt className="w-12 h-12 text-gray-200 dark:text-gray-700 mb-2" />
+                  <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Sem histórico</p>
                 </div>
               ) : (
-                histArray.map((p: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                    <div>
-                      <p className="font-bold text-gray-900 dark:text-white text-sm capitalize">
-                        {parseDateString(p.timestamp || p.date).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {parseDateString(p.timestamp || p.date).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="font-bold text-green-600 dark:text-green-400">
-                          {Number(p.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center justify-end gap-1">
-                          <CheckCircle className="w-3 h-3 text-green-500" /> Pago
+                histArray.map((p: any, idx: number) => {
+                  const dateObj = parseDateString(p.timestamp || p.date);
+                  return (
+                    <motion.div 
+                      key={idx}
+                      whileHover={{ scale: 1.02 }}
+                      className="group p-4 bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900/30 hover:shadow-md transition-all cursor-default"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{dateObj.toLocaleDateString('pt-BR')}</p>
+                          <p className="font-black text-gray-900 dark:text-white text-sm uppercase italic">{dateObj.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}</p>
+                        </div>
+                        <p className="font-black text-green-500 text-base">
+                          R${Number(p.amount).toFixed(2).replace('.', ',')}
                         </p>
                       </div>
-                      <button 
-                        onClick={() => handlePrintReceipt(p)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                        title="Imprimir Recibo"
-                      >
-                        <Printer className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                        <span className="flex items-center gap-1 text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">
+                          <CheckCircle className="w-3 h-3" /> Confirmado
+                        </span>
+                        <button 
+                          onClick={() => handlePrintReceipt(p)}
+                          className="flex items-center gap-1 p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
+                        >
+                          <Printer className="w-4 h-4" />
+                          <span className="text-[10px] font-bold uppercase">PDF</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })
               )}
             </div>
           </div>

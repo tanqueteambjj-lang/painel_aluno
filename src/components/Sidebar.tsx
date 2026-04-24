@@ -1,7 +1,7 @@
-import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield } from 'lucide-react';
+import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield, Bell } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, isAdmin }: any) {
+export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, hasUnreadNotifications, onOpenNotifications, isAdmin }: any) {
   return (
     <aside 
       className={`fixed md:relative inset-y-0 left-0 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 w-64 bg-brand-dark text-white flex flex-col shadow-2xl z-40 transition-transform duration-300 ease-in-out h-full border-r border-gray-800`}
@@ -21,6 +21,22 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
         </button>
       </div>
       <nav className="flex-1 px-4 py-6 space-y-1 flex flex-col overflow-y-auto" role="navigation">
+        <motion.button 
+          whileHover={{ scale: 1.02, x: 4 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => { onOpenNotifications(); setIsMobileMenuOpen(false); }} 
+          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left relative text-gray-400 hover:bg-gray-800 hover:text-white border-b border-gray-800/50 pb-4 mb-2`}
+          aria-label="Abrir central de notificações"
+        >
+          <div className="relative">
+            <Bell className="w-6 h-6" aria-hidden="true" />
+            {hasUnreadNotifications && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-brand-dark animate-pulse" aria-hidden="true"></span>
+            )}
+          </div>
+          <span className="ml-2 font-bold uppercase tracking-tight text-sm">Notificações</span>
+        </motion.button>
+
         <motion.button 
           whileHover={{ scale: 1.02, x: 4 }}
           whileTap={{ scale: 0.98 }}

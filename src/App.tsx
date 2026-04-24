@@ -14,8 +14,8 @@ import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard } from 'lucide-react';
-import { AlertDialog, ConfirmDialog, AlertType } from '@/components/CustomDialogs';
+import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox } from 'lucide-react';
+import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -70,14 +70,59 @@ export default function Dashboard() {
 
   const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', type: 'info' as AlertType });
   const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [toastState, setToastState] = useState({ isOpen: false, message: '', type: 'success' as AlertType });
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingText, setLoadingText] = useState("Iniciando...");
+
+  const showToast = (message: string, type: AlertType = 'success') => {
+    setToastState({ isOpen: true, message, type });
+  };
 
   const [hasUnreadFeed, setHasUnreadFeed] = useState(false);
   const [hasUnreadNotices, setHasUnreadNotices] = useState(false);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   
-  const listenersRef = useRef<{ notices?: any, feed?: any, student?: any }>({});
+  const listenersRef = useRef<{ notices?: any, feed?: any, student?: any, notifications?: any }>({});
   const initialLoadRef = useRef(true);
+
+  const loadNotifications = (studentId: string) => {
+    try {
+      if (listenersRef.current.notifications) listenersRef.current.notifications();
+      
+      const q = query(
+        collection(db, 'artifacts', appId, 'public', 'data', 'notifications'),
+        where('targetId', 'in', [studentId, 'all'])
+      );
+      
+      listenersRef.current.notifications = onSnapshot(q, (snap) => {
+        const fetched: any[] = [];
+        snap.forEach(docSnap => {
+          fetched.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        
+        fetched.sort((a, b) => parseDateString(b.timestamp).getTime() - parseDateString(a.timestamp).getTime());
+        setNotifications(fetched);
+        
+        const lastViewed = parseInt(localStorage.getItem(`lastViewedNotifications_${studentId}`) || '0');
+        const hasUnread = fetched.some(n => parseDateString(n.timestamp).getTime() > lastViewed);
+        setHasUnreadNotifications(hasUnread);
+
+        // Notify if new notification added during session
+        snap.docChanges().forEach(change => {
+          if (change.type === 'added' && !initialLoadRef.current) {
+             const data = change.doc.data();
+             if (parseDateString(data.timestamp).getTime() > Date.now() - 60000) {
+                sendPushNotification("Nova Notificação", data.title || "Você tem uma nova mensagem!");
+             }
+          }
+        });
+      });
+    } catch (e) {
+      console.error("Erro notifications:", e);
+    }
+  };
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -196,7 +241,7 @@ export default function Dashboard() {
       }
       setSharingBadge(null);
       setShareMessage("");
-      showAlert("Sucesso", "Conquista compartilhada no Feed com sucesso!", "success");
+      showToast("Conquista compartilhada no Feed com sucesso!", "success");
     } catch (e) {
       console.error("Erro ao compartilhar conquista:", e);
       showAlert("Erro", "Erro ao compartilhar conquista.", "error");
@@ -933,6 +978,8 @@ export default function Dashboard() {
         handleLogout={handleLogout}
         hasUnreadFeed={hasUnreadFeed}
         hasUnreadNotices={hasUnreadNotices}
+        hasUnreadNotifications={hasUnreadNotifications}
+        onOpenNotifications={() => setIsNotificationCenterOpen(true)}
         isAdmin={planKey === 'administracao'}
       />
 
@@ -1386,9 +1433,9 @@ export default function Dashboard() {
 
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden max-w-4xl mx-auto border-t-4 border-gray-800 dark:border-gray-600">
                 <div className="bg-gray-50 dark:bg-gray-700 px-6 py-6 border-b border-gray-200 dark:border-gray-600 flex flex-col md:flex-row justify-between items-center gap-4">
-                  <div className="flex items-center">
-                    <FileText className="mr-2 text-brand-red w-6 h-6" aria-hidden="true" />
-                    <h3 className="text-gray-800 dark:text-gray-100 font-display font-bold tracking-wide text-xl uppercase">DADOS CADASTRAIS</h3>
+                  <div className="flex items-center text-center md:text-left">
+                    <UserCog className="mr-3 text-brand-red w-6 h-6" aria-hidden="true" />
+                    <h3 className="text-gray-800 dark:text-gray-100 font-display font-bold tracking-wide text-xl uppercase">Meu Perfil</h3>
                   </div>
                   <motion.button 
                     whileHover={{ scale: 1.05, backgroundColor: '#c53030' }}
@@ -1398,7 +1445,7 @@ export default function Dashboard() {
                     aria-label="Editar dados cadastrais"
                   >
                     <UserCog className="w-5 h-5" />
-                    ALTERAR MEUS DADOS
+                    EDITAR MEUS DADOS
                   </motion.button>
                 </div>
                 <div className="p-8">
@@ -1442,10 +1489,14 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="mt-12 max-w-4xl mx-auto mb-10 overflow-hidden">
-                  <div className="mb-6 flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 pb-3">
-                    <CreditCard className="w-8 h-8 text-brand-red" />
-                    <h2 className="font-display text-3xl font-bold text-brand-dark dark:text-white uppercase tracking-wider">Meus Pagamentos</h2>
+                <div className="mt-12 max-w-4xl mx-auto mb-10 overflow-hidden px-4 sm:px-0">
+                  <div className="mb-6 flex flex-col md:flex-row items-center gap-3 border-b border-gray-200 dark:border-gray-700 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-brand-red/10 rounded-xl">
+                        <CreditCard className="w-6 h-6 text-brand-red" />
+                      </div>
+                      <h2 className="font-display text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight italic">Financeiro & Pagamentos</h2>
+                    </div>
                   </div>
                   <Finance currentUserData={currentUserData} planInfo={planInfo} showAlert={showAlert} />
                 </div>
@@ -1552,6 +1603,103 @@ export default function Dashboard() {
         appId={appId}
         onSaveSuccess={() => loadStudentData(currentUserData.id)}
         showAlert={showAlert}
+        showToast={showToast}
+      />
+
+      <AnimatePresence>
+        {isNotificationCenterOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 z-[150] flex items-center justify-end backdrop-blur-sm"
+            onClick={() => {
+              setIsNotificationCenterOpen(false);
+              if (currentUserData) {
+                localStorage.setItem(`lastViewedNotifications_${currentUserData.id}`, Date.now().toString());
+                setHasUnreadNotifications(false);
+              }
+            }}
+          >
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="bg-white dark:bg-gray-800 w-full max-w-md h-full shadow-2xl flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-brand-red/10 rounded-xl text-brand-red font-bold">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-display font-bold text-xl text-gray-900 dark:text-white uppercase tracking-tight">Notificações</h3>
+                </div>
+                <button 
+                  onClick={() => setIsNotificationCenterOpen(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors text-gray-400"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {notifications.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-8">
+                    <div className="w-20 h-20 bg-gray-50 dark:bg-gray-700/50 rounded-full flex items-center justify-center mb-4 text-gray-300">
+                      <Inbox className="w-10 h-10" />
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">Você não tem novas notificações no momento.</p>
+                  </div>
+                ) : (
+                  notifications.map((n, i) => (
+                    <motion.div 
+                      key={n.id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className={`p-4 rounded-2xl border transition-all ${
+                        parseDateString(n.timestamp).getTime() > parseInt(localStorage.getItem(`lastViewedNotifications_${currentUserData?.id}`) || '0')
+                        ? 'bg-brand-red/5 border-brand-red/20 shadow-sm'
+                        : 'bg-white dark:bg-gray-700/30 border-gray-100 dark:border-gray-700'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <h4 className="font-bold text-gray-900 dark:text-white text-sm">{n.title}</h4>
+                        <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap ml-2">
+                          {formatDistanceToNow(parseDateString(n.timestamp), { locale: ptBR, addSuffix: true })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{n.message}</p>
+                      {n.type === 'alert' && (
+                        <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-brand-red uppercase tracking-wider">
+                          <AlertTriangle className="w-3 h-3" /> Urgente
+                        </div>
+                      )}
+                    </motion.div>
+                  ))
+                )}
+              </div>
+
+              <div className="p-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
+                <button 
+                  onClick={() => setIsNotificationCenterOpen(false)}
+                  className="w-full py-4 bg-gray-900 dark:bg-gray-700 hover:bg-black dark:hover:bg-gray-600 text-white rounded-xl font-bold transition shadow-lg flex items-center justify-center gap-2"
+                >
+                  Fechar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Toast 
+        isOpen={toastState.isOpen} 
+        message={toastState.message} 
+        type={toastState.type} 
+        onClose={() => setToastState({ ...toastState, isOpen: false })} 
       />
 
       <AlertDialog 

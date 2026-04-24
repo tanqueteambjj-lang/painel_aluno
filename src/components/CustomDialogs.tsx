@@ -1,7 +1,64 @@
-import { AlertTriangle, CheckCircle, Info, HelpCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Info, HelpCircle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useEffect } from 'react';
 
-export type AlertType = 'info' | 'success' | 'error';
+export type AlertType = 'info' | 'success' | 'error' | 'warning';
+
+interface ToastProps {
+  isOpen: boolean;
+  message: string;
+  type?: AlertType;
+  onClose: () => void;
+}
+
+export function Toast({ isOpen, message, type = 'success', onClose }: ToastProps) {
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  const bgColors = {
+    info: 'bg-blue-600',
+    success: 'bg-green-600',
+    error: 'bg-red-600',
+    warning: 'bg-amber-600'
+  };
+
+  const icons = {
+    info: <Info className="w-5 h-5 text-white" />,
+    success: <CheckCircle className="w-5 h-5 text-white" />,
+    error: <AlertTriangle className="w-5 h-5 text-white" />,
+    warning: <AlertTriangle className="w-5 h-5 text-white" />
+  };
+
+  return (
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[300] w-full max-w-sm px-4 pointer-events-none">
+      <motion.div
+        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+        className={`${bgColors[type]} text-white p-4 rounded-2xl shadow-2xl flex items-center gap-3 pointer-events-auto border border-white/20`}
+      >
+        <div className="shrink-0">
+          {icons[type]}
+        </div>
+        <p className="text-sm font-bold flex-1">{message}</p>
+        <button 
+          onClick={onClose}
+          className="p-1 hover:bg-white/20 rounded-full transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </motion.div>
+    </div>
+  );
+}
 
 interface AlertDialogProps {
   isOpen: boolean;
