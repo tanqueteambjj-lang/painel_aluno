@@ -56,6 +56,7 @@ export default function Dashboard() {
   const [notices, setNotices] = useState<any[]>([]);
   const [rankingAdulto, setRankingAdulto] = useState<any[]>([]);
   const [rankingInfantil, setRankingInfantil] = useState<any[]>([]);
+  const [userBookings, setUserBookings] = useState<any[]>([]);
   
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -502,6 +503,7 @@ export default function Dashboard() {
             setDependents([]);
           }
           await loadRanking();
+          loadUserBookings(data.id);
         } else {
           // Fallback for mock
           if (process.env.NODE_ENV === 'development') {
@@ -636,10 +638,37 @@ export default function Dashboard() {
     }
   };
 
+  const loadUserBookings = (studentId: string) => {
+    try {
+      if (listenersRef.current.notifications) { // Reuse a listener slot or add a new one if needed
+        // For simplicity we'll manage it without the ref here or add a new slot
+      }
+      const today = new Date().toISOString().split('T')[0];
+      const q = query(
+        collection(db, 'artifacts', appId, 'public', 'data', 'bookings'),
+        where('studentId', '==', studentId),
+        where('date', '>=', today)
+      );
+      
+      onSnapshot(q, (snap) => {
+        const fetched: any[] = [];
+        snap.forEach(docSnap => {
+          fetched.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        
+        fetched.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+        setUserBookings(fetched.slice(0, 3));
+      });
+    } catch (e) {
+      console.error("Erro ao carregar agendamentos:", e);
+    }
+  };
+
   const loadRanking = async () => {
     try {
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
+      const today = new Date();
       
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
       const snap = await getDocs(q);
@@ -662,7 +691,29 @@ export default function Dashboard() {
         if(monthCount > 0) {
           const item = { name: data.name, nickname: data.nickname, belt: data.belt, classes: monthCount };
           const planStr = (data.plan || '').toLowerCase();
-          if (planStr.includes('infantil') || planStr.includes('kids')) {
+          
+          // Calcular idade
+          let age = 99;
+          if (data.birthDate) {
+            const birth = new Date(data.birthDate);
+            age = today.getFullYear() - birth.getFullYear();
+            const m = today.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+              age--;
+            }
+          }
+
+          // Se tiver plano adulto explícito, vai para o ranking adulto independente da idade
+          const isAdultPlan = planStr.includes('adulto') || 
+                            (planStr.includes('mensal') && !planStr.includes('infantil')) || 
+                            (planStr.includes('trimestral') && !planStr.includes('infantil')) || 
+                            (planStr.includes('semestral') && !planStr.includes('infantil')) || 
+                            planStr.includes('anual');
+          
+          const isKidsKeywords = planStr.includes('infantil') || planStr.includes('kids');
+          
+          // Condição: Idade <= 11 E não tem plano adulto
+          if ((age <= 11 || isKidsKeywords) && !isAdultPlan) {
             rankInfantil.push(item);
           } else {
             rankAdulto.push(item);
@@ -1137,7 +1188,7 @@ export default function Dashboard() {
               </div>
 
               {/* Quick Actions */}
-              <div className="mb-8 no-print">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 no-print">
                 <motion.button 
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
@@ -1146,8 +1197,50 @@ export default function Dashboard() {
                   aria-label="Convidar um amigo via WhatsApp"
                 >
                   <Share2 className="w-6 h-6" aria-hidden="true" />
-                  <span className="text-base md:text-lg">Chamar um Amigo pro Treino</span>
+                  <span className="text-base md:text-lg">Chamar um Amigo</span>
                 </motion.button>
+
+                <motion.button 
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setView('scheduling')} 
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition"
+                  aria-label="Ir para agendamento"
+                >
+                  <Calendar className="w-6 h-6" aria-hidden="true" />
+                  <span className="text-base md:text-lg">Novo Agendamento</span>
+                </motion.button>
+              </div>
+
+              {/* Scheduling Summary */}
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-display text-xl font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                    <Clock className="text-blue-500 w-5 h-5" /> Meus Próximos Treinos
+                  </h3>
+                  <button onClick={() => setView('scheduling')} className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">Ver todos</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {userBookings.length === 0 ? (
+                    <div className="sm:col-span-3 p-6 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 text-center">
+                      <p className="text-gray-400 dark:text-gray-500 text-sm italic">Nenhum agendamento futuro encontrado.</p>
+                      <button onClick={() => setView('scheduling')} className="mt-2 text-blue-500 text-xs font-bold uppercase tracking-wider">Agendar Agora</button>
+                    </div>
+                  ) : (
+                    userBookings.map((booking) => (
+                      <div key={booking.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col hover:shadow-md transition">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">{booking.type || 'Treino'}</span>
+                          <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">{booking.time}</span>
+                        </div>
+                        <div className="font-bold text-gray-800 dark:text-white text-sm line-clamp-1">{booking.className || 'Jiu-Jitsu'}</div>
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 flex items-center">
+                          <Calendar className="w-3 h-3 mr-1" /> {new Date(booking.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', weekday: 'short' })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
               {/* Notices */}
