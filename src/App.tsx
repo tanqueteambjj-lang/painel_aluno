@@ -662,7 +662,7 @@ export default function Dashboard() {
         if(monthCount > 0) {
           const item = { name: data.name, nickname: data.nickname, belt: data.belt, classes: monthCount };
           const planStr = (data.plan || '').toLowerCase();
-          if (planStr.includes('infantil')) {
+          if (planStr.includes('infantil') || planStr.includes('kids')) {
             rankInfantil.push(item);
           } else {
             rankAdulto.push(item);
@@ -875,11 +875,11 @@ export default function Dashboard() {
   if (!currentUserData) return null;
 
   const firstName = (currentUserData.nickname || currentUserData.name || "Aluno").split(' ')[0];
-  const isAdmin = currentUserData.role === 'admin';
   const rawPlanKey = currentUserData.plan || 'N/A';
   // Extract base plan name if it contains " - R$"
   const basePlanName = rawPlanKey.split(' - R$')[0].trim();
   const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const isAdmin = currentUserData.role === 'admin' || planKey === 'administracao';
   const planInfo = PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined };
   const totalAtt = currentUserData.attendance ? currentUserData.attendance.length : 0;
   const recentGrad = checkForRecentGraduation(currentUserData.progressLog, currentUserData.belt || "Faixa Branca - 0º Grau");
