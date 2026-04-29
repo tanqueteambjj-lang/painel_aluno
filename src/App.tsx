@@ -17,7 +17,7 @@ import AdminPanel from '@/components/AdminPanel';
 import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const PLAN_DICT: Record<string, { price: number, short: string }> = {
@@ -57,6 +57,7 @@ export default function Dashboard() {
   const [rankingAdulto, setRankingAdulto] = useState<any[]>([]);
   const [rankingInfantil, setRankingInfantil] = useState<any[]>([]);
   const [userBookings, setUserBookings] = useState<any[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
   
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -86,7 +87,7 @@ export default function Dashboard() {
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   
-  const listenersRef = useRef<{ notices?: any, feed?: any, student?: any, notifications?: any }>({});
+  const listenersRef = useRef<{ notices?: any, feed?: any, student?: any, notifications?: any, bookings?: any }>({});
   const initialLoadRef = useRef(true);
 
   const loadNotifications = (studentId: string) => {
@@ -640,27 +641,32 @@ export default function Dashboard() {
 
   const loadUserBookings = (studentId: string) => {
     try {
-      if (listenersRef.current.notifications) { // Reuse a listener slot or add a new one if needed
-        // For simplicity we'll manage it without the ref here or add a new slot
-      }
-      const today = new Date().toISOString().split('T')[0];
+      if (listenersRef.current.bookings) listenersRef.current.bookings();
+      
+      const today = format(new Date(), 'yyyy-MM-dd');
       const q = query(
         collection(db, 'artifacts', appId, 'public', 'data', 'bookings'),
         where('studentId', '==', studentId),
         where('date', '>=', today)
       );
       
-      onSnapshot(q, (snap) => {
+      const unsub = onSnapshot(q, (snap) => {
         const fetched: any[] = [];
         snap.forEach(docSnap => {
           fetched.push({ id: docSnap.id, ...docSnap.data() });
         });
         
-        fetched.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+        fetched.sort((a, b) => a.date.localeCompare(b.date) || (a.classTime || "").localeCompare(b.classTime || ""));
         setUserBookings(fetched.slice(0, 3));
+        setBookingsLoading(false);
+      }, (err) => {
+        console.error("Erro no onSnapshot de agendamentos:", err);
+        setBookingsLoading(false);
       });
+
+      listenersRef.current.bookings = unsub;
     } catch (e) {
-      console.error("Erro ao carregar agendamentos:", e);
+      console.error("Erro ao configurar listener de agendamentos:", e);
     }
   };
 
@@ -1221,7 +1227,11 @@ export default function Dashboard() {
                   <button onClick={() => setView('scheduling')} className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">Ver todos</button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {userBookings.length === 0 ? (
+                  {bookingsLoading ? (
+                    <div className="sm:col-span-3 p-6 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                    </div>
+                  ) : userBookings.length === 0 ? (
                     <div className="sm:col-span-3 p-6 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 text-center">
                       <p className="text-gray-400 dark:text-gray-500 text-sm italic">Nenhum agendamento futuro encontrado.</p>
                       <button onClick={() => setView('scheduling')} className="mt-2 text-blue-500 text-xs font-bold uppercase tracking-wider">Agendar Agora</button>
@@ -1231,7 +1241,7 @@ export default function Dashboard() {
                       <div key={booking.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col hover:shadow-md transition">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">{booking.type || 'Treino'}</span>
-                          <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">{booking.time}</span>
+                          <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">{booking.classTime}</span>
                         </div>
                         <div className="font-bold text-gray-800 dark:text-white text-sm line-clamp-1">{booking.className || 'Jiu-Jitsu'}</div>
                         <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 flex items-center">
