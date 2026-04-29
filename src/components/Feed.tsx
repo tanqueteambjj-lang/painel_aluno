@@ -26,7 +26,7 @@ const parseDateString = (dateStr: any) => {
   return new Date(dateStr);
 };
 
-export default function Feed({ currentUserData, appId, showAlert, showConfirm }: any) {
+export default function Feed({ currentUserData, appId, showAlert, showConfirm, isAdmin }: any) {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
@@ -124,6 +124,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
       const post = {
         studentId: currentUserData.id,
         studentName: currentUserData.nickname || currentUserData.name,
+        studentFullName: currentUserData.name,
         studentPhoto: currentUserData.photoBase64 || null,
         badgeName: null,
         badgeDesc: null,
@@ -324,7 +325,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900 dark:text-white leading-tight flex items-center gap-2">
-                        {post.studentName}
+                        {isAdmin ? (post.studentFullName || post.studentName) : post.studentName}
                         {post.beltStr && (
                           <span className="text-[9px] bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full text-gray-500 uppercase font-black tracking-tighter">
                             {post.beltStr}
@@ -338,7 +339,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm }:
                   {(post.studentId === currentUserData?.id || currentUserData.role === 'admin') && (
                     <button 
                       onClick={() => deleteFeedPost(post.id)} 
-                      className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
+                      className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 transition flex items-center justify-center hover:bg-red-200 dark:hover:bg-red-800"
                     >
                       <Trash2 size={14} />
                     </button>

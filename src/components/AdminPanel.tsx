@@ -360,9 +360,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                             <div key={b.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-900/50 group">
                               <div className="flex items-center gap-2">
                                 <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-500 overflow-hidden">
-                                   {b.studentPhoto ? <img src={b.studentPhoto} className="w-full h-full object-cover" /> : b.studentName.charAt(0)}
+                                   {b.studentPhoto ? <img src={b.studentPhoto} className="w-full h-full object-cover" /> : (b.studentFullName || b.studentName || '?').charAt(0)}
                                 </div>
-                                <span className="text-sm font-medium dark:text-gray-200">{b.studentName}</span>
+                                <span className="text-sm font-medium dark:text-gray-200">{b.studentFullName || b.studentName}</span>
                               </div>
                               <button 
                                 onClick={() => removeBooking(b.id, b.studentName)}
@@ -596,7 +596,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                           <h5 className="font-bold text-xs truncate dark:text-white">{post.studentName}</h5>
+                           <h5 className="font-bold text-xs truncate dark:text-white">{post.studentFullName || post.studentName}</h5>
                            <span className="text-[9px] text-gray-400">Exp: {format(new Date(post.expiresAt), 'dd/MM')}</span>
                         </div>
                         <p className="text-[10px] text-gray-500 truncate">{post.badgeName} - {post.message || 'Sem mensagem'}</p>

@@ -58,6 +58,7 @@ export default function Scheduling({ currentUserData, appId, showAlert }: any) {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bookings'), {
         studentId: currentUserData.id,
         studentName: currentUserData.nickname || currentUserData.name,
+        studentFullName: currentUserData.name,
         studentPhoto: currentUserData.photoBase64 || null,
         classId,
         className: classItem.name,

@@ -266,7 +266,7 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                       <input id="login" type="text" value={userData.studentLogin || ''} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled />
                     </div>
                     <div>
-                      <label htmlFor="nickname" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Apelido (Nome Social)</label>
+                      <label htmlFor="nickname" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Apelido (Exibição)</label>
                       <input id="nickname" type="text" value={formData.nickname} onChange={e => setFormData({...formData, nickname: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Ex: Zé" />
                     </div>
                   </div>

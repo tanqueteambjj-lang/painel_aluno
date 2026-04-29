@@ -1,7 +1,7 @@
 import { Trophy, ShieldHalf, Flame } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Ranking({ currentUserData, ranking }: any) {
+export default function Ranking({ currentUserData, ranking, isAdmin, title, subtitle }: any) {
   const getBeltColorClass = (belt: string) => {
     const b = belt?.toLowerCase() || '';
     if (b.includes('preta')) return 'bg-zinc-900 border-zinc-700 text-white';
@@ -16,6 +16,7 @@ export default function Ranking({ currentUserData, ranking }: any) {
   };
 
   const formatDisplayName = (student: any) => {
+    if (isAdmin) return student.name;
     if (student.nickname) return student.nickname;
     const parts = student.name.trim().split(/\s+/);
     if (parts.length > 2) {
@@ -25,12 +26,12 @@ export default function Ranking({ currentUserData, ranking }: any) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-20">
+    <div className="max-w-4xl mx-auto pb-4">
       <div className="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
         <h2 className="font-display text-3xl font-bold text-brand-dark dark:text-white flex items-center gap-3">
-          <Trophy className="text-yellow-500 w-8 h-8" /> Ranking Mensal
+          <Trophy className="text-yellow-500 w-8 h-8" /> {title || "Ranking Mensal"}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Os 5 guerreiros que mais treinaram neste mês.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle || "Os 5 guerreiros que mais treinaram neste mês."}</p>
       </div>
       
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">

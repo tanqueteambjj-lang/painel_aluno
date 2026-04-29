@@ -54,7 +54,8 @@ export default function Dashboard() {
   const [dependents, setDependents] = useState<any[]>([]);
   const [viewingDependentId, setViewingDependentId] = useState<string | null>(null);
   const [notices, setNotices] = useState<any[]>([]);
-  const [ranking, setRanking] = useState<any[]>([]);
+  const [rankingAdulto, setRankingAdulto] = useState<any[]>([]);
+  const [rankingInfantil, setRankingInfantil] = useState<any[]>([]);
   
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -611,7 +612,8 @@ export default function Dashboard() {
           if (change.type === 'added') {
             const data = change.doc.data();
             if (data.studentId !== currentUserData?.id && parseDateString(data.timestamp).getTime() > Date.now() - 60000 && !initialLoadRef.current) {
-               sendPushNotification("Nova Conquista na Equipe!", `${data.studentName} compartilhou no feed.`);
+               const posterName = currentUserData?.role === 'admin' ? (data.studentFullName || data.studentName) : data.studentName;
+               sendPushNotification("Nova Conquista na Equipe!", `${posterName} compartilhou no feed.`);
             }
           }
         });
@@ -642,7 +644,9 @@ export default function Dashboard() {
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
       const snap = await getDocs(q);
       
-      const rank: any[] = [];
+      const rankAdulto: any[] = [];
+      const rankInfantil: any[] = [];
+
       snap.forEach(docSnap => {
         const data = docSnap.data();
         if(data.archived || data.enrollmentStatus === 'Inativo') return;
@@ -654,11 +658,23 @@ export default function Dashboard() {
             if(dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear) monthCount++;
           });
         }
-        if(monthCount > 0) rank.push({ name: data.name, belt: data.belt, classes: monthCount });
+        
+        if(monthCount > 0) {
+          const item = { name: data.name, nickname: data.nickname, belt: data.belt, classes: monthCount };
+          const planStr = (data.plan || '').toLowerCase();
+          if (planStr.includes('infantil')) {
+            rankInfantil.push(item);
+          } else {
+            rankAdulto.push(item);
+          }
+        }
       });
 
-      rank.sort((a,b) => b.classes - a.classes);
-      setRanking(rank.slice(0, 5));
+      rankAdulto.sort((a,b) => b.classes - a.classes);
+      rankInfantil.sort((a,b) => b.classes - a.classes);
+
+      setRankingAdulto(rankAdulto.slice(0, 5));
+      setRankingInfantil(rankInfantil.slice(0, 5));
     } catch(e) { 
       console.error("Ranking error:", e); 
     }
@@ -694,6 +710,7 @@ export default function Dashboard() {
               timestamp: new Date().toISOString(),
               studentId: userData.id,
               studentName: userData.nickname || userData.name,
+              studentFullName: userData.name,
               message: "Hoje é meu aniversário! 🎉 Parabéns para mim!",
               badgeName: "Medalha de Aniversário",
               badgeDesc: "Completou mais um ano de vida e dedicação!",
@@ -858,6 +875,7 @@ export default function Dashboard() {
   if (!currentUserData) return null;
 
   const firstName = (currentUserData.nickname || currentUserData.name || "Aluno").split(' ')[0];
+  const isAdmin = currentUserData.role === 'admin';
   const rawPlanKey = currentUserData.plan || 'N/A';
   // Extract base plan name if it contains " - R$"
   const basePlanName = rawPlanKey.split(' - R$')[0].trim();
@@ -865,6 +883,9 @@ export default function Dashboard() {
   const planInfo = PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined };
   const totalAtt = currentUserData.attendance ? currentUserData.attendance.length : 0;
   const recentGrad = checkForRecentGraduation(currentUserData.progressLog, currentUserData.belt || "Faixa Branca - 0º Grau");
+  
+  const isInfantilPlan = (currentUserData?.plan || '').toLowerCase().includes('infantil');
+  const displayRanking = isInfantilPlan ? rankingInfantil : rankingAdulto;
 
   // Calendar Logic
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -1074,9 +1095,9 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="text-gray-500 dark:text-gray-400 text-sm uppercase font-bold tracking-wider mb-1">Bem-vindo(a) de volta,</p>
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-3xl md:text-4xl font-display font-bold text-brand-dark dark:text-white">{firstName}</h1>
-                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-white shadow-sm transform -translate-y-1 ${currentUserData.archived ? 'bg-gray-500' : currentUserData.enrollmentStatus === 'Inativo' ? 'bg-red-500' : 'bg-green-500'}`}>
+                    <div className="flex items-center gap-2">
+                       <h1 className="text-3xl md:text-4xl font-display font-bold text-brand-dark dark:text-white">{currentUserData.nickname || currentUserData.name || "Aluno"}</h1>
+                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-white shadow-sm transform -translate-y-1 ${currentUserData.archived ? 'bg-gray-500' : currentUserData.enrollmentStatus === 'Inativo' ? 'bg-red-500' : 'bg-green-500'}`}>
                         {currentUserData.archived ? 'Arquivado' : currentUserData.enrollmentStatus === 'Inativo' ? 'Inativo' : 'Ativo'}
                       </span>
                     </div>
@@ -1292,16 +1313,18 @@ export default function Dashboard() {
                   <div className="p-0 flex-1 overflow-y-auto max-h-[300px]">
                     <table className="w-full text-left text-sm">
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {ranking.length === 0 ? (
+                        {displayRanking.length === 0 ? (
                           <tr><td className="px-6 py-8 text-center text-gray-400 dark:text-gray-500 italic">Nenhum treino registrado este mês.</td></tr>
                         ) : (
-                          ranking.map((s, idx) => (
+                          displayRanking.map((s, idx) => (
                             <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                               <td className="px-4 py-3 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                   {idx === 0 ? <Medal className="text-yellow-500 w-6 h-6" /> : idx === 1 ? <Medal className="text-gray-400 w-6 h-6" /> : idx === 2 ? <Medal className="text-amber-600 w-6 h-6" /> : <span className="font-bold text-gray-500 w-6 inline-block text-center">{idx+1}º</span>}
                                   <div>
-                                    <p className="font-bold text-gray-800 dark:text-gray-200">{s.name.split(' ')[0]}</p>
+                                    <p className="font-bold text-gray-800 dark:text-gray-200">
+                                      {isAdmin ? (s.name.split(' ')[0]) : (s.nickname || s.name.split(' ')[0])}
+                                    </p>
                                     <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">{(s.belt || 'Branca').split('-')[0].replace('Faixa ', '').trim()}</p>
                                   </div>
                                 </div>
@@ -1382,7 +1405,7 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <Feed currentUserData={currentUserData} appId={appId} showAlert={showAlert} showConfirm={showConfirm} />
+                <Feed currentUserData={currentUserData} appId={appId} showAlert={showAlert} showConfirm={showConfirm} isAdmin={isAdmin} />
               </motion.div>
             )}
 
@@ -1394,8 +1417,27 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
+                className="space-y-8"
               >
-                <Ranking appId={appId} db={db} currentUserData={currentUserData} ranking={ranking} />
+                {(isAdmin || !(currentUserData?.plan || '').toLowerCase().includes('infantil')) && (
+                  <Ranking 
+                    currentUserData={currentUserData} 
+                    ranking={rankingAdulto} 
+                    isAdmin={isAdmin} 
+                    title="Ranking Adulto / Geral" 
+                    subtitle="Os 5 guerreiros que mais treinaram neste mês."
+                  />
+                )}
+                
+                {(isAdmin || (currentUserData?.plan || '').toLowerCase().includes('infantil')) && (
+                  <Ranking 
+                    currentUserData={currentUserData} 
+                    ranking={rankingInfantil} 
+                    isAdmin={isAdmin} 
+                    title="Ranking Infantil" 
+                    subtitle="Os 5 pequenos guerreiros que mais treinaram neste mês."
+                  />
+                )}
               </motion.div>
             )}
 
@@ -1463,7 +1505,7 @@ export default function Dashboard() {
                       <div className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-medium shadow-sm overflow-x-auto">{currentUserData.name || '--'}</div>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Apelido (Nome Social)</label>
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Apelido (Exibição)</label>
                       <div className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-medium shadow-sm overflow-x-auto">{currentUserData.nickname || '--'}</div>
                     </div>
                     <div>

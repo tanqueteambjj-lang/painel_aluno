@@ -55,7 +55,7 @@ export default function QrModal({ isOpen, onClose, userData, planShort }: any) {
     return name;
   };
 
-  const displayName = formatName(userData.name);
+  const displayName = userData.nickname || formatName(userData.name);
 
   return (
     <AnimatePresence>
