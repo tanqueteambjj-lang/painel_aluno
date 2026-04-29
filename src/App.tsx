@@ -643,17 +643,20 @@ export default function Dashboard() {
     try {
       if (listenersRef.current.bookings) listenersRef.current.bookings();
       
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
       const q = query(
         collection(db, 'artifacts', appId, 'public', 'data', 'bookings'),
-        where('studentId', '==', studentId),
-        where('date', '>=', today)
+        where('studentId', '==', studentId)
       );
       
       const unsub = onSnapshot(q, (snap) => {
         const fetched: any[] = [];
         snap.forEach(docSnap => {
-          fetched.push({ id: docSnap.id, ...docSnap.data() });
+          const data = docSnap.data();
+          // Filtrar agendamentos futuros ou de hoje
+          if (data.date >= todayStr) {
+            fetched.push({ id: docSnap.id, ...data });
+          }
         });
         
         fetched.sort((a, b) => a.date.localeCompare(b.date) || (a.classTime || "").localeCompare(b.classTime || ""));
@@ -710,16 +713,12 @@ export default function Dashboard() {
           }
 
           // Se tiver plano adulto explícito, vai para o ranking adulto independente da idade
-          const isAdultPlan = planStr.includes('adulto') || 
-                            (planStr.includes('mensal') && !planStr.includes('infantil')) || 
-                            (planStr.includes('trimestral') && !planStr.includes('infantil')) || 
-                            (planStr.includes('semestral') && !planStr.includes('infantil')) || 
-                            planStr.includes('anual');
-          
+          const isAdultPlan = planStr.includes('adulto');
           const isKidsKeywords = planStr.includes('infantil') || planStr.includes('kids');
           
-          // Condição: Idade <= 11 E não tem plano adulto
-          if ((age <= 11 || isKidsKeywords) && !isAdultPlan) {
+          // Regra: Menor ou igual a 11 anos vai para infantil, A MENOS QUE tenha plano adulto explícito.
+          // Se tiver mais de 11 mas o plano for infantil/kids, também vai para infantil.
+          if ((age <= 11 && !isAdultPlan) || (isKidsKeywords && !isAdultPlan)) {
             rankInfantil.push(item);
           } else {
             rankAdulto.push(item);
