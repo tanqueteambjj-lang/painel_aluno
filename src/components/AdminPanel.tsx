@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, UserPlus, Link } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, UserPlus, Link, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import Cropper from 'react-easy-crop';
 
 export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   const [activeTab, setActiveTab] = useState('bookings');
@@ -72,22 +73,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     }
   };
 
-  const handlePhotoChange = (e: any, studentId: string) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Limit file size to ~1MB
-      if (file.size > 1024 * 1024) {
-        showAlert("Aviso", "A imagem deve ter no máximo 1MB.", "error");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateStudentPhoto(studentId, reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const muteStudent = async (studentId: string, name: string, hours: number | 'perm') => {
     const hoursNum = hours === 'perm' ? 87600 : hours; // 10 years for perm
     const mutedUntil = new Date(Date.now() + (hoursNum as number) * 60 * 60 * 1000).toISOString();
@@ -123,11 +108,79 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'), orderBy('name'));
     const snap = await getDocs(q);
     const list: any[] = [];
-    snap.forEach(doc => {
-      list.push({ id: doc.id, ...doc.data() });
+    snap.forEach(docSnap => {
+      list.push({ id: docSnap.id, ...docSnap.data() });
     });
     setAllStudents(list);
     setStudents(list);
+  };
+
+  // Cropper state for Admin
+  const [croppingStudent, setCroppingStudent] = useState<{ id: string, name: string } | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const getCroppedImg = async (imageSrc: string, pixelCrop: any): Promise<string> => {
+    const image = new Image();
+    image.src = imageSrc;
+    await new Promise((resolve) => (image.onload = resolve));
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('No 2d context');
+    }
+
+    // Set canvas size to match the desired output size (e.g., 800x800)
+    canvas.width = 800;
+    canvas.height = 800;
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      800,
+      800
+    );
+
+    return canvas.toDataURL('image/jpeg', 0.8);
+  };
+
+  const handlePhotoChange = (e: any, studentId: string, studentName: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        setImageSrc(reader.result as string);
+        setCroppingStudent({ id: studentId, name: studentName });
+      });
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropConfirm = async () => {
+    if (imageSrc && croppedAreaPixels && croppingStudent) {
+      try {
+        const croppedImageBase64 = await getCroppedImg(imageSrc, croppedAreaPixels);
+        await updateStudentPhoto(croppingStudent.id, croppedImageBase64);
+        setCroppingStudent(null);
+        setImageSrc(null);
+      } catch (e) {
+        console.error(e);
+        showAlert("Erro", "Não foi possível cortar a imagem.", "error");
+      }
+    }
   };
 
   useEffect(() => {
@@ -870,7 +923,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                               type="file" 
                               accept="image/*" 
                               className="hidden" 
-                              onChange={(e) => handlePhotoChange(e, s.id)}
+                              onChange={(e) => handlePhotoChange(e, s.id, s.name)}
                             />
                           </label>
                           {s.photoBase64 && (
@@ -1325,6 +1378,91 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                 className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl object-contain border-4 border-white/10" 
                 alt="Foto Ampliada" 
               />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL PARA CORTAR FOTO */}
+      <AnimatePresence>
+        {croppingStudent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border-t-4 border-brand-red flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold dark:text-white">Ajustar Foto</h3>
+                  <p className="text-xs text-gray-400">Arraste para posicionar e use o zoom para ajustar</p>
+                </div>
+                <button 
+                  onClick={() => { setCroppingStudent(null); setImageSrc(null); }}
+                  className="p-2 text-gray-400 hover:text-red-500 transition"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="relative h-80 bg-gray-950">
+                <Cropper
+                  image={imageSrc || undefined}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  cropShape="round"
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onCropComplete={onCropComplete}
+                  onZoomChange={setZoom}
+                />
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                      <ZoomIn size={12} /> Zoom
+                    </span>
+                    <span className="text-xs font-bold text-brand-red font-mono">{Math.round(zoom * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    value={zoom}
+                    min={1}
+                    max={4}
+                    step={0.1}
+                    onChange={(e) => setZoom(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-brand-red"
+                  />
+                  <div className="flex justify-between mt-1 px-1">
+                    <button onClick={() => setZoom(Math.max(1, zoom - 0.2))} className="text-gray-400 hover:text-brand-red transition"><ZoomOut size={16} /></button>
+                    <button onClick={() => setZoom(Math.min(4, zoom + 0.2))} className="text-gray-400 hover:text-brand-red transition"><ZoomIn size={16} /></button>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => { setCroppingStudent(null); setImageSrc(null); }}
+                    className="flex-1 py-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-2xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleCropConfirm}
+                    className="flex-[2] py-4 bg-brand-red text-white rounded-2xl font-bold text-sm shadow-xl shadow-red-500/20 hover:bg-red-700 transition flex items-center justify-center gap-2"
+                  >
+                    <Check size={18} /> Salvar Alteração
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
