@@ -3,12 +3,12 @@ import { db } from '@/lib/firebase';
 import { collection, query, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ThumbsUp, Trash2, RefreshCw, Users, Frown, Trophy, MessageCircle, Send, MessageSquare, X, Loader2, Camera, Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Calendar, Sun, Award, Shield, Target } from 'lucide-react';
+import { ThumbsUp, Trash2, RefreshCw, Users, Frown, Trophy, MessageCircle, Send, MessageSquare, X, Loader2, Camera, Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Calendar, Sun, Award, Shield, Target, Cake } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React from 'react';
 
 const ICON_MAP: Record<string, any> = {
-  Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy, Calendar, Sun, MessageSquare, Award, Shield, Target
+  Footprints, Flame, Dumbbell, ShieldHalf, Crown, Zap, Medal, Star, Swords, ArrowUpCircle, Trophy, Calendar, Sun, MessageSquare, Award, Shield, Target, Cake
 };
 
 const parseDateString = (dateStr: any) => {
@@ -346,6 +346,30 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm, i
                   )}
                 </div>
                 
+                {/* Birthday Specials */}
+                {post.type === 'birthday' && (
+                  <div className="mx-5 mb-4 p-5 bg-gradient-to-br from-pink-50 to-orange-50 dark:from-pink-900/20 dark:to-orange-900/20 rounded-2xl border-2 border-pink-100 dark:border-pink-800/30 flex flex-col items-center text-center shadow-lg transform rotate-[-1deg]">
+                    <div className="absolute -top-3 -left-3 scale-150 rotate-[-12deg]">🎈</div>
+                    <div className="absolute -top-3 -right-3 scale-150 rotate-[12deg]">🎁</div>
+                    
+                    <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-full shadow-lg border-2 border-white dark:border-gray-700 flex items-center justify-center mb-4 text-3xl">
+                      🎂
+                    </div>
+                    
+                    <h5 className="font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-orange-600 dark:from-pink-400 dark:to-orange-400 text-xl leading-tight mb-2 uppercase italic tracking-tighter">
+                      Parabéns, {post.studentName}!
+                    </h5>
+                    
+                    <p className="text-sm text-gray-700 dark:text-gray-300 font-medium px-4">
+                      {post.content}
+                    </p>
+                    
+                    <div className="mt-4 flex gap-2">
+                       <span className="bg-white/80 dark:bg-gray-800/80 px-3 py-1 rounded-full text-[10px] font-bold text-pink-600 uppercase">Feliz Aniversário!</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Achievement Area */}
                 {post.badgeName && (
                   <div className="mx-5 mb-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-2xl flex items-center gap-4 border border-gray-100 dark:border-gray-800/50 shadow-inner">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, UserPlus, Link } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -9,6 +9,8 @@ import { ptBR } from 'date-fns/locale';
 export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   const [activeTab, setActiveTab] = useState('bookings');
   const [loading, setLoading] = useState(true);
+  const [extraXPValue, setExtraXPValue] = useState(100);
+  const [isLinkingFamily, setIsLinkingFamily] = useState<{ studentId: string, name: string } | null>(null);
   
   // Custom Achievements Management
   const [customAchievements, setCustomAchievements] = useState<any[]>([]);
@@ -115,6 +117,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   };
 
   const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   const fetchStudents = async () => {
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'), orderBy('name'));
@@ -128,7 +131,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   };
 
   useEffect(() => {
-    if (activeTab === 'students' && allStudents.length === 0) {
+    if ((activeTab === 'students' || activeTab === 'achievements') && allStudents.length === 0) {
       fetchStudents();
     }
   }, [activeTab, appId]);
@@ -264,6 +267,47 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     }
 
     return badges;
+  };
+
+  const addExtraXP = async (studentId: string, name: string) => {
+    showConfirm("Adicionar XP", `Deseja adicionar ${extraXPValue} XP para ${name}?`, async () => {
+      const student = allStudents.find(s => s.id === studentId);
+      const currentXP = student?.extraXP || 0;
+      try {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
+          extraXP: currentXP + extraXPValue
+        });
+        setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, extraXP: currentXP + extraXPValue } : s));
+        showAlert("Sucesso", `XP adicionado com sucesso!`, "success");
+      } catch (e) {
+        console.error(e);
+        showAlert("Erro", "Falha ao adicionar XP.", "error");
+      }
+    });
+  };
+
+  const linkAccount = async (studentId: string, parentId: string) => {
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
+        parentId: parentId
+      });
+      setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, parentId } : s));
+      setIsLinkingFamily(null);
+      showAlert("Sucesso", "Conta vinculada com sucesso!", "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao vincular conta.", "error");
+    }
+  };
+
+  const getInactiveStudents = () => {
+    const now = new Date();
+    return allStudents.map(s => {
+      if (!Array.isArray(s.attendance) || s.attendance.length === 0) return { ...s, daysInactive: 999 };
+      const lastAtt = new Date([...s.attendance].sort().pop() + 'T12:00:00');
+      const diffDays = Math.floor((now.getTime() - lastAtt.getTime()) / (1000 * 60 * 60 * 24));
+      return { ...s, daysInactive: diffDays };
+    }).filter(s => s.daysInactive >= 10).sort((a,b) => b.daysInactive - a.daysInactive);
   };
 
   const assignAchievement = async (studentId: string, currentAchs: string[] = []) => {
@@ -421,6 +465,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
             { id: 'achievements', label: 'Conquistas', icon: Trophy },
+            { id: 'churn', label: 'Evasão', icon: TrendingDown },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -779,6 +824,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                         {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={28} className="text-gray-300" />}
                         
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                          <button 
+                            onClick={() => s.photoBase64 && setSelectedPhoto(s.photoBase64)}
+                            className="p-1 text-white hover:text-brand-red transition-colors"
+                            title="Ampliar Foto"
+                          >
+                             <Search size={18} />
+                          </button>
                           <label className="cursor-pointer p-1 text-white hover:text-brand-red transition-colors" title="Alterar Foto">
                             <Camera size={18} />
                             <input 
@@ -844,6 +896,39 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                     </div>
                     
                     <div className="flex flex-wrap gap-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                      <div className="flex gap-2 w-full mb-2">
+                        {/* XP Action */}
+                        <div className="flex items-center gap-1 flex-1">
+                          <input 
+                            type="number" 
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-1.5 text-[10px] outline-none"
+                            placeholder="XP Extra"
+                            defaultValue={100}
+                            id={`xp-${s.id}`}
+                          />
+                          <button 
+                            onClick={() => {
+                              const input = document.getElementById(`xp-${s.id}`) as HTMLInputElement;
+                              const val = parseInt(input?.value || '100');
+                              addExtraXP(s.id, val);
+                            }}
+                            className="bg-brand-red text-white p-1.5 rounded hover:bg-red-700 transition"
+                            title="Atribuir XP Extra"
+                          >
+                            <Zap size={14} />
+                          </button>
+                        </div>
+                        
+                        {/* Family Connection */}
+                        <button 
+                          onClick={() => setIsLinkingFamily({ studentId: s.id, name: s.name })}
+                          className={`flex-1 p-1.5 rounded flex items-center justify-center gap-1 text-[9px] font-bold uppercase transition ${s.parentId ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}
+                        >
+                          <Users size={12} />
+                          {s.parentId ? 'Vínculo ok' : 'Vincular'}
+                        </button>
+                      </div>
+
                       <div className="flex-1 flex gap-1 items-center">
                         <span className="text-[9px] font-bold text-gray-400 uppercase mr-1">Silenciar:</span>
                         {[
@@ -1009,11 +1094,17 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                 </div>
 
                 <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                  {allStudents.filter(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 10).map(s => (
+                  {(allStudents || []).filter(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 10).map(s => (
                     <div key={s.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                          <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center shrink-0">
-                           {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={16} />}
+                           {s.photoBase64 ? (
+                             <img 
+                               src={s.photoBase64} 
+                               className="w-full h-full object-cover cursor-pointer" 
+                               onClick={() => setSelectedPhoto(s.photoBase64)}
+                             />
+                           ) : <User size={16} />}
                          </div>
                          <div className="min-w-0">
                             <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
@@ -1039,12 +1130,150 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                       </div>
                     </div>
                   ))}
+                  {allStudents.length === 0 && (
+                     <div className="py-10 text-center text-gray-400 italic">
+                        Carregando alunos...
+                     </div>
+                  )}
                 </div>
               </div>
             </motion.div>
           )}
+          {/* CHURN VIEW */}
+          {activeTab === 'churn' && (
+            <motion.div
+              key="churn"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-3 mb-6">
+                  <AlertTriangle className="text-red-500 w-8 h-8" />
+                  <div>
+                    <h3 className="font-bold text-xl dark:text-white">Alunos em Risco de Evasão</h3>
+                    <p className="text-sm text-gray-400">Alunos que não treinam há mais de 10 dias.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {getInactiveStudents().length === 0 ? (
+                    <div className="col-span-full py-20 text-center bg-gray-50 dark:bg-gray-900/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+                      <TrendingUp className="mx-auto w-12 h-12 text-green-500 mb-4" />
+                      <p className="text-gray-500 font-bold">Excelente! Todos os alunos estão ativos.</p>
+                    </div>
+                  ) : (
+                    getInactiveStudents().map(s => (
+                      <div key={s.id} className="bg-red-50/50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30 flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden shrink-0 border-2 border-red-200 dark:border-red-800">
+                          {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={20} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-sm dark:text-white truncate">{s.name}</h4>
+                          <p className={`text-xs font-bold ${s.daysInactive > 15 ? 'text-red-600' : 'text-orange-600'}`}>
+                            Inativo há {s.daysInactive} dias
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => window.open(`https://wa.me/${(s.phone || '').replace(/\D/g,'')}?text=Olá ${s.nickname || s.name}! Sentimos sua falta no tatame! Bora treinar? 🥋🔥`, '_blank')}
+                          className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition shadow-lg"
+                          title="Chamar no WhatsApp"
+                        >
+                           <MessageSquare size={18} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
         </AnimatePresence>
       )}
+
+      {/* FAMILY LINKING MODAL */}
+      <AnimatePresence>
+        {isLinkingFamily && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsLinkingFamily(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md overflow-hidden p-6"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold mb-4 dark:text-white">Vincular Família</h3>
+              <p className="text-sm text-gray-500 mb-6">Selecione o Titular da Família para <strong>{isLinkingFamily.name}</strong>.</p>
+              
+              <div className="max-h-60 overflow-y-auto space-y-2 mb-6">
+                {allStudents.filter(os => os.id !== isLinkingFamily.studentId && !os.parentId).map(os => (
+                  <button
+                    key={os.id}
+                    onClick={() => linkAccount(isLinkingFamily.studentId, os.id)}
+                    className="w-full text-left p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border-2 border-transparent hover:border-brand-red transition flex items-center gap-3"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                       {os.photoBase64 ? <img src={os.photoBase64} className="w-full h-full object-cover" /> : <User size={16} className="m-2" />}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm dark:text-white">{os.name}</p>
+                      <p className="text-[10px] text-gray-500">{os.id.slice(-6).toUpperCase()}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              
+              <button 
+                onClick={() => setIsLinkingFamily(null)}
+                className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl font-bold text-sm"
+              >
+                Cancelar
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL PARA AMPLIAR FOTO */}
+      <AnimatePresence>
+        {selectedPhoto && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setSelectedPhoto(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-2xl w-full max-h-[90vh] flex items-center justify-center p-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setSelectedPhoto(null)}
+                className="absolute -top-12 right-0 text-white hover:text-gray-300 transition p-2"
+              >
+                <X size={32} />
+              </button>
+              <img 
+                src={selectedPhoto} 
+                className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl object-contain border-4 border-white/10" 
+                alt="Foto Ampliada" 
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

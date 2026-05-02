@@ -1,5 +1,8 @@
 {
-  "name": "painel_aluno",
-  "description": "",
-  "requestFramePermissions": []
+  "name": "Tanque Team BJJ - Gestão Pro",
+  "description": "Sistema completo de gestão para academias de Jiu-Jitsu com gamificação e controle financeiro.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
 }

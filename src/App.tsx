@@ -14,7 +14,7 @@ import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -59,6 +59,8 @@ export default function Dashboard() {
   const [userBookings, setUserBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [adminAchievements, setAdminAchievements] = useState<any[]>([]);
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [isProfileSwitcherOpen, setIsProfileSwitcherOpen] = useState(false);
   
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -507,6 +509,9 @@ export default function Dashboard() {
           await loadRanking();
           loadUserBookings(data.id);
           loadAdminAchievements();
+          loadFamilyMembers(data);
+          checkTodayBirthdays(appId);
+          setLoading(false);
         } else {
           // Fallback for mock
           if (process.env.NODE_ENV === 'development') {
@@ -681,6 +686,97 @@ export default function Dashboard() {
       snap.forEach(doc => achs.push({ id: doc.id, ...doc.data() }));
       setAdminAchievements(achs);
     });
+  };
+
+  const loadFamilyMembers = async (userData: any) => {
+    try {
+      // Procura por alunos vinculados pelo mesmo email ou por campo parentId
+      const q = query(
+        collection(db, 'artifacts', appId, 'public', 'data', 'students'),
+        where('parentId', '==', userData.id)
+      );
+      const snap = await getDocs(q);
+      const members: any[] = [];
+      snap.forEach(doc => members.push({ id: doc.id, ...doc.data() }));
+      
+      // Se este usuário tiver um pai, busca o pai e irmãos
+      if (userData.parentId && typeof userData.parentId === 'string') {
+        const parentDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', userData.parentId));
+        if (parentDoc.exists()) {
+          const parentData = { id: parentDoc.id, ...parentDoc.data() };
+          if (!members.find(m => m.id === parentData.id)) members.push(parentData);
+          
+          const qSiblings = query(
+            collection(db, 'artifacts', appId, 'public', 'data', 'students'),
+            where('parentId', '==', userData.parentId)
+          );
+          const snapSiblings = await getDocs(qSiblings);
+          snapSiblings.forEach(doc => {
+            const d = { id: doc.id, ...doc.data() };
+            if (d.id !== userData.id && !members.find(m => m.id === d.id)) members.push(d);
+          });
+        }
+      }
+      
+      setFamilyMembers(members);
+    } catch (e) {
+      console.error("Erro ao carregar família:", e);
+    }
+  };
+
+  const checkTodayBirthdays = async (appId: string) => {
+    try {
+      const today = new Date();
+      const todayStr = format(today, 'MM-dd');
+      const lastCheck = localStorage.getItem(`bday_check_${todayStr}`);
+      if (lastCheck) return;
+
+      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
+      const snap = await getDocs(q);
+      
+      snap.forEach(async (docSnap) => {
+        const student = docSnap.data();
+        if (student.birthDate && typeof student.birthDate === 'string' && student.birthDate.includes('-')) {
+          const bdayPart = student.birthDate.split('-').slice(1).join('-'); // MM-DD
+          if (bdayPart === todayStr) {
+            // Verificar se já existe post de aniversário hoje para evitar duplicatas
+            const qPost = query(
+              collection(db, 'artifacts', appId, 'public', 'data', 'feed'),
+              where('type', '==', 'birthday'),
+              where('studentId', '==', docSnap.id),
+              where('date', '==', format(today, 'yyyy-MM-dd'))
+            );
+            const postSnap = await getDocs(qPost);
+            
+            if (postSnap.empty) {
+              await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), {
+                studentId: docSnap.id,
+                studentName: student.nickname || student.name,
+                studentPhoto: student.photoBase64 || null,
+                content: `Hoje é aniversário de ${student.nickname || student.name}! Vamos desejar muitos anos de vida e muito Jiu-Jitsu! 🎂🥋`,
+                type: 'birthday',
+                date: format(today, 'yyyy-MM-dd'),
+                timestamp: new Date().toISOString(),
+                likes: [],
+                comments: []
+              });
+            }
+          }
+        }
+      });
+      localStorage.setItem(`bday_check_${todayStr}`, 'done');
+    } catch (e) {
+      console.error("Erro no check de aniversários:", e);
+    }
+  };
+
+  const switchProfile = (newProfile: any) => {
+    setCurrentUserData(newProfile);
+    setIsProfileSwitcherOpen(false);
+    showAlert("Sucesso", `Perfil alternado para ${newProfile.name}`, "success");
+    // Recarregar dados específicos
+    loadHistory(newProfile.id);
+    loadUserBookings(newProfile.id);
   };
 
   const loadRanking = async () => {
@@ -941,13 +1037,21 @@ export default function Dashboard() {
   if (!currentUserData) return null;
 
   const firstName = (currentUserData.nickname || currentUserData.name || "Aluno").split(' ')[0];
+  const totalAtt = currentUserData.attendance ? currentUserData.attendance.length : 0;
+  
+  // XP e Nível
+  const xpPerClass = 50;
+  const userXP = (currentUserData.extraXP || 0) + (totalAtt * xpPerClass);
+  const userLevel = Math.floor(Math.sqrt(userXP / 100)) + 1;
+  const xpForNextLevel = Math.pow(userLevel, 2) * 100;
+  const progress = (userXP / xpForNextLevel) * 100;
+
   const rawPlanKey = currentUserData.plan || 'N/A';
   // Extract base plan name if it contains " - R$"
   const basePlanName = rawPlanKey.split(' - R$')[0].trim();
   const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const isAdmin = currentUserData.role === 'admin' || planKey === 'administracao';
   const planInfo = PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined };
-  const totalAtt = currentUserData.attendance ? currentUserData.attendance.length : 0;
   const recentGrad = checkForRecentGraduation(currentUserData.progressLog, currentUserData.belt || "Faixa Branca - 0º Grau");
   
   const isInfantilPlan = (currentUserData?.plan || '').toLowerCase().includes('infantil');
@@ -1188,9 +1292,20 @@ export default function Dashboard() {
                     <p className="text-gray-500 dark:text-gray-400 text-sm uppercase font-bold tracking-wider mb-1">Bem-vindo(a) de volta,</p>
                     <div className="flex items-center gap-2">
                        <h1 className="text-3xl md:text-4xl font-display font-bold text-brand-dark dark:text-white">{currentUserData.nickname || currentUserData.name || "Aluno"}</h1>
-                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider text-white shadow-sm transform -translate-y-1 ${currentUserData.archived ? 'bg-gray-500' : currentUserData.enrollmentStatus === 'Inativo' ? 'bg-red-500' : 'bg-green-500'}`}>
-                        {currentUserData.archived ? 'Arquivado' : currentUserData.enrollmentStatus === 'Inativo' ? 'Inativo' : 'Ativo'}
+                       <span className="bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        Nível {userLevel}
                       </span>
+                    </div>
+                    {/* XP Progress Bar */}
+                    <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        className="h-full bg-brand-red"
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[9px] text-gray-500">XP: {userXP} / {xpForNextLevel}</span>
                     </div>
                   </div>
                 </div>
@@ -1228,7 +1343,17 @@ export default function Dashboard() {
               </div>
 
               {/* Quick Actions */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 no-print">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8 no-print">
+                <motion.button 
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setIsProfileSwitcherOpen(true)}
+                  className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-brand-red p-4 rounded-2xl shadow-lg flex flex-col items-center justify-center gap-2 transition"
+                >
+                  <Users className="w-6 h-6 text-brand-red" aria-hidden="true" />
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Família</span>
+                </motion.button>
+
                 <motion.button 
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
@@ -1707,7 +1832,94 @@ export default function Dashboard() {
           setIsQrModalOpen(false);
           setIsHistoryModalOpen(true);
         }}
+        showAlert={showAlert}
+        appId={appId}
       />
+
+      <AnimatePresence>
+        {isProfileSwitcherOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsProfileSwitcherOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-sm overflow-hidden p-6 shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                   <div className="p-2 bg-brand-red/10 rounded-xl">
+                      <Users className="text-brand-red w-5 h-5" />
+                   </div>
+                   <h3 className="text-xl font-bold dark:text-white font-display uppercase tracking-tight italic">Minha Família</h3>
+                </div>
+                <button onClick={() => setIsProfileSwitcherOpen(false)} className="text-gray-400 hover:text-gray-600 p-2"><X /></button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 px-1">Perfil Ativo</div>
+                
+                {/* Current Active */}
+                <div className="p-4 rounded-2xl bg-brand-red/10 border-2 border-brand-red flex items-center gap-3 shadow-md shadow-brand-red/5">
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 border-2 border-white dark:border-gray-800 shadow-sm shrink-0">
+                    {currentUserData.photoBase64 ? <img src={currentUserData.photoBase64} className="w-full h-full object-cover" /> : <User className="p-3 text-gray-400" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black text-gray-900 dark:text-white uppercase truncate">{currentUserData.nickname || currentUserData.name} (Você)</p>
+                    <p className="text-[10px] text-brand-red font-bold uppercase">{currentUserData.belt}</p>
+                  </div>
+                  <CheckCircle className="text-brand-red w-6 h-6 shrink-0" />
+                </div>
+
+                {familyMembers.length > 0 && <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">Trocar para</div>}
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {familyMembers.filter(m => m.id !== currentUserData.id).map(member => (
+                    <motion.button
+                      key={member.id}
+                      whileHover={{ x: 5 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => switchProfile(member)}
+                      className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 flex items-center gap-3 transition shadow-sm"
+                    >
+                      <div className="w-11 h-11 rounded-full overflow-hidden bg-gray-200 border border-white dark:border-gray-700 shrink-0">
+                        {member.photoBase64 ? <img src={member.photoBase64} className="w-full h-full object-cover" /> : <User className="p-2 text-gray-400" />}
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase truncate">{member.nickname || member.name}</p>
+                        <p className="text-[10px] text-gray-500 font-medium">{member.belt}</p>
+                      </div>
+                      <ChevronRight className="text-gray-300 w-5 h-5 shrink-0" />
+                    </motion.button>
+                  ))}
+                </div>
+
+                {familyMembers.length === 0 && (
+                  <div className="p-8 text-center bg-gray-50 dark:bg-gray-800/30 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-700 mt-2">
+                    <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-xs text-gray-400 leading-relaxed italic">
+                      Nenhum outro membro da família vinculado. Peça ao ADM para vincular dependentes.
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <button 
+                onClick={() => setIsProfileSwitcherOpen(false)}
+                className="w-full mt-6 py-4 bg-gray-900 dark:bg-gray-700 text-white rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-black transition"
+              >
+                Manter Perfil Atual
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       <AnimatePresence>
         {sharingBadge && (
