@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
@@ -68,6 +68,7 @@ export default function Dashboard() {
 
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(new Date().getMonth());
   const [currentCalendarYear, setCurrentCalendarYear] = useState(new Date().getFullYear());
+  const [primaryStudentId, setPrimaryStudentId] = useState<string | null>(null);
 
   const [sharingBadge, setSharingBadge] = useState<any>(null);
   const [shareMessage, setShareMessage] = useState("");
@@ -478,56 +479,68 @@ export default function Dashboard() {
 
   const loadStudentData = async (studentId: string) => {
     try {
+      if (!primaryStudentId) setPrimaryStudentId(studentId);
+      
       if (listenersRef.current.student) listenersRef.current.student();
 
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
       listenersRef.current.student = onSnapshot(docRef, async (docSnap) => {
-        if (docSnap.exists()) {
-          const data: any = { id: docSnap.id, ...docSnap.data() };
-          
-          setCurrentUserData(data);
-          
-          // SIDE EFFECTS - Move out of state setter
-          if (currentUserData && !initialLoadRef.current) {
-            if (currentUserData.paymentStatus !== data.paymentStatus) {
-              if (data.paymentStatus === 'Atrasado' || data.paymentStatus === 'Pendente') {
-                sendPushNotification("Aviso Financeiro", "Seu pagamento está pendente. Regularize na aba Financeiro.");
-              } else if (data.paymentStatus === 'Em dia') {
-                sendPushNotification("Pagamento Confirmado", "Seu pagamento foi aprovado! Status: Em dia.");
+        try {
+          if (docSnap.exists()) {
+            const data: any = { id: docSnap.id, ...docSnap.data() };
+            
+            setCurrentUserData(data);
+            
+            // Side effects safely
+            try {
+              checkBirthday(data);
+              checkMissing(data);
+              
+              if (data.plan && data.plan.includes('combo')) {
+                loadDependents(data.id);
+              } else {
+                setDependents([]);
               }
+              
+              // These can run in background without blocking initial UI
+              loadRanking();
+              loadUserBookings(data.id);
+              loadAdminAchievements();
+              loadFamilyMembers(data);
+              checkTodayBirthdays(appId);
+            } catch (sideError) {
+              console.error("Erro em efeitos colaterais:", sideError);
+            }
+
+            setLoading(false);
+            initialLoadRef.current = true;
+          } else {
+            // Fallback for mock
+            if (process.env.NODE_ENV === 'development') {
+              setCurrentUserData({ 
+                id: studentId, 
+                name: 'Aluno Preview', 
+                plan: 'adulto-mensal',
+                belt: 'Faixa Branca - 0º Grau',
+                enrollmentStatus: 'Ativo',
+                paymentStatus: 'Em dia',
+                attendance: []
+              });
+              setLoading(false);
+            } else {
+              setAuthError("Matrícula não encontrada no sistema de dados.");
+              setLoading(false);
             }
           }
-          
-          checkBirthday(data);
-          checkMissing(data);
-          
-          if (data.plan && data.plan.includes('combo')) {
-            await loadDependents(data.id);
-          } else {
-            setDependents([]);
-          }
-          await loadRanking();
-          loadUserBookings(data.id);
-          loadAdminAchievements();
-          loadFamilyMembers(data);
-          checkTodayBirthdays(appId);
+        } catch (snapError) {
+          console.error("Erro no processamento do snapshot:", snapError);
+          setAuthError("Erro ao processar dados do servidor.");
           setLoading(false);
-        } else {
-          // Fallback for mock
-          if (process.env.NODE_ENV === 'development') {
-            setCurrentUserData({ 
-              id: studentId, 
-              name: 'Aluno Preview', 
-              plan: 'adulto-mensal',
-              belt: 'Faixa Branca - 0º Grau',
-              enrollmentStatus: 'Ativo',
-              paymentStatus: 'Em dia',
-              attendance: []
-            });
-          } else {
-            setAuthError("Matrícula não encontrada no sistema.");
-          }
         }
+      }, (error) => {
+        console.error("Erro no listener Firestore:", error);
+        setAuthError("Erro de conexão com o banco de dados.");
+        setLoading(false);
       });
     } catch (error) {
       console.error("Erro ao carregar dados do aluno:", error);
@@ -771,11 +784,11 @@ export default function Dashboard() {
   };
 
   const switchProfile = (newProfile: any) => {
-    setCurrentUserData(newProfile);
     setIsProfileSwitcherOpen(false);
-    showAlert("Sucesso", `Perfil alternado para ${newProfile.name}`, "success");
-    // Recarregar dados específicos
-    loadHistory(newProfile.id);
+    setLoading(true);
+    loadStudentData(newProfile.id);
+    showAlert("Sucesso", `Perfil alternado para ${newProfile.nickname || newProfile.name}`, "success");
+    // Recarregar dados específicos que não estão no snapshot de student se houver
     loadUserBookings(newProfile.id);
   };
 
@@ -973,44 +986,6 @@ export default function Dashboard() {
     return null;
   };
 
-  if (loading) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark"
-      >
-        <div className="text-center" role="status" aria-live="polite">
-          <motion.div 
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-            className="rounded-full border-4 border-t-4 border-gray-200 border-t-brand-red h-12 w-12 mb-4 mx-auto"
-          />
-          <motion.h2 
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ repeat: Infinity, duration: 1.5 }}
-            className="text-white font-display text-xl uppercase"
-          >
-            A CARREGAR DOJO...
-          </motion.h2>
-          <p className="text-gray-400 text-xs mt-2 font-medium">{loadingText}</p>
-        </div>
-      </motion.div>
-    );
-  }
-
-  if (showLogin) {
-    return <Login onLoginSuccess={() => {
-      setShowLogin(false);
-      setLoading(true);
-      // We need to re-run initApp, but since it's inside useEffect, 
-      // we can just force a reload or call a function.
-      // The easiest way is to just reload the page to re-run the initialization
-      window.location.reload();
-    }} />;
-  }
-
   if (authError) {
     return (
       <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 text-white p-4 text-center" role="alert">
@@ -1034,17 +1009,83 @@ export default function Dashboard() {
     );
   }
 
-  if (!currentUserData) return null;
+  if (showLogin) {
+    return <Login onLoginSuccess={() => {
+      setShowLogin(false);
+      setLoading(true);
+      window.location.reload();
+    }} />;
+  }
+
+  if (loading || !currentUserData) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-50 dark:bg-brand-dark"
+      >
+        <div className="text-center p-8 bg-white/50 dark:bg-brand-dark/50 backdrop-blur-md rounded-3xl border border-gray-200 dark:border-white/10 shadow-2xl">
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+            className="rounded-full border-4 border-t-4 border-gray-200 border-t-brand-red h-12 w-12 mb-4 mx-auto"
+          />
+          <motion.h2 
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+            className="text-gray-900 dark:text-white font-display text-xl uppercase tracking-widest"
+          >
+            A CARREGAR DOJO...
+          </motion.h2>
+          <p className="text-gray-500 dark:text-gray-400 text-xs mt-2 font-medium">Sincronizando tatame...</p>
+        </div>
+      </motion.div>
+    );
+  }
 
   const firstName = (currentUserData.nickname || currentUserData.name || "Aluno").split(' ')[0];
   const totalAtt = currentUserData.attendance ? currentUserData.attendance.length : 0;
   
   // XP e Nível
   const xpPerClass = 50;
-  const userXP = (currentUserData.extraXP || 0) + (totalAtt * xpPerClass);
-  const userLevel = Math.floor(Math.sqrt(userXP / 100)) + 1;
-  const xpForNextLevel = Math.pow(userLevel, 2) * 100;
-  const progress = (userXP / xpForNextLevel) * 100;
+  const badgeXPBonus: Record<string, number> = {
+    'first_class': 100,
+    'beginner': 200,
+    'monthly_focus': 300,
+    'streak_5': 250,
+    'weekend_warrior': 150,
+    'voice_tatame': 50,
+    'degree': 500,
+    'graduated': 1000,
+    'warrior': 500,
+    'centurion': 1000,
+    'casca_grossa': 2000,
+    'mestre': 5000,
+    'rato_tatame': 400,
+    'black_belt': 10000
+  };
+
+  const calendarDaysList = [];
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
+  const daysInMonth = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
+  let monthAttCount = 0;
+  
+  for (let i = 0; i < firstDay; i++) {
+    calendarDaysList.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+    const isPresent = currentUserData.attendance?.includes(dateStr);
+    if (isPresent) monthAttCount++;
+    
+    calendarDaysList.push(
+      <div key={`day-${i}`} className={`calendar-day ${isPresent ? 'present' : 'bg-gray-50 dark:bg-gray-700/50 shadow-sm'}`}>
+        {i}
+      </div>
+    );
+  }
 
   const rawPlanKey = currentUserData.plan || 'N/A';
   // Extract base plan name if it contains " - R$"
@@ -1057,60 +1098,48 @@ export default function Dashboard() {
   const isInfantilPlan = (currentUserData?.plan || '').toLowerCase().includes('infantil');
   const displayRanking = isInfantilPlan ? rankingInfantil : rankingAdulto;
 
-  // Calendar Logic
-  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
-  const daysInMonth = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
-  let monthAttCount = 0;
-  
-  const calendarDays = [];
-  for (let i = 0; i < firstDay; i++) {
-    calendarDays.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
-  }
-  for (let i = 1; i <= daysInMonth; i++) {
-    const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-    const isPresent = currentUserData.attendance?.includes(dateStr);
-    if (isPresent) monthAttCount++;
-    
-    calendarDays.push(
-      <div key={`day-${i}`} className={`calendar-day ${isPresent ? 'present' : 'bg-gray-50 dark:bg-gray-700/50 shadow-sm'}`}>
-        {i}
-      </div>
-    );
-  }
-
   const computeAchievements = () => {
     if (!currentUserData) return [];
     
     let maxConsecutive = 0;
     let currentConsecutive = 0;
-    if (currentUserData.attendance && currentUserData.attendance.length > 0) {
-      const sortedDates = [...currentUserData.attendance].sort();
-      let prevDate: Date | null = null;
-      for (const d of sortedDates) {
-        const dateObj = new Date(d + 'T12:00:00');
-        if (!prevDate) {
-          currentConsecutive = 1;
-          maxConsecutive = 1;
-        } else {
-          const diffDays = Math.round((dateObj.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays === 1) {
-            currentConsecutive++;
-            if (currentConsecutive > maxConsecutive) maxConsecutive = currentConsecutive;
-          } else if (diffDays > 1) {
+    const attendance = Array.isArray(currentUserData.attendance) ? currentUserData.attendance : [];
+    
+    if (attendance.length > 0) {
+      try {
+        const sortedDates = [...attendance].sort();
+        let prevDate: Date | null = null;
+        for (const d of sortedDates) {
+          if (typeof d !== 'string') continue;
+          const dateObj = new Date(d + 'T12:00:00');
+          if (isNaN(dateObj.getTime())) continue;
+          
+          if (!prevDate) {
             currentConsecutive = 1;
+            maxConsecutive = 1;
+          } else {
+            const diffDays = Math.round((dateObj.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays === 1) {
+              currentConsecutive++;
+              if (currentConsecutive > maxConsecutive) maxConsecutive = currentConsecutive;
+            } else if (diffDays > 1) {
+              currentConsecutive = 1;
+            }
           }
+          prevDate = dateObj;
         }
-        prevDate = dateObj;
+      } catch (e) {
+        console.error("Erro no cálculo de sequência:", e);
       }
     }
 
     let earnedNewBelt = false;
     let earnedDegree = false;
-    if (currentUserData.progressLog && currentUserData.progressLog.length > 0) {
-      const graduations = currentUserData.progressLog.filter((log: any) => log.type === 'graduation');
-      for (const grad of graduations) {
-        if (grad.text && grad.text.match(/[1-9]º Grau/)) {
+    const progressLog = Array.isArray(currentUserData.progressLog) ? currentUserData.progressLog : [];
+    
+    for (const log of progressLog) {
+      if (log.type === 'graduation') {
+        if (log.text && log.text.match(/[1-9]º Grau/)) {
           earnedDegree = true;
         } else {
           earnedNewBelt = true;
@@ -1120,12 +1149,13 @@ export default function Dashboard() {
     
     // Check if posted anything to feed
     const hasPosted = !!(currentUserData.feedPosts && currentUserData.feedPosts > 0);
-    // Check if any attendance was on weekend
-    const isWeekendWarrior = currentUserData.attendance && currentUserData.attendance.some((d: string) => {
+    // 2024-05-02 Check weekend warrior
+    const isWeekendWarrior = attendance.some((d: string) => {
+      if (typeof d !== 'string') return false;
       const day = new Date(d + 'T12:00:00').getDay();
       return day === 0 || day === 6;
     });
-    // Check if black belt
+    // Belt check
     const isBlackBelt = currentUserData.belt && currentUserData.belt.toLowerCase().includes("preta");
     
     const possibleBadges = [
@@ -1148,32 +1178,40 @@ export default function Dashboard() {
     // Adicionar conquistas manuais do ADM
     const ICON_MAP: Record<string, any> = {
       'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
-      'Flame': Flame, 'Sun': Sun, 'Zap': Zap, 'Shield': Shield, 
-      'Crown': Crown, 'Award': Award, 'Target-Red': Target,
-      'MessageSquare': MessageSquare, 'ArrowUpCircle': ArrowUpCircle
+      'Flame': Flame, 'Sun': Sun, 'MessageSquare': MessageSquare, 'Award': Award, 
+      'Shield': Shield, 'Crown': Crown, 'Zap': Zap, 'ArrowUpCircle': ArrowUpCircle
     };
 
-    if (currentUserData.achievements && adminAchievements.length > 0) {
-      currentUserData.achievements.forEach((achId: string) => {
-        const custom = adminAchievements.find(ca => ca.id === achId);
-        if (custom) {
-          const IconComp = ICON_MAP[custom.iconName] || Trophy;
-          possibleBadges.push({
-            id: custom.id,
-            name: custom.name,
-            desc: custom.desc,
-            icon: <IconComp className="w-5 h-5 text-brand-red" />,
-            iconName: custom.iconName,
-            earned: true
-          });
-        }
-      });
-    }
-    
-    return possibleBadges;
+    const studentAchievements = Array.isArray(currentUserData.achievements) ? currentUserData.achievements : [];
+    const earnedManual = adminAchievements.filter(ach => 
+      studentAchievements.includes(ach.id)
+    ).map(ach => {
+      const IconBase = (ach.iconName && ICON_MAP[ach.iconName]) || Trophy;
+      return {
+        id: ach.id,
+        name: ach.name,
+        desc: ach.description,
+        icon: <IconBase className="w-5 h-5 text-brand-red" />,
+        earned: true,
+        xpBonus: ach.xpBonus || 200
+      };
+    });
+
+    return [...possibleBadges, ...earnedManual];
   };
 
   const earnedBadges = computeAchievements();
+  const earnedBadgesXP = earnedBadges.filter(b => b.earned).reduce((total, b: any) => {
+    const bonus = b.xpBonus || (badgeXPBonus as any)[b.id] || 100;
+    return total + bonus;
+  }, 0);
+
+  const userXP = (currentUserData.extraXP || 0) + (totalAtt * xpPerClass) + earnedBadgesXP;
+  // Progress safeguard
+  const rawLevel = Math.sqrt(userXP / 100);
+  const userLevel = Math.floor(isNaN(rawLevel) ? 0 : rawLevel) + 1;
+  const xpForNextLevel = Math.max(1, Math.pow(userLevel, 2) * 100);
+  const progress = Math.min(100, Math.max(0, (userXP / xpForNextLevel) * 100));
 
   return (
     <div className="flex h-screen overflow-hidden relative w-full bg-gray-50 dark:bg-brand-dark text-gray-900 dark:text-gray-100 transition-colors duration-200">
@@ -1544,7 +1582,7 @@ export default function Dashboard() {
                       {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => <div key={d} className="calendar-header-day dark:text-gray-500">{d}</div>)}
                     </div>
                     <div className="calendar-grid">
-                      {calendarDays}
+                      {calendarDaysList}
                     </div>
                   </div>
 
@@ -1879,6 +1917,22 @@ export default function Dashboard() {
 
                 {familyMembers.length > 0 && <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-4 mb-1 px-1">Trocar para</div>}
 
+                <div className="space-y-3">
+                {currentUserData.id !== primaryStudentId && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      const mainMember = familyMembers.find(m => m.id === primaryStudentId);
+                      if (mainMember) switchProfile(mainMember);
+                      else if (primaryStudentId) switchProfile({ id: primaryStudentId }); // Fallback
+                    }}
+                    className="w-full p-4 rounded-2xl bg-brand-red text-white flex items-center justify-center gap-2 shadow-lg shadow-brand-red/20 font-black uppercase tracking-wider text-xs mb-4"
+                  >
+                    <LogOut className="w-4 h-4 rotate-180" /> Voltar ao Perfil do Titular
+                  </motion.button>
+                )}
+
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                   {familyMembers.filter(m => m.id !== currentUserData.id).map(member => (
                     <motion.button
@@ -1894,6 +1948,7 @@ export default function Dashboard() {
                       <div className="flex-1 text-left min-w-0">
                         <p className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase truncate">{member.nickname || member.name}</p>
                         <p className="text-[10px] text-gray-500 font-medium">{member.belt}</p>
+                        {member.id === primaryStudentId && <span className="text-[8px] bg-brand-red text-white px-1.5 py-0.5 rounded-full font-bold uppercase mt-1 inline-block">Titular</span>}
                       </div>
                       <ChevronRight className="text-gray-300 w-5 h-5 shrink-0" />
                     </motion.button>
@@ -1909,17 +1964,18 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-              
-              <button 
-                onClick={() => setIsProfileSwitcherOpen(false)}
-                className="w-full mt-6 py-4 bg-gray-900 dark:bg-gray-700 text-white rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-black transition"
-              >
-                Manter Perfil Atual
-              </button>
-            </motion.div>
+            </div>
+            
+            <button 
+              onClick={() => setIsProfileSwitcherOpen(false)}
+              className="w-full mt-6 py-4 bg-gray-900 dark:bg-gray-700 text-white rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-black transition"
+            >
+              Manter Perfil Atual
+            </button>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </motion.div>
+      )}
+    </AnimatePresence>
       
       <AnimatePresence>
         {sharingBadge && (

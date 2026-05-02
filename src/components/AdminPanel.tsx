@@ -14,7 +14,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   
   // Custom Achievements Management
   const [customAchievements, setCustomAchievements] = useState<any[]>([]);
-  const [newAchievement, setNewAchievement] = useState({ name: '', desc: '', iconName: 'Trophy' });
+  const [newAchievement, setNewAchievement] = useState({ name: '', desc: '', iconName: 'Trophy', xpBonus: 200 });
   const [isAddingAchievement, setIsAddingAchievement] = useState(false);
   
   // Icons helper for custom achievements
@@ -222,7 +222,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     if (!newAchievement.name) return;
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'adminAchievements'), newAchievement);
-      setNewAchievement({ name: '', desc: '', iconName: 'Trophy' });
+      setNewAchievement({ name: '', desc: '', iconName: 'Trophy', xpBonus: 200 });
       setIsAddingAchievement(false);
       showAlert("Sucesso", "Conquista criada com sucesso!", "success");
     } catch (e) {
@@ -237,6 +237,39 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'adminAchievements', id));
       } catch (e) { console.error(e); }
     });
+  };
+
+  const calculateStudentLevel = (student: any) => {
+    const xpPerClass = 50;
+    const badgeXPBonusMap: Record<string, number> = {
+      'first_class': 100, 'beginner': 200, 'monthly_focus': 300, 'streak_5': 250,
+      'weekend_warrior': 150, 'voice_tatame': 50, 'degree': 500, 'graduated': 1000,
+      'warrior': 500, 'centurion': 1000, 'casca_grossa': 2000, 'mestre': 5000, 'rato_tatame': 400
+    };
+
+    const totalAtt = student.attendance ? student.attendance.length : 0;
+    
+    // Auto badges XP
+    let earnedBadgesXP = 0;
+    if (totalAtt >= 1) earnedBadgesXP += badgeXPBonusMap['first_class'];
+    if (totalAtt >= 12) earnedBadgesXP += badgeXPBonusMap['beginner'];
+    if (totalAtt >= 50) earnedBadgesXP += badgeXPBonusMap['warrior'];
+    if (totalAtt >= 100) earnedBadgesXP += badgeXPBonusMap['centurion'];
+    if (totalAtt >= 200) earnedBadgesXP += badgeXPBonusMap['casca_grossa'];
+    if (totalAtt >= 500) earnedBadgesXP += badgeXPBonusMap['mestre'];
+    
+    // Manual achievements XP
+    if (student.achievements) {
+      student.achievements.forEach((achId: string) => {
+        const custom = customAchievements.find(ca => ca.id === achId);
+        if (custom) {
+          earnedBadgesXP += custom.xpBonus || 200;
+        }
+      });
+    }
+
+    const userXP = (student.extraXP || 0) + (totalAtt * xpPerClass) + earnedBadgesXP;
+    return Math.floor(Math.sqrt(userXP / 100)) + 1;
   };
 
   const getStudentAchievements = (student: any) => {
@@ -852,9 +885,15 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                         </div>
                       </div>
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                           <h5 className="font-bold dark:text-white text-base">{s.name}</h5>
-                           {s.nickname && <span className="text-xs text-gray-400 font-medium tracking-tight">({s.nickname})</span>}
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-2">
+                             <h5 className="font-bold dark:text-white text-base">{s.name}</h5>
+                             {s.nickname && <span className="text-xs text-gray-400 font-medium tracking-tight">({s.nickname})</span>}
+                          </div>
+                          <div className="bg-brand-red/10 border border-brand-red/20 rounded-lg px-2 py-0.5 flex items-center gap-1">
+                            <ArrowUpCircle className="w-3 h-3 text-brand-red" />
+                            <span className="text-[10px] font-bold text-brand-red">NÍVEL {calculateStudentLevel(s)}</span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
@@ -993,8 +1032,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                       className="overflow-hidden mb-6"
                     >
                       <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome da Conquista</label>
                             <input 
                               type="text" 
@@ -1004,13 +1043,23 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                               className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
                             />
                           </div>
-                          <div>
+                          <div className="md:col-span-1">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Curta</label>
                             <input 
                               type="text" 
                               value={newAchievement.desc}
                               onChange={(e) => setNewAchievement({...newAchievement, desc: e.target.value})}
                               placeholder="Ex: Treinou todos os dias do desafio."
+                              className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                            />
+                          </div>
+                          <div className="md:col-span-1">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bônus de XP</label>
+                            <input 
+                              type="number" 
+                              value={newAchievement.xpBonus}
+                              onChange={(e) => setNewAchievement({...newAchievement, xpBonus: parseInt(e.target.value) || 0})}
+                              placeholder="200"
                               className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
                             />
                           </div>
@@ -1107,7 +1156,10 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                            ) : <User size={16} />}
                          </div>
                          <div className="min-w-0">
-                            <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
+                              <span className="text-[9px] font-bold text-brand-red bg-brand-red/5 px-1 rounded border border-brand-red/10">Lvl {calculateStudentLevel(s)}</span>
+                            </div>
                             <p className="text-[10px] text-gray-400 truncate">{s.belt}</p>
                          </div>
                       </div>
@@ -1170,7 +1222,10 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                           {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={20} />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm dark:text-white truncate">{s.name}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm dark:text-white truncate">{s.name}</h4>
+                            <span className="text-[10px] font-bold text-brand-red bg-white/50 dark:bg-black/20 px-1 rounded">Lvl {calculateStudentLevel(s)}</span>
+                          </div>
                           <p className={`text-xs font-bold ${s.daysInactive > 15 ? 'text-red-600' : 'text-orange-600'}`}>
                             Inativo há {s.daysInactive} dias
                           </p>

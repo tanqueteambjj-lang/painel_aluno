@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { X, Camera, Save, PenSquare, Check, Loader2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
@@ -21,6 +21,25 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
     confirmPassword: ''
   });
   const [photoBase64, setPhotoBase64] = useState<string | null>(userData?.photoBase64 || null);
+
+  // Use useEffect for reactive syncing
+  useEffect(() => {
+    if (userData && isOpen) {
+      setFormData({
+        nickname: userData.nickname || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        cep: userData.cep || '',
+        address: userData.address || '',
+        addressNumber: userData.addressNumber || '',
+        weight: userData.weight || '',
+        height: userData.height || '',
+        password: '',
+        confirmPassword: ''
+      });
+      setPhotoBase64(userData.photoBase64 || null);
+    }
+  }, [userData, isOpen]);
   
   // Cropper state
   const [imageSrc, setImageSrc] = useState<string | null>(null);
@@ -165,9 +184,12 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
             aria-labelledby="modal-title"
           >
             <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-600">
-              <h3 id="modal-title" className="text-gray-800 dark:text-white font-display font-bold text-lg flex items-center">
-                <PenSquare className="text-brand-red mr-2 w-5 h-5" aria-hidden="true" /> Alterar Dados
-              </h3>
+              <div className="flex flex-col">
+                <h3 id="modal-title" className="text-gray-800 dark:text-white font-display font-bold text-lg flex items-center">
+                  <PenSquare className="text-brand-red mr-2 w-5 h-5" aria-hidden="true" /> Alterar Dados
+                </h3>
+                <p className="text-[10px] text-gray-500 ml-7 font-medium uppercase tracking-tight">Editando: {userData.nickname || userData.name}</p>
+              </div>
               <motion.button 
                 whileTap={{ scale: 0.9 }}
                 onClick={onClose} 
