@@ -1,13 +1,26 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   const [activeTab, setActiveTab] = useState('bookings');
   const [loading, setLoading] = useState(true);
+  
+  // Custom Achievements Management
+  const [customAchievements, setCustomAchievements] = useState<any[]>([]);
+  const [newAchievement, setNewAchievement] = useState({ name: '', desc: '', iconName: 'Trophy' });
+  const [isAddingAchievement, setIsAddingAchievement] = useState(false);
+  
+  // Icons helper for custom achievements
+  const iconOptions: Record<string, any> = {
+    'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
+    'Flame': Flame, 'Sun': Sun, 'Zap': Zap, 'Shield': Shield, 
+    'Crown': Crown, 'Award': Award, 'Target-Red': Target
+  };
   
   // Schedule Management
   const [gymSchedule, setGymSchedule] = useState<any[]>([]);
@@ -34,12 +47,43 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
           photoBase64: null
         });
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, photoBase64: null } : s));
+        setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, photoBase64: null } : s));
         showAlert("Sucesso", "Foto removida.", "success");
       } catch (e) {
         console.error(e);
         showAlert("Erro", "Falha ao remover foto.", "error");
       }
     });
+  };
+
+  const updateStudentPhoto = async (studentId: string, base64: string) => {
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
+        photoBase64: base64
+      });
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, photoBase64: base64 } : s));
+      setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, photoBase64: base64 } : s));
+      showAlert("Sucesso", "Foto atualizada com sucesso!", "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao atualizar foto.", "error");
+    }
+  };
+
+  const handlePhotoChange = (e: any, studentId: string) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Limit file size to ~1MB
+      if (file.size > 1024 * 1024) {
+        showAlert("Aviso", "A imagem deve ter no máximo 1MB.", "error");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        updateStudentPhoto(studentId, reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const muteStudent = async (studentId: string, name: string, hours: number | 'perm') => {
@@ -153,6 +197,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
       if (!hasExpired) {
         setFeedPosts(posts.sort((a,b) => b.timestamp.localeCompare(a.timestamp)));
       }
+    });
+
+    // Custom Achievements Listener
+    const unsubAchievements = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'adminAchievements'), (snap) => {
+      const achs: any[] = [];
+      snap.forEach(doc => achs.push({ id: doc.id, ...doc.data() }));
+      setCustomAchievements(achs);
       setLoading(false);
     });
 
@@ -160,8 +211,82 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
       unsubSchedule();
       unsubBookings();
       unsubFeed();
+      unsubAchievements();
     };
   }, [appId, selectedBookingDate]);
+
+  const addAchievement = async () => {
+    if (!newAchievement.name) return;
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'adminAchievements'), newAchievement);
+      setNewAchievement({ name: '', desc: '', iconName: 'Trophy' });
+      setIsAddingAchievement(false);
+      showAlert("Sucesso", "Conquista criada com sucesso!", "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Erro ao criar conquista.", "error");
+    }
+  };
+
+  const deleteAchievement = async (id: string) => {
+    showConfirm("Apagar Conquista", "Deseja remover esta conquista permanentemente?", async () => {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'adminAchievements', id));
+      } catch (e) { console.error(e); }
+    });
+  };
+
+  const getStudentAchievements = (student: any) => {
+    const badges: any[] = [];
+    const totalAtt = student.attendance ? student.attendance.length : 0;
+    
+    // Dynamic badges logic (simplified for admin preview)
+    if (totalAtt >= 1) badges.push({ id: 'first_class', icon: <Star className="w-3 h-3 text-yellow-500" />, name: "Primeiro Treino" });
+    if (totalAtt >= 12) badges.push({ id: 'beginner', icon: <Medal className="w-3 h-3 text-gray-400" />, name: "Iniciante" });
+    if (totalAtt >= 50) badges.push({ id: 'warrior', icon: <Medal className="w-3 h-3 text-yellow-600" />, name: "Guerreiro" });
+    if (totalAtt >= 100) badges.push({ id: 'centurion', icon: <Flame className="w-3 h-3 text-orange-500" />, name: "Centurião" });
+    if (totalAtt >= 200) badges.push({ id: 'casca_grossa', icon: <Shield className="w-3 h-3 text-stone-500" />, name: "Casca Grossa" });
+    if (totalAtt >= 500) badges.push({ id: 'mestre', icon: <Crown className="w-3 h-3 text-amber-500" />, name: "Mestre" });
+    
+    if (student.belt && student.belt.toLowerCase().includes('preta')) {
+      badges.push({ id: 'black_belt', icon: <Crown className="w-3 h-3 text-black dark:text-gray-100" />, name: "A Lenda" });
+    }
+
+    // Manual achievements from admin
+    if (student.achievements) {
+      student.achievements.forEach((achId: string) => {
+        const custom = customAchievements.find(ca => ca.id === achId);
+        if (custom) {
+          const Icon = iconOptions[custom.iconName] || Trophy;
+          badges.push({ id: custom.id, icon: <Icon className="w-3 h-3 text-brand-red" />, name: custom.name });
+        }
+      });
+    }
+
+    return badges;
+  };
+
+  const assignAchievement = async (studentId: string, currentAchs: string[] = []) => {
+    // This is simple: we'll show a prompt or just use a predefined list in this turn
+    // For now, let's just make it possible via a toggle if we show the list
+  };
+
+  const toggleAchievementForStudent = async (student: any, achId: string) => {
+    const currentAchs = student.achievements || [];
+    const newAchs = currentAchs.includes(achId) 
+      ? currentAchs.filter((id: string) => id !== achId)
+      : [...currentAchs, achId];
+    
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
+        achievements: newAchs
+      });
+      setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, achievements: newAchs } : s));
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao atualizar conquistas do aluno.", "error");
+    }
+  };
 
   const addClass = async () => {
     if (!newClass.name) {
@@ -295,6 +420,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
             { id: 'schedule', label: 'Grade Horária', icon: Clock },
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
+            { id: 'achievements', label: 'Conquistas', icon: Trophy },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -651,15 +777,27 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shrink-0 border-2 border-white dark:border-gray-600 shadow-sm relative group">
                         {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={28} className="text-gray-300" />}
-                        {s.photoBase64 && (
-                          <button 
-                            onClick={() => removeStudentPhoto(s.id, s.name)}
-                            className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                            title="Remover Foto"
-                          >
+                        
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                          <label className="cursor-pointer p-1 text-white hover:text-brand-red transition-colors" title="Alterar Foto">
                             <Camera size={18} />
-                          </button>
-                        )}
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={(e) => handlePhotoChange(e, s.id)}
+                            />
+                          </label>
+                          {s.photoBase64 && (
+                            <button 
+                              onClick={() => removeStudentPhoto(s.id, s.name)}
+                              className="p-1 text-white hover:text-red-500 transition-colors"
+                              title="Remover Foto"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -686,6 +824,23 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                         <p className="text-gray-400 font-bold uppercase text-[9px]">Plano Atual</p>
                         <p className="dark:text-white font-medium truncate">{s.plan}</p>
                       </div>
+                    </div>
+
+                    {/* Minimalist Achievements Preview */}
+                    <div className="flex flex-wrap gap-1 mt-1 px-1">
+                      {getStudentAchievements(s).slice(0, 8).map((ach, idx) => (
+                        <div key={idx} className="bg-gray-100 dark:bg-gray-700 p-1 rounded-md mb-1" title={ach.name}>
+                          {ach.icon}
+                        </div>
+                      ))}
+                      {getStudentAchievements(s).length > 8 && (
+                        <div className="text-[9px] font-bold text-gray-400 self-center ml-1">
+                          +{getStudentAchievements(s).length - 8}
+                        </div>
+                      )}
+                      {getStudentAchievements(s).length === 0 && (
+                        <span className="text-[9px] text-gray-400 italic">Sem conquistas</span>
+                      )}
                     </div>
                     
                     <div className="flex flex-wrap gap-2 border-t border-gray-100 dark:border-gray-700 pt-3">
@@ -717,6 +872,174 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                     </div>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ACHIEVEMENTS VIEW */}
+          {activeTab === 'achievements' && (
+            <motion.div
+              key="achievements"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="font-bold text-lg dark:text-white">Gerenciar Conquistas</h3>
+                    <p className="text-sm text-gray-400">Crie medalhas personalizadas para seus alunos.</p>
+                  </div>
+                  <button 
+                    onClick={() => setIsAddingAchievement(!isAddingAchievement)}
+                    className="bg-brand-red text-white p-2 rounded-lg shadow-md hover:bg-red-700 transition"
+                  >
+                    {isAddingAchievement ? <X size={20} /> : <Plus size={20} />}
+                  </button>
+                </div>
+
+                <AnimatePresence>
+                  {isAddingAchievement && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden mb-6"
+                    >
+                      <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome da Conquista</label>
+                            <input 
+                              type="text" 
+                              value={newAchievement.name}
+                              onChange={(e) => setNewAchievement({...newAchievement, name: e.target.value})}
+                              placeholder="Ex: Guerreiro da Semana"
+                              className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Curta</label>
+                            <input 
+                              type="text" 
+                              value={newAchievement.desc}
+                              onChange={(e) => setNewAchievement({...newAchievement, desc: e.target.value})}
+                              placeholder="Ex: Treinou todos os dias do desafio."
+                              className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Escolha o Ícone</label>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.keys(iconOptions).map(iconKey => {
+                              const IconComp = iconOptions[iconKey];
+                              return (
+                                <button
+                                  key={iconKey}
+                                  onClick={() => setNewAchievement({...newAchievement, iconName: iconKey})}
+                                  className={`p-2 rounded-lg border transition ${newAchievement.iconName === iconKey ? 'bg-brand-red border-brand-red text-white' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500'}`}
+                                >
+                                  <IconComp size={20} />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={addAchievement}
+                          className="w-full bg-brand-red text-white py-2 rounded-lg font-bold text-sm shadow-md hover:bg-red-700 transition"
+                        >
+                          Criar Conquista
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {customAchievements.length === 0 ? (
+                    <div className="col-span-full py-10 text-center text-gray-400 italic">
+                      Nenhuma conquista personalizada criada ainda.
+                    </div>
+                  ) : (
+                    customAchievements.map(ach => {
+                      const IconComp = iconOptions[ach.iconName] || Trophy;
+                      return (
+                        <div key={ach.id} className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800 flex items-center justify-between group">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                              <IconComp className="w-5 h-5 text-brand-red" />
+                            </div>
+                            <div>
+                               <h4 className="font-bold text-sm dark:text-white">{ach.name}</h4>
+                               <p className="text-[10px] text-gray-400 line-clamp-1">{ach.desc}</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => deleteAchievement(ach.id)}
+                            className="text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Assignment Section (Simplified) */}
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <h3 className="font-bold text-lg mb-4 dark:text-white">Atribuir Conquistas</h3>
+                <p className="text-sm text-gray-400 mb-6">Busque um aluno e clique no ícone da conquista para atribuir ou remover.</p>
+                
+                <div className="relative mb-6">
+                  <Search className="absolute left-4 top-3 text-gray-400 w-5 h-5" />
+                  <input 
+                    type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filtrar alunos..."
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                  />
+                </div>
+
+                <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                  {allStudents.filter(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 10).map(s => (
+                    <div key={s.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center shrink-0">
+                           {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={16} />}
+                         </div>
+                         <div className="min-w-0">
+                            <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{s.belt}</p>
+                         </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {customAchievements.map(ach => {
+                          const IconComp = iconOptions[ach.iconName] || Trophy;
+                          const hasAch = (s.achievements || []).includes(ach.id);
+                          return (
+                            <button
+                              key={ach.id}
+                              onClick={() => toggleAchievementForStudent(s, ach.id)}
+                              className={`p-1.5 rounded-lg border transition flex items-center gap-2 ${hasAch ? 'bg-green-50 border-green-200 text-green-600 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 shadow-sm'}`}
+                              title={ach.name}
+                            >
+                              <IconComp size={14} />
+                              {hasAch && <Check size={10} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </motion.div>
           )}

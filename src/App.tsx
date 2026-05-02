@@ -58,6 +58,7 @@ export default function Dashboard() {
   const [rankingInfantil, setRankingInfantil] = useState<any[]>([]);
   const [userBookings, setUserBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [adminAchievements, setAdminAchievements] = useState<any[]>([]);
   
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -505,6 +506,7 @@ export default function Dashboard() {
           }
           await loadRanking();
           loadUserBookings(data.id);
+          loadAdminAchievements();
         } else {
           // Fallback for mock
           if (process.env.NODE_ENV === 'development') {
@@ -671,6 +673,14 @@ export default function Dashboard() {
     } catch (e) {
       console.error("Erro ao configurar listener de agendamentos:", e);
     }
+  };
+
+  const loadAdminAchievements = () => {
+    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'adminAchievements'), (snap) => {
+      const achs: any[] = [];
+      snap.forEach(doc => achs.push({ id: doc.id, ...doc.data() }));
+      setAdminAchievements(achs);
+    });
   };
 
   const loadRanking = async () => {
@@ -1030,6 +1040,31 @@ export default function Dashboard() {
       { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthAttCount >= 25 },
       { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: isBlackBelt },
     ];
+
+    // Adicionar conquistas manuais do ADM
+    const ICON_MAP: Record<string, any> = {
+      'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
+      'Flame': Flame, 'Sun': Sun, 'Zap': Zap, 'Shield': Shield, 
+      'Crown': Crown, 'Award': Award, 'Target-Red': Target,
+      'MessageSquare': MessageSquare, 'ArrowUpCircle': ArrowUpCircle
+    };
+
+    if (currentUserData.achievements && adminAchievements.length > 0) {
+      currentUserData.achievements.forEach((achId: string) => {
+        const custom = adminAchievements.find(ca => ca.id === achId);
+        if (custom) {
+          const IconComp = ICON_MAP[custom.iconName] || Trophy;
+          possibleBadges.push({
+            id: custom.id,
+            name: custom.name,
+            desc: custom.desc,
+            icon: <IconComp className="w-5 h-5 text-brand-red" />,
+            iconName: custom.iconName,
+            earned: true
+          });
+        }
+      });
+    }
     
     return possibleBadges;
   };
