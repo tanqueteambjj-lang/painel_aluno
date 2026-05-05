@@ -841,10 +841,38 @@ export default function Dashboard() {
           });
         }
         
-        // 2. Calcular XP TOTAL (Simplificado para o ranking rápido)
+        // 2. Calcular XP TOTAL (Considerando bônus de conquistas para precisão)
         const xpPerClass = 50;
-        const estimatedXp = (data.extraXP || 0) + (totalAttendanceCount * xpPerClass);
-        const level = Math.floor(Math.sqrt(estimatedXp / 100)) + 1;
+        let achBonus = 0;
+        
+        // Mapeamento idêntico ao do sistema de medalhas para garantir sincronia
+        if (data.achievements && Array.isArray(data.achievements)) {
+          const isBlackBelt = data.belt && data.belt.toLowerCase().includes("preta");
+          const badges = [
+            { id: 'first_class', earned: totalAttendanceCount >= 1, xpBonus: 100 },
+            { id: 'beginner', earned: totalAttendanceCount >= 12, xpBonus: 200 },
+            { id: 'committed', earned: totalAttendanceCount >= 50, xpBonus: 500 },
+            { id: 'advanced', earned: totalAttendanceCount >= 100, xpBonus: 1000 },
+            { id: 'expert', earned: totalAttendanceCount >= 200, xpBonus: 2000 },
+            { id: 'mestre', earned: totalAttendanceCount >= 500, xpBonus: 5000 },
+            { id: 'rato_tatame', earned: monthCount >= 25, xpBonus: 500 },
+            { id: 'black_belt', earned: isBlackBelt, xpBonus: 10000 },
+            // Bônus de Ranking (do mês passado - baseado no que calculamos acima)
+            { id: 'rank_1', xpBonus: 1000 },
+            { id: 'rank_2', xpBonus: 800 },
+            { id: 'rank_3', xpBonus: 600 },
+            { id: 'rank_4', xpBonus: 400 },
+            { id: 'rank_5', xpBonus: 200 },
+          ];
+
+          data.achievements.forEach((achId: string) => {
+            const badge = badges.find(b => b.id === achId);
+            if (badge) achBonus += badge.xpBonus;
+          });
+        }
+
+        const exactXp = (data.extraXP || 0) + (totalAttendanceCount * xpPerClass) + achBonus;
+        const level = Math.floor(Math.sqrt(exactXp / 100)) + 1;
 
         const studentItem = { 
           id: docSnap.id,
@@ -853,7 +881,7 @@ export default function Dashboard() {
           belt: data.belt || 'Faixa Branca', 
           classes: monthCount,
           lastMonthClasses: lastMonthCount,
-          xp: estimatedXp,
+          xp: exactXp,
           level: level,
           photoBase64: data.photoBase64 || null
         };
