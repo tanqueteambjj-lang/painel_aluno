@@ -326,30 +326,35 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   };
 
   const getMonthBirthdays = () => {
-    const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+    const currentMonth = new Date().getMonth() + 1;
     return allStudents.filter(s => {
       if (!s.birthDate || typeof s.birthDate !== 'string') return false;
       
-      // Handle both - and / as separators
-      const parts = s.birthDate.split(/[-/]/);
-      let month = '';
+      const parts = s.birthDate.split(/[-/]/).map(p => parseInt(p));
+      if (parts.some(p => isNaN(p))) return false;
       
+      let month = 0;
       if (parts.length === 3) {
-        // Could be YYYY-MM-DD or DD-MM-YYYY
-        // Check which part represents a valid month (1-12)
-        // Usually index 1 is the month in both formats
-        month = parts[1].padStart(2, '0');
+        // YYYY-MM-DD or DD-MM-YYYY. Month is the middle one.
+        month = parts[1];
       } else if (parts.length === 2) {
-        // Probably MM-DD or DD-MM
-        // We try to be smart, but usually it's MM-DD or we take the first part
-        month = parts[0].padStart(2, '0');
+        // MM-DD or DD-MM. Standard BR is DD-MM.
+        const p0 = parts[0];
+        const p1 = parts[1];
+        if (p0 > 12) month = p1;
+        else if (p1 > 12) month = p0;
+        else month = p1; // Default to DD-MM
       }
       
       return month === currentMonth;
     }).sort((a,b) => {
-      const dayA = parseInt((a.birthDate.split(/[-/]/).pop() || '0'));
-      const dayB = parseInt((b.birthDate.split(/[-/]/).pop() || '0'));
-      return dayA - dayB;
+      const getDay = (dateStr: string) => {
+        const p = dateStr.split(/[-/]/).map(part => parseInt(part));
+        if (p.length === 3) return p[2] < 32 ? p[2] : p[0];
+        if (p.length === 2) return p[0] > 12 ? p[0] : p[1];
+        return 0;
+      };
+      return getDay(a.birthDate) - getDay(b.birthDate);
     });
   };
 
