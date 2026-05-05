@@ -103,6 +103,62 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
 
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [editingStudent, setEditingStudent] = useState<any | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    nickname: '',
+    birthDate: '',
+    studentLogin: '',
+    plan: ''
+  });
+
+  const handleEditStudent = (student: any) => {
+    setEditingStudent(student);
+    setEditFormData({
+      name: student.name || '',
+      nickname: student.nickname || '',
+      birthDate: student.birthDate || '',
+      studentLogin: student.studentLogin || '',
+      plan: student.plan || ''
+    });
+  };
+
+  const handleSaveStudentInfo = async () => {
+    if (!editingStudent) return;
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', editingStudent.id), {
+        name: editFormData.name,
+        nickname: editFormData.nickname,
+        birthDate: editFormData.birthDate,
+        studentLogin: editFormData.studentLogin,
+        plan: editFormData.plan
+      });
+      
+      setAllStudents(prev => prev.map(s => s.id === editingStudent.id ? { 
+        ...s, 
+        name: editFormData.name,
+        nickname: editFormData.nickname,
+        birthDate: editFormData.birthDate,
+        studentLogin: editFormData.studentLogin,
+        plan: editFormData.plan
+      } : s));
+      
+      setStudents(prev => prev.map(s => s.id === editingStudent.id ? { 
+        ...s, 
+        name: editFormData.name,
+        nickname: editFormData.nickname,
+        birthDate: editFormData.birthDate,
+        studentLogin: editFormData.studentLogin,
+        plan: editFormData.plan
+      } : s));
+
+      setEditingStudent(null);
+      showAlert("Sucesso", "Informações do aluno atualizadas!", "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao salvar informações.", "error");
+    }
+  };
 
   const fetchStudents = async () => {
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'), orderBy('name'));
@@ -1001,10 +1057,17 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                              <div className="flex items-center gap-2">
                                 <h5 className="font-bold dark:text-white text-base truncate max-w-[200px]">{s.name}</h5>
                                 {s.nickname && <span className="text-xs text-gray-400 font-medium truncate max-w-[100px]">({s.nickname})</span>}
+                                <button 
+                                  onClick={() => handleEditStudent(s)}
+                                  className="p-1 text-gray-400 hover:text-brand-red transition-all"
+                                  title="Editar Informações"
+                                >
+                                   <Edit2 size={14} />
+                                </button>
                              </div>
                              <div className="flex items-center gap-2 mt-0.5">
                                 <Cake size={12} className="text-brand-red" />
-                                <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">{s.birthDate || 'Sem Data'}</span>
+                                <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">{s.birthDate || s.birthdate || 'Sem Data'}</span>
                              </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1455,6 +1518,95 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
 
         </AnimatePresence>
       )}
+
+      {/* FAMILY LINKING MODAL */}
+      <AnimatePresence>
+        {editingStudent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                <h3 className="text-xl font-bold dark:text-white">Editar Aluno</h3>
+                <button onClick={() => setEditingStudent(null)} className="text-gray-400 hover:text-red-500"><X size={20} /></button>
+              </div>
+              
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.name}
+                    onChange={e => setEditFormData({...editFormData, name: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Apelido</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.nickname}
+                    onChange={e => setEditFormData({...editFormData, nickname: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data de Nascimento (DD/MM/AAAA)</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.birthDate}
+                    onChange={e => setEditFormData({...editFormData, birthDate: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
+                    placeholder="Ex: 19/06/1993"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Login do Sistema</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.studentLogin}
+                    onChange={e => setEditFormData({...editFormData, studentLogin: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plano</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.plan}
+                    onChange={e => setEditFormData({...editFormData, plan: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-6 bg-gray-50 dark:bg-gray-800/50 flex gap-3">
+                <button 
+                  onClick={() => setEditingStudent(null)}
+                  className="flex-1 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 rounded-xl font-bold text-sm"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveStudentInfo}
+                  className="flex-1 py-3 bg-brand-red text-white rounded-xl font-bold text-sm shadow-lg shadow-red-500/20"
+                >
+                  Salvar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* FAMILY LINKING MODAL */}
       <AnimatePresence>

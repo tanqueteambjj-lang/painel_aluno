@@ -18,7 +18,8 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
     weight: userData?.weight || '',
     height: userData?.height || '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    birthDate: userData?.birthDate || ''
   });
   const [photoBase64, setPhotoBase64] = useState<string | null>(userData?.photoBase64 || null);
 
@@ -35,7 +36,8 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
         weight: userData.weight || '',
         height: userData.height || '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        birthDate: userData.birthDate || ''
       });
       setPhotoBase64(userData.photoBase64 || null);
     }
@@ -136,6 +138,7 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
         addressNumber: formData.addressNumber,
         weight: formData.weight,
         height: formData.height,
+        birthDate: formData.birthDate,
       };
       if (formData.password && formData.password.trim() !== '') {
         updates.studentPassword = formData.password;
@@ -307,7 +310,14 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                     </div>
                     <div>
                       <label htmlFor="birthDate" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Data de Nascimento</label>
-                      <input id="birthDate" type="text" value={userData.birthDate || 'Não informada'} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed" disabled />
+                      <input 
+                        id="birthDate" 
+                        type="text" 
+                        value={formData.birthDate} 
+                        onChange={e => setFormData({...formData, birthDate: e.target.value})}
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" 
+                        placeholder="DD/MM/AAAA" 
+                      />
                     </div>
                     <div>
                       <label htmlFor="nickname" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Apelido (Exibição)</label>

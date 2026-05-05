@@ -57,6 +57,8 @@ export default function Dashboard() {
   const [notices, setNotices] = useState<any[]>([]);
   const [rankingAdulto, setRankingAdulto] = useState<any[]>([]);
   const [rankingInfantil, setRankingInfantil] = useState<any[]>([]);
+  const [lastMonthRankingAdulto, setLastMonthRankingAdulto] = useState<any[]>([]);
+  const [lastMonthRankingInfantil, setLastMonthRankingInfantil] = useState<any[]>([]);
   const [rankingXpAdulto, setRankingXpAdulto] = useState<any[]>([]);
   const [rankingXpInfantil, setRankingXpInfantil] = useState<any[]>([]);
   const [rankingTab, setRankingTab] = useState<'presence' | 'xp'>('presence');
@@ -774,7 +776,7 @@ export default function Dashboard() {
                 studentId: docSnap.id,
                 studentName: student.nickname || student.name,
                 studentPhoto: student.photoBase64 || null,
-                content: `Hoje é aniversário de ${student.nickname || student.name}! Vamos desejar muitos anos de vida e muito Jiu-Jitsu! 🎂🥋`,
+                content: `Hoje é aniversário de ${student.nickname || student.name}! Vamos desejar muitos anos de vida e muito Jiu-Jitsu! ������🥋`,
                 type: 'birthday',
                 date: format(today, 'yyyy-MM-dd'),
                 timestamp: new Date().toISOString(),
@@ -802,8 +804,13 @@ export default function Dashboard() {
 
   const loadRanking = async () => {
     try {
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      
+      const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+      const lastMonth = lastMonthDate.getMonth();
+      const lastYear = lastMonthDate.getFullYear();
       const today = new Date();
       
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
@@ -813,24 +820,28 @@ export default function Dashboard() {
       const rankInfantil: any[] = [];
       const rankXpAdulto: any[] = [];
       const rankXpInfantil: any[] = [];
+      
+      const rankAdultoLastMonth: any[] = [];
+      const rankInfantilLastMonth: any[] = [];
 
       snap.forEach(docSnap => {
         const data = docSnap.data();
         if(data.archived || data.enrollmentStatus === 'Inativo') return;
         
-        // 1. Calcular Presença Mensal
+        // 1. Calcular Presença Mensal (Atual e Anterior)
         let monthCount = 0;
+        let lastMonthCount = 0;
         const totalAttendanceCount = data.attendance ? data.attendance.length : 0;
         
         if(data.attendance && data.attendance.length > 0) {
           data.attendance.forEach((d: string) => {
             const dateObj = new Date(d + 'T12:00:00');
             if(dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear) monthCount++;
+            if(dateObj.getMonth() === lastMonth && dateObj.getFullYear() === lastYear) lastMonthCount++;
           });
         }
         
         // 2. Calcular XP TOTAL (Simplificado para o ranking rápido)
-        // Usamos uma estimativa de XP de medalhas (ou podemos não incluir medalhas manuais para performance aqui)
         const xpPerClass = 50;
         const estimatedXp = (data.extraXP || 0) + (totalAttendanceCount * xpPerClass);
         const level = Math.floor(Math.sqrt(estimatedXp / 100)) + 1;
@@ -841,6 +852,7 @@ export default function Dashboard() {
           nickname: data.nickname || '', 
           belt: data.belt || 'Faixa Branca', 
           classes: monthCount,
+          lastMonthClasses: lastMonthCount,
           xp: estimatedXp,
           level: level,
           photoBase64: data.photoBase64 || null
@@ -860,10 +872,12 @@ export default function Dashboard() {
         const isKids = (age <= 11 && !isAdultPlan) || (isKidsKeywords && !isAdultPlan);
         
         if (isKids) {
-          if (monthCount > 0) rankInfantil.push(studentItem);
+          if (monthCount > 0) rankInfantil.push({...studentItem});
+          if (lastMonthCount > 0) rankInfantilLastMonth.push({...studentItem, classes: lastMonthCount});
           rankXpInfantil.push(studentItem);
         } else {
-          if (monthCount > 0) rankAdulto.push(studentItem);
+          if (monthCount > 0) rankAdulto.push({...studentItem});
+          if (lastMonthCount > 0) rankAdultoLastMonth.push({...studentItem, classes: lastMonthCount});
           rankXpAdulto.push(studentItem);
         }
       });
@@ -871,11 +885,15 @@ export default function Dashboard() {
       // Ordenação
       rankAdulto.sort((a,b) => b.classes - a.classes);
       rankInfantil.sort((a,b) => b.classes - a.classes);
+      rankAdultoLastMonth.sort((a,b) => b.classes - a.classes);
+      rankInfantilLastMonth.sort((a,b) => b.classes - a.classes);
       rankXpAdulto.sort((a,b) => b.xp - a.xp);
       rankXpInfantil.sort((a,b) => b.xp - a.xp);
 
-      setRankingAdulto(rankAdulto.slice(0, 10)); // Top 10 agora
+      setRankingAdulto(rankAdulto.slice(0, 10));
       setRankingInfantil(rankInfantil.slice(0, 10));
+      setLastMonthRankingAdulto(rankAdultoLastMonth.slice(0, 5));
+      setLastMonthRankingInfantil(rankInfantilLastMonth.slice(0, 5));
       setRankingXpAdulto(rankXpAdulto.slice(0, 10));
       setRankingXpInfantil(rankXpInfantil.slice(0, 10));
     } catch(e) { 
@@ -892,12 +910,14 @@ export default function Dashboard() {
   const checkBirthday = async (userData: Record<string, any>) => {
     if (!userData || !userData.birthDate) return;
     const today = new Date();
-    // birthDate is likely YYYY-MM-DD
-    const birthStr = userData.birthDate;
-    const parts = birthStr.split('-');
+    // birthDate is likely YYYY-MM-DD or DD/MM/YYYY
+    const birthStr = userData.birthDate || userData.birthdate;
+    const parts = birthStr.split(/[-/]/);
     if (parts.length === 3) {
-      const bMonth = parseInt(parts[1]) - 1;
-      const bDay = parseInt(parts[2]);
+      // Determine if format is YYYY-MM-DD (part 0 is > 31) or DD/MM/YYYY
+      const p0 = parseInt(parts[0]);
+      const bMonth = p0 > 31 ? parseInt(parts[1]) - 1 : parseInt(parts[1]) - 1;
+      const bDay = p0 > 31 ? parseInt(parts[2]) : p0;
       if (today.getMonth() === bMonth && today.getDate() === bDay) {
         // It's their birthday! Check if we already celebrated this year
         const lastCelebration = localStorage.getItem(`birthday_celebrated_${userData.id}`);
@@ -1115,6 +1135,11 @@ export default function Dashboard() {
     });
     const isBlackBelt = userData.belt && userData.belt.toLowerCase().includes("preta");
     
+    // Ranking Achievements (Based on last month)
+    const isAdult = !(userData.plan || '').toLowerCase().includes('infantil');
+    const targetLastMonthRank = isAdult ? lastMonthRankingAdulto : lastMonthRankingInfantil;
+    const lastMonthPos = targetLastMonthRank.findIndex(s => s.id === (userData.id || auth.currentUser?.uid));
+
     const possibleBadges = [
       { id: 'first_class', name: "Primeiro Treino", desc: "Suor e dedicação no primeiro dia.", icon: <Star className="w-5 h-5 text-yellow-500" />, iconName: 'Star', earned: attCount >= 1, xpBonus: 100 },
       { id: 'beginner', name: "Iniciante", desc: "Frequência inicial: 12 treinos concluídos.", icon: <Medal className="w-5 h-5 text-gray-400" />, iconName: 'Medal', earned: attCount >= 12, xpBonus: 200 },
@@ -1130,6 +1155,12 @@ export default function Dashboard() {
       { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, iconName: 'Crown', earned: attCount >= 500, xpBonus: 5000 },
       { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthCount >= 25, xpBonus: 500 },
       { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: isBlackBelt, xpBonus: 10000 },
+      // Ranking Achievements
+      { id: 'rank_1', name: "O Campeão", desc: "Ficou em 1º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-yellow-400" />, iconName: 'Trophy', earned: lastMonthPos === 0, xpBonus: 1000 },
+      { id: 'rank_2', name: "Vice-Campeão", desc: "Ficou em 2º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-gray-300" />, iconName: 'Trophy', earned: lastMonthPos === 1, xpBonus: 800 },
+      { id: 'rank_3', name: "Pódio de Bronze", desc: "Ficou em 3º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-amber-600" />, iconName: 'Trophy', earned: lastMonthPos === 2, xpBonus: 600 },
+      { id: 'rank_4', name: "Elite do Mês", desc: "Ficou em 4º lugar no ranking mensal!", icon: <Medal className="w-5 h-5 text-blue-400" />, iconName: 'Medal', earned: lastMonthPos === 3, xpBonus: 400 },
+      { id: 'rank_5', name: "Top 5", desc: "Garantido no Top 5 mensal!", icon: <Medal className="w-5 h-5 text-green-400" />, iconName: 'Medal', earned: lastMonthPos === 4, xpBonus: 200 },
     ];
 
     const ICON_MAP_LOCAL: Record<string, any> = {
@@ -1865,6 +1896,7 @@ export default function Dashboard() {
                   <Ranking 
                     currentUserData={activeUserData} 
                     ranking={rankingTab === 'presence' ? rankingAdulto : rankingXpAdulto} 
+                    lastMonthRanking={lastMonthRankingAdulto}
                     isAdmin={isAdmin} 
                     activeTab={rankingTab}
                     onTabChange={setRankingTab}
@@ -1877,6 +1909,7 @@ export default function Dashboard() {
                   <Ranking 
                     currentUserData={activeUserData} 
                     ranking={rankingTab === 'presence' ? rankingInfantil : rankingXpInfantil} 
+                    lastMonthRanking={lastMonthRankingInfantil}
                     isAdmin={isAdmin} 
                     activeTab={rankingTab}
                     onTabChange={setRankingTab}
@@ -1968,7 +2001,7 @@ export default function Dashboard() {
                         <Cake size={12} /> Data de Nascimento
                       </label>
                       <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded border border-red-100 dark:border-red-900/30 text-brand-red dark:text-red-300 font-bold shadow-sm overflow-x-auto">
-                        {currentUserData.birthDate || '--'}
+                        {currentUserData.birthDate || currentUserData.birthdate || '--'}
                       </div>
                     </div>
                     <div>

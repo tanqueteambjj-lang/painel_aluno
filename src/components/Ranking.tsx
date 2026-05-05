@@ -1,7 +1,7 @@
-import { Trophy, ShieldHalf, Flame } from 'lucide-react';
+import { Trophy, ShieldHalf, Flame, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Ranking({ currentUserData, ranking, isAdmin, title, subtitle, activeTab, onTabChange }: any) {
+export default function Ranking({ currentUserData, ranking, lastMonthRanking, isAdmin, title, subtitle, activeTab, onTabChange }: any) {
   const getBeltColorClass = (belt: string) => {
     const b = belt?.toLowerCase() || '';
     if (b.includes('preta')) return 'bg-zinc-900 border-zinc-700 text-white';
@@ -52,6 +52,41 @@ export default function Ranking({ currentUserData, ranking, isAdmin, title, subt
         </div>
       </div>
       
+      {/* CAMPEÕES DO MÊS PASSADO */}
+      {lastMonthRanking && lastMonthRanking.length > 0 && activeTab === 'presence' && (
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="text-yellow-500 w-5 h-5 fill-yellow-500" />
+            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400">Campeões do Mês Passado</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {lastMonthRanking.slice(0, 5).map((student: any, i: number) => (
+              <motion.div 
+                key={`last-${student.id}`}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center text-center relative overflow-hidden"
+              >
+                <div className={`absolute top-0 right-0 p-1.5 rounded-bl-xl font-black text-[10px] ${
+                  i === 0 ? 'bg-yellow-400 text-yellow-900' : 
+                  i === 1 ? 'bg-gray-300 text-gray-700' : 
+                  i === 2 ? 'bg-amber-600 text-white' : 
+                  'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                }`}>
+                  {i + 1}º
+                </div>
+                <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden mb-2 border-2 border-white dark:border-gray-700 shadow-sm">
+                  {student.photoBase64 ? <img src={student.photoBase64} className="w-full h-full object-cover" /> : <Star className="p-3 text-gray-300" />}
+                </div>
+                <p className="font-bold text-[11px] truncate w-full dark:text-white">{formatDisplayName(student)}</p>
+                <p className="text-[9px] text-gray-400 font-bold uppercase mt-0.5">{student.classes} Treinos</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {ranking.map((student: any, i: number) => {
