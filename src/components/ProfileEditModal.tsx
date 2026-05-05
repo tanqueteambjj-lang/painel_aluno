@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { X, Camera, Save, PenSquare, Check, Loader2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, Camera, Save, PenSquare, Check, Loader2, ZoomIn, ZoomOut, RotateCcw, User, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Cropper from 'react-easy-crop';
 
@@ -252,20 +252,38 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                   </div>
                 ) : (
                   <>
-                    <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-gray-100 dark:border-gray-700 bg-gray-200 dark:bg-gray-600 flex-shrink-0 mb-3 group shadow-inner">
-                      {photoBase64 ? (
-                        <img src={photoBase64} alt={`Foto de perfil de ${userData.name}`} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <Camera className="w-8 h-8" aria-hidden="true" />
-                        </div>
-                      )}
-                      <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity" aria-label="Alterar foto de perfil">
-                        <Camera className="w-6 h-6 text-white" aria-hidden="true" />
-                        <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" aria-hidden="true" />
-                      </label>
+                    <div className="relative group">
+                      <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white dark:border-gray-700 bg-gray-100 dark:bg-gray-800 flex-shrink-0 shadow-lg relative">
+                        {photoBase64 ? (
+                          <img src={photoBase64} alt={`Foto de perfil de ${userData.name}`} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-500">
+                            <User className="w-12 h-12" aria-hidden="true" />
+                          </div>
+                        )}
+                        <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
+                          <Camera className="w-8 h-8 text-white" />
+                          <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                        </label>
+                      </div>
+                      <div className="flex gap-2 justify-center mt-3">
+                        <label className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer transition-all shadow-sm">
+                           <Camera className="w-3.5 h-3.5 text-brand-red" />
+                           <span className="text-[10px] font-black uppercase text-gray-700 dark:text-gray-200">Alterar</span>
+                           <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                        </label>
+                        {photoBase64 && (
+                          <button 
+                            onClick={() => setPhotoBase64(null)}
+                            className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 px-3 py-1.5 rounded-lg border border-red-100 dark:border-red-900/30 transition-all shadow-sm"
+                          >
+                             <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                             <span className="text-[10px] font-black uppercase text-red-600 dark:text-red-400">Remover</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-[10px] text-gray-400 text-center font-medium">Clique na imagem para alterar<br/>(Melhor formato: Quadrado)</p>
+                    <p className="text-[10px] text-gray-400 text-center font-bold uppercase tracking-tighter mt-4">Sua foto ajuda os professores a te identificarem</p>
                     
                     <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 text-[10px] leading-relaxed">
                       <h4 className="font-bold text-blue-700 dark:text-blue-300 mb-1 flex items-center gap-1 uppercase tracking-wider">

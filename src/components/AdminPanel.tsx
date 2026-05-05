@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 
-export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
+export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonate }: any) {
   const [activeTab, setActiveTab] = useState('bookings');
   const [loading, setLoading] = useState(true);
   const [extraXPValue, setExtraXPValue] = useState(100);
@@ -333,28 +333,26 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
     return allStudents.filter(s => {
       if (!s.birthDate || typeof s.birthDate !== 'string') return false;
       
-      // Split by common separators - / or space
-      const parts = s.birthDate.split(/[-/ ]/).map(p => parseInt(p));
-      const validParts = parts.filter(p => !isNaN(p));
+      const parts = s.birthDate.split(/[-/ ]/).map(p => p.trim()).filter(p => p);
+      if (parts.length < 2) return false;
+      
+      const numParts = parts.map(p => parseInt(p));
+      const validParts = numParts.filter(p => !isNaN(p));
       if (validParts.length < 2) return false;
       
       let month = 0;
       if (validParts.length === 3) {
-        // Probable formats: YYYY-MM-DD or DD-MM-YYYY or MM-DD-YYYY
-        // We look for a part that's between 1 and 12. 
-        // Usually, ISO (input type date) is YYYY-MM-DD. 
-        // BR format is DD-MM-YYYY.
-        // In both common cases, the month is the second part.
-        // If the first part is > 31, it's definitely YYYY, so month is index 1.
-        // If the last part is > 31, it's definitely YYYY, so month is index 1.
+        // Handle formats: DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY
+        // If the first part is > 31, it's YYYY-MM-DD.
+        // If index 0 is > 12, it's DD/MM/YYYY.
+        // If index 1 is between 1 and 12, it's probably the month in both BR/ISO.
+        // Let's use a simple guess: index 1 is usually the month in BR and ISO.
         month = validParts[1];
       } else if (validParts.length === 2) {
-        // MM-DD or DD-MM
-        const p0 = validParts[0];
-        const p1 = validParts[1];
-        if (p0 > 12) month = p1; // p0 must be day
-        else if (p1 > 12) month = p0; // p1 must be day
-        else month = p1; // Ambiguous, assume DD-MM (BR)
+        // DD/MM or MM/DD
+        if (validParts[0] > 12) month = validParts[1];
+        else if (validParts[1] > 12) month = validParts[0];
+        else month = validParts[1]; // Default to DD/MM
       }
       
       return month === currentMonth;
@@ -964,20 +962,21 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                     {s.mutedUntil && new Date(s.mutedUntil) > new Date() && (
                       <div className="absolute top-0 right-0 bg-red-500 text-white px-3 py-1 text-[9px] font-bold uppercase rounded-bl-lg">Silenciado</div>
                     )}
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shrink-0 border-2 border-white dark:border-gray-600 shadow-sm relative group">
-                        {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={28} className="text-gray-300" />}
-                        
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                      <div className="flex flex-col gap-2 shrink-0 items-center">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-white dark:border-gray-600 shadow-sm relative group">
+                          {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" alt="Aluno" /> : <User size={32} className="text-gray-300" />}
+                        </div>
+                        <div className="flex items-center gap-1.5 justify-center">
                           <button 
                             onClick={() => s.photoBase64 && setSelectedPhoto(s.photoBase64)}
-                            className="p-1 text-white hover:text-brand-red transition-colors"
+                            className="p-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-400 hover:text-brand-red transition-all border border-gray-100 dark:border-gray-600 shadow-sm"
                             title="Ampliar Foto"
                           >
-                             <Search size={18} />
+                             <Search size={14} />
                           </button>
-                          <label className="cursor-pointer p-1 text-white hover:text-brand-red transition-colors" title="Alterar Foto">
-                            <Camera size={18} />
+                          <label className="cursor-pointer p-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-400 hover:text-brand-red transition-all border border-gray-100 dark:border-gray-600 shadow-sm" title="Alterar Foto">
+                            <Camera size={14} />
                             <input 
                               type="file" 
                               accept="image/*" 
@@ -988,32 +987,48 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                           {s.photoBase64 && (
                             <button 
                               onClick={() => removeStudentPhoto(s.id, s.name)}
-                              className="p-1 text-white hover:text-red-500 transition-colors"
+                              className="p-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-400 hover:text-red-600 transition-all border border-red-100 dark:border-red-900/30 shadow-sm"
                               title="Remover Foto"
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={14} />
                             </button>
                           )}
                         </div>
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex items-center gap-2">
-                             <h5 className="font-bold dark:text-white text-base">{s.name}</h5>
-                             {s.nickname && <span className="text-xs text-gray-400 font-medium tracking-tight">({s.nickname})</span>}
+                      <div className="flex-1 w-full sm:w-auto">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
+                          <div className="flex flex-col">
+                             <div className="flex items-center gap-2">
+                                <h5 className="font-bold dark:text-white text-base truncate max-w-[200px]">{s.name}</h5>
+                                {s.nickname && <span className="text-xs text-gray-400 font-medium truncate max-w-[100px]">({s.nickname})</span>}
+                             </div>
+                             <div className="flex items-center gap-2 mt-0.5">
+                                <Cake size={12} className="text-brand-red" />
+                                <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">{s.birthDate || 'Sem Data'}</span>
+                             </div>
                           </div>
-                          <div className="bg-brand-red/10 border border-brand-red/20 rounded-lg px-2 py-0.5 flex items-center gap-1">
-                            <ArrowUpCircle className="w-3 h-3 text-brand-red" />
-                            <span className="text-[10px] font-bold text-brand-red">NÍVEL {calculateStudentLevel(s)}</span>
+                          <div className="flex items-center gap-2">
+                            {onImpersonate && (
+                              <button 
+                                onClick={() => onImpersonate(s)}
+                                className="bg-brand-red hover:bg-brand-red text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95"
+                              >
+                                Ver Painel
+                              </button>
+                            )}
+                            <div className="bg-brand-red/10 border border-brand-red/20 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
+                              <ArrowUpCircle className="w-3.5 h-3.5 text-brand-red" />
+                              <span className="text-[10px] font-bold text-brand-red">NÍVEL {calculateStudentLevel(s)}</span>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                            s.paymentStatus === 'Em dia' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${
+                            s.paymentStatus === 'Em dia' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                           }`}>
                             {s.paymentStatus}
                           </span>
-                          <span className="text-[10px] text-gray-400 uppercase font-bold">{s.belt}</span>
+                          <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{s.belt}</span>
                         </div>
                       </div>
                     </div>
@@ -1299,8 +1314,11 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                               <IconComp className="w-5 h-5 text-brand-red" />
                             </div>
                             <div>
-                               <h4 className="font-bold text-sm dark:text-white">{ach.name}</h4>
-                               <p className="text-[10px] text-gray-400 line-clamp-1">{ach.desc}</p>
+                               <h4 className="font-bold text-sm dark:text-white leading-tight">{ach.name}</h4>
+                               <div className="flex items-center gap-2 mt-0.5">
+                                 <p className="text-[10px] text-gray-400 line-clamp-1">{ach.desc}</p>
+                                 <span className="text-[9px] font-black text-brand-red uppercase bg-red-50 dark:bg-red-900/20 px-1 rounded flex-shrink-0">+{ach.xpBonus || 0} XP</span>
+                               </div>
                             </div>
                           </div>
                           <button 

@@ -1,7 +1,7 @@
 import { Trophy, ShieldHalf, Flame } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Ranking({ currentUserData, ranking, isAdmin, title, subtitle }: any) {
+export default function Ranking({ currentUserData, ranking, isAdmin, title, subtitle, activeTab, onTabChange }: any) {
   const getBeltColorClass = (belt: string) => {
     const b = belt?.toLowerCase() || '';
     if (b.includes('preta')) return 'bg-zinc-900 border-zinc-700 text-white';
@@ -16,67 +16,126 @@ export default function Ranking({ currentUserData, ranking, isAdmin, title, subt
   };
 
   const formatDisplayName = (student: any) => {
-    if (isAdmin) return student.name;
+    if (isAdmin) return student.name || 'Aluno';
     if (student.nickname) return student.nickname;
-    const parts = student.name.trim().split(/\s+/);
+    const name = student.name || 'Aluno';
+    const parts = name.trim().split(/\s+/);
     if (parts.length > 2) {
       return `${parts[0]} ${parts[parts.length - 1]}`;
     }
-    return student.name;
+    return name;
   };
 
   return (
     <div className="max-w-4xl mx-auto pb-4">
-      <div className="mb-6 border-b border-gray-200 dark:border-gray-700 pb-4">
-        <h2 className="font-display text-3xl font-bold text-brand-dark dark:text-white flex items-center gap-3">
-          <Trophy className="text-yellow-500 w-8 h-8" /> {title || "Ranking Mensal"}
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle || "Os 5 guerreiros que mais treinaram neste mês."}</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+        <div>
+          <h2 className="font-display text-2xl md:text-3xl font-bold text-brand-dark dark:text-white flex items-center gap-3">
+            <Trophy className="text-yellow-500 w-7 h-7 md:w-8 md:h-8" /> {title || "Hall da Fama"}
+          </h2>
+          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle || "Reconhecimento pela sua dedicação e técnica."}</p>
+        </div>
+
+        <div className="flex bg-gray-100 dark:bg-gray-800/50 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shrink-0">
+          <button 
+            onClick={() => onTabChange && onTabChange('presence')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'presence' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+          >
+            Treinos
+          </button>
+          <button 
+            onClick={() => onTabChange && onTabChange('xp')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'xp' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+          >
+            Nível
+          </button>
+        </div>
       </div>
       
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-        <div className="space-y-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {ranking.map((student: any, i: number) => {
             const beltClasses = getBeltColorClass(student.belt);
             const isDarkBelt = beltClasses.includes('text-white');
+            const isSelf = student.id === currentUserData?.id;
             
             return (
               <motion.div 
-                key={i}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className={`flex items-center justify-between p-4 rounded-xl border ${beltClasses} relative overflow-hidden`}
+                key={student.id || i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className={`flex items-center justify-between p-4 sm:p-5 hover:bg-gray-50 dark:hover:bg-gray-750 transition-all ${isSelf ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}
               >
-                {i === 0 && <div className="absolute top-0 right-0 w-16 h-16 bg-yellow-400 opacity-10 rounded-bl-full"></div>}
-                <div className="flex items-center gap-4 relative z-10">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg ${isDarkBelt ? 'bg-white/20 text-white' : i === 0 ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shrink-0 border-2 ${
+                    i === 0 ? 'bg-yellow-400 border-yellow-200 text-yellow-900' : 
+                    i === 1 ? 'bg-stone-300 border-stone-200 text-stone-700' : 
+                    i === 2 ? 'bg-amber-600 border-amber-500 text-amber-50' : 
+                    'bg-gray-100 dark:bg-gray-700 border-transparent text-gray-500 dark:text-gray-400'
+                  }`}>
                     {i + 1}º
                   </div>
-                  <div>
-                    <h3 className={`font-bold ${student.name === currentUserData?.name ? 'text-brand-red' : isDarkBelt ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
-                      {formatDisplayName(student)} {student.name === currentUserData?.name && "(Você)"}
-                    </h3>
-                    <p className={`text-xs flex items-center mt-1 ${isDarkBelt ? 'text-zinc-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                      <ShieldHalf className="w-3 h-3 mr-1" /> {student.belt}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    {student.photoBase64 && (
+                      <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden border border-white dark:border-gray-700 hidden sm:block">
+                        <img src={student.photoBase64} className="w-full h-full object-cover" alt="" />
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className={`font-bold text-sm sm:text-base ${isSelf ? 'text-brand-red' : 'text-gray-900 dark:text-white'}`}>
+                          {formatDisplayName(student)}
+                        </h3>
+                        {isSelf && <span className="bg-brand-red text-white text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-widest">Você</span>}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded border border-transparent ${beltClasses}`}>
+                          {student.belt}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end relative z-10">
-                  <div className={`flex items-center gap-1 px-3 py-1 rounded-full ${isDarkBelt ? 'bg-white/20' : 'bg-brand-red/10'}`}>
-                    <Flame className={`w-4 h-4 ${isDarkBelt ? 'text-white' : 'text-brand-red'}`} />
-                    <span className={`font-bold ${isDarkBelt ? 'text-white' : 'text-brand-red'}`}>{student.classes}</span>
-                  </div>
-                  <span className={`text-[10px] uppercase mt-1 ${isDarkBelt ? 'text-zinc-400' : 'text-gray-400'}`}>Treinos</span>
+
+                <div className="flex flex-col items-end">
+                  {activeTab === 'xp' ? (
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-1.5">
+                         <span className="text-[10px] font-black text-brand-red tracking-widest uppercase">Nível</span>
+                         <span className="text-lg font-black dark:text-white">{student.level || 1}</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold -mt-1">{student.xp || 0} XP</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-1.5">
+                        <Flame className="w-4 h-4 text-brand-red" />
+                        <span className="text-lg font-black dark:text-white">{student.classes}</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest -mt-1">Treinos</span>
+                        {i < 5 && (
+                          <motion.span 
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-[9px] font-black px-1.5 py-0.5 rounded mt-1 uppercase tracking-tighter"
+                          >
+                            +{(5 - i) * 200} XP BÔNUS
+                          </motion.span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             );
           })}
           
           {ranking.length === 0 && (
-            <div className="text-center py-10">
-              <Trophy className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400">Nenhum treino registrado este mês ainda. Seja o primeiro!</p>
+            <div className="text-center py-12">
+              <Trophy className="w-12 h-12 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">Nenhum guerreiro rankeado ainda.</p>
             </div>
           )}
         </div>
@@ -84,3 +143,4 @@ export default function Ranking({ currentUserData, ranking, isAdmin, title, subt
     </div>
   );
 }
+

@@ -14,7 +14,7 @@ import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox, Pin } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox, Pin, Cake } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -51,11 +51,15 @@ export default function Dashboard() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   const [currentUserData, setCurrentUserData] = useState<any>(null);
+  const [impersonatedStudent, setImpersonatedStudent] = useState<any>(null);
   const [dependents, setDependents] = useState<any[]>([]);
   const [viewingDependentId, setViewingDependentId] = useState<string | null>(null);
   const [notices, setNotices] = useState<any[]>([]);
   const [rankingAdulto, setRankingAdulto] = useState<any[]>([]);
   const [rankingInfantil, setRankingInfantil] = useState<any[]>([]);
+  const [rankingXpAdulto, setRankingXpAdulto] = useState<any[]>([]);
+  const [rankingXpInfantil, setRankingXpInfantil] = useState<any[]>([]);
+  const [rankingTab, setRankingTab] = useState<'presence' | 'xp'>('presence');
   const [userBookings, setUserBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [adminAchievements, setAdminAchievements] = useState<any[]>([]);
@@ -807,12 +811,17 @@ export default function Dashboard() {
       
       const rankAdulto: any[] = [];
       const rankInfantil: any[] = [];
+      const rankXpAdulto: any[] = [];
+      const rankXpInfantil: any[] = [];
 
       snap.forEach(docSnap => {
         const data = docSnap.data();
         if(data.archived || data.enrollmentStatus === 'Inativo') return;
         
+        // 1. Calcular Presença Mensal
         let monthCount = 0;
+        const totalAttendanceCount = data.attendance ? data.attendance.length : 0;
+        
         if(data.attendance && data.attendance.length > 0) {
           data.attendance.forEach((d: string) => {
             const dateObj = new Date(d + 'T12:00:00');
@@ -820,40 +829,55 @@ export default function Dashboard() {
           });
         }
         
-        if(monthCount > 0) {
-          const item = { name: data.name, nickname: data.nickname, belt: data.belt, classes: monthCount };
-          const planStr = (data.plan || '').toLowerCase();
-          
-          // Calcular idade
-          let age = 99;
-          if (data.birthDate) {
-            const birth = new Date(data.birthDate);
-            age = today.getFullYear() - birth.getFullYear();
-            const m = today.getMonth() - birth.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-              age--;
-            }
-          }
+        // 2. Calcular XP TOTAL (Simplificado para o ranking rápido)
+        // Usamos uma estimativa de XP de medalhas (ou podemos não incluir medalhas manuais para performance aqui)
+        const xpPerClass = 50;
+        const estimatedXp = (data.extraXP || 0) + (totalAttendanceCount * xpPerClass);
+        const level = Math.floor(Math.sqrt(estimatedXp / 100)) + 1;
 
-          // Se tiver plano adulto explícito, vai para o ranking adulto independente da idade
-          const isAdultPlan = planStr.includes('adulto');
-          const isKidsKeywords = planStr.includes('infantil') || planStr.includes('kids');
-          
-          // Regra: Menor ou igual a 11 anos vai para infantil, A MENOS QUE tenha plano adulto explícito.
-          // Se tiver mais de 11 mas o plano for infantil/kids, também vai para infantil.
-          if ((age <= 11 && !isAdultPlan) || (isKidsKeywords && !isAdultPlan)) {
-            rankInfantil.push(item);
-          } else {
-            rankAdulto.push(item);
-          }
+        const studentItem = { 
+          id: docSnap.id,
+          name: data.name || 'Aluno', 
+          nickname: data.nickname || '', 
+          belt: data.belt || 'Faixa Branca', 
+          classes: monthCount,
+          xp: estimatedXp,
+          level: level,
+          photoBase64: data.photoBase64 || null
+        };
+
+        const planStr = (data.plan || '').toLowerCase();
+        let age = 99;
+        if (data.birthDate) {
+          const birth = new Date(data.birthDate);
+          age = today.getFullYear() - birth.getFullYear();
+          const m = today.getMonth() - birth.getMonth();
+          if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+        }
+
+        const isAdultPlan = planStr.includes('adulto');
+        const isKidsKeywords = planStr.includes('infantil') || planStr.includes('kids');
+        const isKids = (age <= 11 && !isAdultPlan) || (isKidsKeywords && !isAdultPlan);
+        
+        if (isKids) {
+          if (monthCount > 0) rankInfantil.push(studentItem);
+          rankXpInfantil.push(studentItem);
+        } else {
+          if (monthCount > 0) rankAdulto.push(studentItem);
+          rankXpAdulto.push(studentItem);
         }
       });
 
+      // Ordenação
       rankAdulto.sort((a,b) => b.classes - a.classes);
       rankInfantil.sort((a,b) => b.classes - a.classes);
+      rankXpAdulto.sort((a,b) => b.xp - a.xp);
+      rankXpInfantil.sort((a,b) => b.xp - a.xp);
 
-      setRankingAdulto(rankAdulto.slice(0, 5));
-      setRankingInfantil(rankInfantil.slice(0, 5));
+      setRankingAdulto(rankAdulto.slice(0, 10)); // Top 10 agora
+      setRankingInfantil(rankInfantil.slice(0, 10));
+      setRankingXpAdulto(rankXpAdulto.slice(0, 10));
+      setRankingXpInfantil(rankXpInfantil.slice(0, 10));
     } catch(e) { 
       console.error("Ranking error:", e); 
     }
@@ -990,6 +1014,196 @@ export default function Dashboard() {
     return null;
   };
 
+  // Extract base plan name if it contains " - R$"
+  const getPlanInfoFromData = (data: any) => {
+    const rawPlanKey = data?.plan || 'N/A';
+    const basePlanName = rawPlanKey.split(' - R$')[0].trim();
+    const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return { planKey, basePlanName, planInfo: PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined } };
+  };
+
+  const activeUserData = impersonatedStudent || currentUserData;
+  const { planKey, basePlanName, planInfo } = getPlanInfoFromData(activeUserData);
+  const isAdmin = activeUserData?.role === 'admin' || planKey === 'administracao';
+  
+  // XP e Nível
+  const xpPerClass = 50;
+
+  // Bônus de XP por Ranking (Top 5 Presença Mensal)
+  const getRankingBonus = () => {
+    if (!activeUserData) return 0;
+    const isAdult = !(activeUserData.plan || '').toLowerCase().includes('infantil');
+    const targetRank = isAdult ? rankingAdulto : rankingInfantil;
+    const position = targetRank.findIndex((s: any) => s.id === (activeUserData.id || auth.currentUser?.uid));
+    if (position === -1 || position >= 5) return 0;
+    return (5 - position) * 200;
+  };
+
+  const rankingBonusXP = getRankingBonus();
+  const totalAtt = activeUserData?.attendance ? activeUserData.attendance.length : 0;
+  
+  const computeMonthAttCount = () => {
+    if (!activeUserData) return 0;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    let count = 0;
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        if (activeUserData.attendance?.includes(dateStr)) count++;
+    }
+    return count;
+  };
+
+  const currentMonthAttCount = computeMonthAttCount();
+
+  const computeAchievementsList = (userData: any, attCount: number, monthCount: number) => {
+    if (!userData) return [];
+    
+    let maxConsecutive = 0;
+    let currentConsecutive = 0;
+    const attendance = Array.isArray(userData.attendance) ? userData.attendance : [];
+    
+    if (attendance.length > 0) {
+      try {
+        const sortedDates = [...attendance].sort();
+        let prevDate: Date | null = null;
+        for (const d of sortedDates) {
+          if (typeof d !== 'string') continue;
+          const dateObj = new Date(d + 'T12:00:00');
+          if (isNaN(dateObj.getTime())) continue;
+          
+          if (!prevDate) {
+            currentConsecutive = 1;
+            maxConsecutive = 1;
+          } else {
+            const diffDays = Math.round((dateObj.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays === 1) {
+              currentConsecutive++;
+              if (currentConsecutive > maxConsecutive) maxConsecutive = currentConsecutive;
+            } else if (diffDays > 1) {
+              currentConsecutive = 1;
+            }
+          }
+          prevDate = dateObj;
+        }
+      } catch (e) {
+        console.error("Erro no cálculo de sequência:", e);
+      }
+    }
+
+    let earnedNewBelt = false;
+    let earnedDegree = false;
+    const progressLog = Array.isArray(userData.progressLog) ? userData.progressLog : [];
+    
+    for (const log of progressLog) {
+      if (log.type === 'graduation') {
+        if (log.text && log.text.match(/[1-9]º Grau/)) {
+          earnedDegree = true;
+        } else {
+          earnedNewBelt = true;
+        }
+      }
+    }
+    
+    const hasPosted = !!(userData.feedPosts && userData.feedPosts > 0);
+    const isWeekendWarrior = attendance.some((d: string) => {
+      if (typeof d !== 'string') return false;
+      const day = new Date(d + 'T12:00:00').getDay();
+      return day === 0 || day === 6;
+    });
+    const isBlackBelt = userData.belt && userData.belt.toLowerCase().includes("preta");
+    
+    const possibleBadges = [
+      { id: 'first_class', name: "Primeiro Treino", desc: "Suor e dedicação no primeiro dia.", icon: <Star className="w-5 h-5 text-yellow-500" />, iconName: 'Star', earned: attCount >= 1, xpBonus: 100 },
+      { id: 'beginner', name: "Iniciante", desc: "Frequência inicial: 12 treinos concluídos.", icon: <Medal className="w-5 h-5 text-gray-400" />, iconName: 'Medal', earned: attCount >= 12, xpBonus: 200 },
+      { id: 'monthly_focus', name: "Foco Mensal", desc: "Frequência de elite: 20 treinos no mês.", icon: <Target className="w-5 h-5 text-red-500" />, iconName: 'Target', earned: monthCount >= 20, xpBonus: 300 },
+      { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, iconName: 'Flame', earned: maxConsecutive >= 5, xpBonus: 150 },
+      { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, iconName: 'Sun', earned: isWeekendWarrior, xpBonus: 150 },
+      { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, iconName: 'MessageSquare', earned: hasPosted, xpBonus: 100 },
+      { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <ArrowUpCircle className="w-5 h-5 text-yellow-600" />, iconName: 'ArrowUpCircle', earned: earnedDegree, xpBonus: 250 },
+      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, iconName: 'Award', earned: earnedNewBelt, xpBonus: 500 },
+      { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, iconName: 'Medal', earned: attCount >= 50, xpBonus: 500 },
+      { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, iconName: 'Flame', earned: attCount >= 100, xpBonus: 1000 },
+      { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, iconName: 'Shield', earned: attCount >= 200, xpBonus: 2000 },
+      { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, iconName: 'Crown', earned: attCount >= 500, xpBonus: 5000 },
+      { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthCount >= 25, xpBonus: 500 },
+      { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: isBlackBelt, xpBonus: 10000 },
+    ];
+
+    const ICON_MAP_LOCAL: Record<string, any> = {
+      'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
+      'Flame': Flame, 'Sun': Sun, 'MessageSquare': MessageSquare, 'Award': Award, 
+      'Shield': Shield, 'Crown': Crown, 'Zap': Zap, 'ArrowUpCircle': ArrowUpCircle
+    };
+
+    const studentAchievements = Array.isArray(userData.achievements) ? userData.achievements : [];
+    const earnedManual = adminAchievements.filter(ach => 
+      studentAchievements.includes(ach.id)
+    ).map(ach => {
+      const IconBase = (ach.iconName && ICON_MAP_LOCAL[ach.iconName]) || Trophy;
+      return {
+        id: ach.id,
+        name: ach.name,
+        desc: ach.description,
+        icon: <IconBase className="w-5 h-5 text-brand-red" />,
+        earned: true,
+        xpBonus: ach.xpBonus || 200
+      };
+    });
+
+    return [...possibleBadges, ...earnedManual];
+  };
+
+  const earnedBadgesCalculated = computeAchievementsList(activeUserData, totalAtt, currentMonthAttCount);
+  const earnedBadgesXP = earnedBadgesCalculated.filter(b => b.earned).reduce((total, b: any) => total + (b.xpBonus || 100), 0);
+
+  const userXP = activeUserData ? ((activeUserData.extraXP || 0) + (totalAtt * xpPerClass) + earnedBadgesXP + rankingBonusXP) : 0;
+  const userLevel = Math.floor(Math.sqrt(userXP / 100)) + 1;
+  const firstName = activeUserData ? (activeUserData.nickname || activeUserData.name || "Aluno").split(' ')[0] : "Aluno";
+  const xpForNextLevel = Math.max(1, Math.pow(userLevel, 2) * 100);
+  const progress = Math.min(100, Math.max(0, (userXP / xpForNextLevel) * 100));
+  const earnedBadges = earnedBadgesCalculated;
+
+  const calendarDaysList = [];
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
+  const daysInMonth = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
+  let monthAttCount = 0;
+  
+  if (activeUserData) {
+    for (let i = 0; i < firstDay; i++) {
+        calendarDaysList.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      const isPresent = activeUserData.attendance?.includes(dateStr);
+      if (isPresent) monthAttCount++;
+      
+      calendarDaysList.push(
+        <div key={`day-${i}`} className={`calendar-day ${isPresent ? 'present' : 'bg-gray-50 dark:bg-gray-700/50 shadow-sm'}`}>
+          {i}
+        </div>
+      );
+    }
+  }
+
+  const isInfantilPlan = (activeUserData?.plan || '').toLowerCase().includes('infantil');
+  const displayRanking = isInfantilPlan ? rankingInfantil : rankingAdulto;
+  const recentGrad = activeUserData ? checkForRecentGraduation(activeUserData.progressLog, activeUserData.belt || "Faixa Branca - 0º Grau") : null;
+
+  const [prevLevel, setPrevLevel] = useState(userLevel);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+
+  useEffect(() => {
+    if (userLevel > prevLevel) {
+      setShowLevelUp(true);
+      setPrevLevel(userLevel);
+      setTimeout(() => setShowLevelUp(false), 5000); 
+    }
+  }, [userLevel, prevLevel]);
+
   if (authError) {
     return (
       <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 text-white p-4 text-center" role="alert">
@@ -1048,177 +1262,69 @@ export default function Dashboard() {
     );
   }
 
-  const firstName = (currentUserData.nickname || currentUserData.name || "Aluno").split(' ')[0];
-  const totalAtt = currentUserData.attendance ? currentUserData.attendance.length : 0;
-  
-  // XP e Nível
-  const xpPerClass = 50;
-  const badgeXPBonus: Record<string, number> = {
-    'first_class': 100,
-    'beginner': 200,
-    'monthly_focus': 300,
-    'streak_5': 250,
-    'weekend_warrior': 150,
-    'voice_tatame': 50,
-    'degree': 500,
-    'graduated': 1000,
-    'warrior': 500,
-    'centurion': 1000,
-    'casca_grossa': 2000,
-    'mestre': 5000,
-    'rato_tatame': 400,
-    'black_belt': 10000
-  };
-
-  const calendarDaysList = [];
-  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
-  const daysInMonth = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
-  let monthAttCount = 0;
-  
-  for (let i = 0; i < firstDay; i++) {
-    calendarDaysList.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
-  }
-  for (let i = 1; i <= daysInMonth; i++) {
-    const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-    const isPresent = currentUserData.attendance?.includes(dateStr);
-    if (isPresent) monthAttCount++;
-    
-    calendarDaysList.push(
-      <div key={`day-${i}`} className={`calendar-day ${isPresent ? 'present' : 'bg-gray-50 dark:bg-gray-700/50 shadow-sm'}`}>
-        {i}
-      </div>
-    );
-  }
-
-  const rawPlanKey = currentUserData.plan || 'N/A';
-  // Extract base plan name if it contains " - R$"
-  const basePlanName = rawPlanKey.split(' - R$')[0].trim();
-  const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const isAdmin = currentUserData.role === 'admin' || planKey === 'administracao';
-  const planInfo = PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined };
-  const recentGrad = checkForRecentGraduation(currentUserData.progressLog, currentUserData.belt || "Faixa Branca - 0º Grau");
-  
-  const isInfantilPlan = (currentUserData?.plan || '').toLowerCase().includes('infantil');
-  const displayRanking = isInfantilPlan ? rankingInfantil : rankingAdulto;
-
-  const computeAchievements = () => {
-    if (!currentUserData) return [];
-    
-    let maxConsecutive = 0;
-    let currentConsecutive = 0;
-    const attendance = Array.isArray(currentUserData.attendance) ? currentUserData.attendance : [];
-    
-    if (attendance.length > 0) {
-      try {
-        const sortedDates = [...attendance].sort();
-        let prevDate: Date | null = null;
-        for (const d of sortedDates) {
-          if (typeof d !== 'string') continue;
-          const dateObj = new Date(d + 'T12:00:00');
-          if (isNaN(dateObj.getTime())) continue;
-          
-          if (!prevDate) {
-            currentConsecutive = 1;
-            maxConsecutive = 1;
-          } else {
-            const diffDays = Math.round((dateObj.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays === 1) {
-              currentConsecutive++;
-              if (currentConsecutive > maxConsecutive) maxConsecutive = currentConsecutive;
-            } else if (diffDays > 1) {
-              currentConsecutive = 1;
-            }
-          }
-          prevDate = dateObj;
-        }
-      } catch (e) {
-        console.error("Erro no cálculo de sequência:", e);
-      }
-    }
-
-    let earnedNewBelt = false;
-    let earnedDegree = false;
-    const progressLog = Array.isArray(currentUserData.progressLog) ? currentUserData.progressLog : [];
-    
-    for (const log of progressLog) {
-      if (log.type === 'graduation') {
-        if (log.text && log.text.match(/[1-9]º Grau/)) {
-          earnedDegree = true;
-        } else {
-          earnedNewBelt = true;
-        }
-      }
-    }
-    
-    // Check if posted anything to feed
-    const hasPosted = !!(currentUserData.feedPosts && currentUserData.feedPosts > 0);
-    // 2024-05-02 Check weekend warrior
-    const isWeekendWarrior = attendance.some((d: string) => {
-      if (typeof d !== 'string') return false;
-      const day = new Date(d + 'T12:00:00').getDay();
-      return day === 0 || day === 6;
-    });
-    // Belt check
-    const isBlackBelt = currentUserData.belt && currentUserData.belt.toLowerCase().includes("preta");
-    
-    const possibleBadges = [
-      { id: 'first_class', name: "Primeiro Treino", desc: "Suor e dedicação no primeiro dia.", icon: <Star className="w-5 h-5 text-yellow-500" />, iconName: 'Star', earned: totalAtt >= 1 },
-      { id: 'beginner', name: "Iniciante", desc: "Frequência inicial: 12 treinos concluídos.", icon: <Medal className="w-5 h-5 text-gray-400" />, iconName: 'Medal', earned: totalAtt >= 12 },
-      { id: 'monthly_focus', name: "Foco Mensal", desc: "Frequência de elite: 20 treinos no mês.", icon: <Target className="w-5 h-5 text-red-500" />, iconName: 'Target', earned: monthAttCount >= 20 },
-      { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, iconName: 'Flame', earned: maxConsecutive >= 5 },
-      { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, iconName: 'Sun', earned: isWeekendWarrior },
-      { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, iconName: 'MessageSquare', earned: hasPosted },
-      { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <ArrowUpCircle className="w-5 h-5 text-yellow-600" />, iconName: 'ArrowUpCircle', earned: earnedDegree },
-      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, iconName: 'Award', earned: earnedNewBelt },
-      { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, iconName: 'Medal', earned: totalAtt >= 50 },
-      { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, iconName: 'Flame', earned: totalAtt >= 100 },
-      { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, iconName: 'Shield', earned: totalAtt >= 200 },
-      { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, iconName: 'Crown', earned: totalAtt >= 500 },
-      { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthAttCount >= 25 },
-      { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: isBlackBelt },
-    ];
-
-    // Adicionar conquistas manuais do ADM
-    const ICON_MAP: Record<string, any> = {
-      'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
-      'Flame': Flame, 'Sun': Sun, 'MessageSquare': MessageSquare, 'Award': Award, 
-      'Shield': Shield, 'Crown': Crown, 'Zap': Zap, 'ArrowUpCircle': ArrowUpCircle
-    };
-
-    const studentAchievements = Array.isArray(currentUserData.achievements) ? currentUserData.achievements : [];
-    const earnedManual = adminAchievements.filter(ach => 
-      studentAchievements.includes(ach.id)
-    ).map(ach => {
-      const IconBase = (ach.iconName && ICON_MAP[ach.iconName]) || Trophy;
-      return {
-        id: ach.id,
-        name: ach.name,
-        desc: ach.description,
-        icon: <IconBase className="w-5 h-5 text-brand-red" />,
-        earned: true,
-        xpBonus: ach.xpBonus || 200
-      };
-    });
-
-    return [...possibleBadges, ...earnedManual];
-  };
-
-  const earnedBadges = computeAchievements();
-  const earnedBadgesXP = earnedBadges.filter(b => b.earned).reduce((total, b: any) => {
-    const bonus = b.xpBonus || (badgeXPBonus as any)[b.id] || 100;
-    return total + bonus;
-  }, 0);
-
-  const userXP = (currentUserData.extraXP || 0) + (totalAtt * xpPerClass) + earnedBadgesXP;
-  // Progress safeguard
-  const rawLevel = Math.sqrt(userXP / 100);
-  const userLevel = Math.floor(isNaN(rawLevel) ? 0 : rawLevel) + 1;
-  const xpForNextLevel = Math.max(1, Math.pow(userLevel, 2) * 100);
-  const progress = Math.min(100, Math.max(0, (userXP / xpForNextLevel) * 100));
+  const LevelUpOverlay = () => (
+    <AnimatePresence>
+      {showLevelUp && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.5, y: 50 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 1.5, y: -100 }}
+          className="fixed inset-0 z-[1000] flex items-center justify-center pointer-events-none"
+        >
+          <div className="bg-gradient-to-br from-yellow-400 via-orange-500 to-brand-red p-1 rounded-3xl shadow-[0_0_50px_rgba(249,115,22,0.5)]">
+            <div className="bg-white dark:bg-gray-900 px-10 py-8 rounded-[1.4rem] flex flex-col items-center text-center">
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 10, 0], scale: [1, 1.2, 1] }}
+                transition={{ duration: 0.5, repeat: 2 }}
+              >
+                <Trophy className="w-20 h-20 text-yellow-500 mb-4" />
+              </motion.div>
+              <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600 uppercase italic tracking-tighter">LEVEL UP!</h2>
+              <p className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest text-sm mt-1">Você subiu para o nível</p>
+              <div className="text-6xl font-black text-brand-dark dark:text-white mt-2">{userLevel}</div>
+              <div className="mt-4 flex gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 + (i * 0.1) }}
+                  >
+                    <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Partículas simples (opcional) */}
+          <div className="absolute inset-0 overflow-hidden">
+             {[...Array(20)].map((_, i) => (
+               <motion.div
+                 key={i}
+                 className="absolute w-2 h-2 bg-yellow-400 rounded-full"
+                 initial={{ 
+                   x: "50%", 
+                   y: "50%",
+                   opacity: 1
+                 }}
+                 animate={{ 
+                   x: `${Math.random() * 100}%`, 
+                   y: `${Math.random() * 100}%`,
+                   opacity: 0,
+                   scale: Math.random() * 2
+                 }}
+                 transition={{ duration: 2, ease: "easeOut" }}
+               />
+             ))}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   return (
     <div className="flex h-screen overflow-hidden relative w-full bg-gray-50 dark:bg-brand-dark text-gray-900 dark:text-gray-100 transition-colors duration-200">
+      <LevelUpOverlay />
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
@@ -1305,6 +1411,25 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Impersonation Banner */}
+        {impersonatedStudent && (
+          <div className="bg-amber-500 text-white px-4 py-3 flex justify-between items-center shadow-lg z-[100] sticky top-0 shrink-0">
+            <div className="flex items-center gap-2">
+              <UserCog className="w-5 h-5" />
+              <span className="text-sm font-bold">Modo Visualização: <strong>{impersonatedStudent.name}</strong></span>
+            </div>
+            <button 
+              onClick={() => {
+                setImpersonatedStudent(null);
+                setView('admin');
+              }}
+              className="bg-white/20 hover:bg-white/30 text-white px-4 py-1.5 rounded-xl text-xs font-black transition uppercase tracking-widest border border-white/30"
+            >
+              Sair e Voltar
+            </button>
+          </div>
+        )}
+
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 relative" role="main">
           <AnimatePresence mode="wait">
             {/* DASHBOARD VIEW */}
@@ -1320,9 +1445,9 @@ export default function Dashboard() {
               <div className="mb-8 flex justify-between items-end">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 shadow-md overflow-hidden flex-shrink-0 relative">
-                    {currentUserData.photoBase64 ? (
+                    {activeUserData?.photoBase64 ? (
                       <>
-                        <img src={currentUserData.photoBase64} loading="lazy" className="w-full h-full object-cover" alt="Profile" />
+                        <img src={activeUserData.photoBase64} loading="lazy" className="w-full h-full object-cover" alt="Profile" />
                       </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400 text-2xl font-bold font-display">
@@ -1333,7 +1458,7 @@ export default function Dashboard() {
                   <div>
                     <p className="text-gray-500 dark:text-gray-400 text-sm uppercase font-bold tracking-wider mb-1">Bem-vindo(a) de volta,</p>
                     <div className="flex items-center gap-2">
-                       <h1 className="text-3xl md:text-4xl font-display font-bold text-brand-dark dark:text-white">{currentUserData.nickname || currentUserData.name || "Aluno"}</h1>
+                       <h1 className="text-3xl md:text-4xl font-display font-bold text-brand-dark dark:text-white">{activeUserData?.nickname || activeUserData?.name || "Aluno"}</h1>
                        <span className="bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                         Nível {userLevel}
                       </span>
@@ -1637,7 +1762,7 @@ export default function Dashboard() {
                                   {idx === 0 ? <Medal className="text-yellow-500 w-6 h-6" /> : idx === 1 ? <Medal className="text-gray-400 w-6 h-6" /> : idx === 2 ? <Medal className="text-amber-600 w-6 h-6" /> : <span className="font-bold text-gray-500 w-6 inline-block text-center">{idx+1}º</span>}
                                   <div>
                                     <p className="font-bold text-gray-800 dark:text-gray-200">
-                                      {isAdmin ? (s.name.split(' ')[0]) : (s.nickname || s.name.split(' ')[0])}
+                                      {isAdmin ? (s.name || '').split(' ')[0] : (s.nickname || (s.name || '').split(' ')[0] || 'Aluno')}
                                     </p>
                                     <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">{(s.belt || 'Branca').split('-')[0].replace('Faixa ', '').trim()}</p>
                                   </div>
@@ -1674,6 +1799,9 @@ export default function Dashboard() {
                           className={`flex flex-col items-center justify-center p-3 text-center rounded-lg border transition ${b.earned ? 'bg-gray-50 dark:bg-gray-700 border-brand-red/20 dark:border-red-900/30 hover:border-brand-red/50 hover:shadow-md cursor-pointer group' : 'bg-gray-100/50 dark:bg-gray-800/50 border-transparent opacity-60 grayscale'}`}>
                           <div className={`mb-2 p-2 rounded-full shadow-sm relative ${b.earned ? 'bg-white dark:bg-gray-800' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'}`}>
                             {b.icon}
+                            <div className={`absolute -top-1 -right-1 px-1 py-0.5 rounded text-[7px] font-black uppercase tracking-tighter ${b.earned ? 'bg-brand-red text-white' : 'bg-gray-300 text-gray-500'}`}>
+                              +{b.xpBonus || 100}xp
+                            </div>
                           </div>
                           <span className={`font-bold text-xs ${b.earned ? 'text-brand-dark dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>{b.name}</span>
                           <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 leading-tight mb-2">{b.desc}</span>
@@ -1733,23 +1861,27 @@ export default function Dashboard() {
                 transition={{ duration: 0.3 }}
                 className="space-y-8"
               >
-                {(isAdmin || !(currentUserData?.plan || '').toLowerCase().includes('infantil')) && (
+                {(isAdmin || !(activeUserData?.plan || '').toLowerCase().includes('infantil')) && (
                   <Ranking 
-                    currentUserData={currentUserData} 
-                    ranking={rankingAdulto} 
+                    currentUserData={activeUserData} 
+                    ranking={rankingTab === 'presence' ? rankingAdulto : rankingXpAdulto} 
                     isAdmin={isAdmin} 
-                    title="Ranking Adulto / Geral" 
-                    subtitle="Os 5 guerreiros que mais treinaram neste mês."
+                    activeTab={rankingTab}
+                    onTabChange={setRankingTab}
+                    title={rankingTab === 'presence' ? "Ranking Adulto / Geral" : "Mestres da Técnica (Adulto)"}
+                    subtitle={rankingTab === 'presence' ? "Os 10 guerreiros que mais treinaram neste mês." : "Ranking geral de XP acumulado."}
                   />
                 )}
                 
-                {(isAdmin || (currentUserData?.plan || '').toLowerCase().includes('infantil')) && (
+                {(isAdmin || (activeUserData?.plan || '').toLowerCase().includes('infantil')) && (
                   <Ranking 
-                    currentUserData={currentUserData} 
-                    ranking={rankingInfantil} 
+                    currentUserData={activeUserData} 
+                    ranking={rankingTab === 'presence' ? rankingInfantil : rankingXpInfantil} 
                     isAdmin={isAdmin} 
-                    title="Ranking Infantil" 
-                    subtitle="Os 5 pequenos guerreiros que mais treinaram neste mês."
+                    activeTab={rankingTab}
+                    onTabChange={setRankingTab}
+                    title={rankingTab === 'presence' ? "Ranking Infantil" : "Pequenos Samurais (Infantil)"}
+                    subtitle={rankingTab === 'presence' ? "Os 10 pequenos guerreiros que mais treinaram neste mês." : "Ranking infantil de XP acumulado."}
                   />
                 )}
               </motion.div>
@@ -1777,7 +1909,16 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <AdminPanel appId={appId} showAlert={showAlert} showConfirm={showConfirm} />
+                <AdminPanel 
+                  appId={appId} 
+                  showAlert={showAlert} 
+                  showConfirm={showConfirm} 
+                  onImpersonate={(student: any) => {
+                    setImpersonatedStudent(student);
+                    setView('dashboard');
+                    setIsMobileMenuOpen(false);
+                  }}
+                />
               </motion.div>
             )}
 
@@ -1821,6 +1962,14 @@ export default function Dashboard() {
                     <div>
                       <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Apelido (Exibição)</label>
                       <div className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-medium shadow-sm overflow-x-auto">{currentUserData.nickname || '--'}</div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-brand-red dark:text-red-400 uppercase mb-1 flex items-center gap-1">
+                        <Cake size={12} /> Data de Nascimento
+                      </label>
+                      <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded border border-red-100 dark:border-red-900/30 text-brand-red dark:text-red-300 font-bold shadow-sm overflow-x-auto">
+                        {currentUserData.birthDate || '--'}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-1">Utilizador de Acesso (Login)</label>

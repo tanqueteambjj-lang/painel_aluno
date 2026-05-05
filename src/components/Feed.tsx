@@ -95,13 +95,45 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm, i
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        showAlert("Arquivo muito grande", "A imagem deve ter no máximo 2MB.", "error");
+      // Basic size check before processing
+      if (file.size > 5 * 1024 * 1024) {
+        showAlert("Arquivo muito grande", "A imagem deve ter no máximo 5MB.", "error");
         return;
       }
+
       const reader = new FileReader();
       reader.onload = (event) => {
-        setNewPostImage(event.target?.result as string);
+        const img = new Image();
+        img.onload = () => {
+          // Compress using canvas
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max dimensions for feed photos
+          const MAX_SIZE = 1200;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Convert to jpeg with 0.7 quality to stay well under 1MB limit
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          setNewPostImage(compressedBase64);
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
