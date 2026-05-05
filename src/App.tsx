@@ -807,27 +807,30 @@ export default function Dashboard() {
     if (!student) return 0;
     
     const xpPerClass = 50;
-    const totalAttCount = student.attendance ? student.attendance.length : 0;
     const attendance = Array.isArray(student.attendance) ? student.attendance : [];
+    const totalAttCount = attendance.length;
 
     // Calculate month count
     const now = new Date();
     const currMonth = now.getMonth();
     const currYear = now.getFullYear();
     let monthCount = 0;
-    attendance.forEach((d: string) => {
+    attendance.forEach((d: any) => {
+      if (typeof d !== 'string') return;
       const dateObj = new Date(d + 'T12:00:00');
-      if (dateObj.getMonth() === currMonth && dateObj.getFullYear() === currYear) monthCount++;
+      if (!isNaN(dateObj.getTime()) && dateObj.getMonth() === currMonth && dateObj.getFullYear() === currYear) monthCount++;
     });
 
     // Calculate streaks
     let maxConsecutive = 0;
     let currentConsecutive = 0;
     if (attendance.length > 1) {
-      const sortedDates = [...attendance].sort();
+      const sortedDates = [...attendance].filter(d => typeof d === 'string').sort();
       let prevDateObj: Date | null = null;
       for (const d of sortedDates) {
         const dateObj = new Date(d + 'T12:00:00');
+        if (isNaN(dateObj.getTime())) continue;
+        
         if (!prevDateObj) {
           currentConsecutive = 1;
         } else {
@@ -845,20 +848,27 @@ export default function Dashboard() {
       maxConsecutive = 1;
     }
 
-    const isBlackBelt = student.belt && student.belt.toLowerCase().includes("preta");
+    const isBlackBelt = !!(student.belt && student.belt.toLowerCase().includes("preta"));
     const hasPosted = !!(student.feedPosts && student.feedPosts > 0);
-    const isWeekendWarrior = attendance.some((d: string) => {
-      const day = new Date(d + 'T12:00:00').getDay();
+    const isWeekendWarrior = attendance.some((d: any) => {
+      if (typeof d !== 'string') return false;
+      const dateObj = new Date(d + 'T12:00:00');
+      if (isNaN(dateObj.getTime())) return false;
+      const day = dateObj.getDay();
       return day === 0 || day === 6;
     });
     
     let earnedNewBelt = false;
     let earnedDegree = false;
+    let graduatedToBlackBelt = false;
     const progressLog = Array.isArray(student.progressLog) ? student.progressLog : [];
     for (const log of progressLog) {
       if (log.type === 'graduation') {
         if (log.text && log.text.match(/[1-9]º Grau/)) earnedDegree = true;
-        else earnedNewBelt = true;
+        else {
+          earnedNewBelt = true;
+          if (log.text && log.text.toLowerCase().includes("preta")) graduatedToBlackBelt = true;
+        }
       }
     }
 
@@ -876,7 +886,7 @@ export default function Dashboard() {
       { id: 'casca_grossa', earned: totalAttCount >= 200, xpBonus: 2000 },
       { id: 'mestre', earned: totalAttCount >= 500, xpBonus: 5000 },
       { id: 'rato_tatame', earned: monthCount >= 25, xpBonus: 500 },
-      { id: 'black_belt', earned: isBlackBelt, xpBonus: 10000 },
+      { id: 'black_belt', earned: graduatedToBlackBelt, xpBonus: 10000 },
     ];
 
     let achXP = badges.filter(b => b.earned).reduce((sum, b) => sum + b.xpBonus, 0);
@@ -891,7 +901,7 @@ export default function Dashboard() {
       });
     }
 
-    return (student.extraXP || 0) + (totalAttCount * xpPerClass) + achXP + rankingBonus;
+    return (Number(student.extraXP) || 0) + (totalAttCount * xpPerClass) + achXP + rankingBonus;
   }, []);
 
   const loadRanking = useCallback(() => {
@@ -1117,17 +1127,24 @@ export default function Dashboard() {
 
   const activeUserData = impersonatedStudent || currentUserData;
   const { planKey, basePlanName, planInfo } = getPlanInfoFromData(activeUserData);
-  const isAdmin = activeUserData?.role === 'admin' || planKey === 'administracao';
+  
+  // Real Admin status (always based on the logged-in user)
+  const { planKey: realUserPlanKey } = getPlanInfoFromData(currentUserData);
+  const isRealAdmin = currentUserData?.role === 'admin' || realUserPlanKey === 'administracao';
+  
+  // Display Admin (may change if viewing as student, used for UI context)
+  const isAdmin = isRealAdmin;
   
   // XP e Nível
   const xpPerClass = 50;
 
   // Bônus de XP por Ranking (Top 5 Presença Mensal)
   const getRankingBonus = () => {
-    if (!activeUserData) return 0;
+    if (!activeUserData || !Array.isArray(rankingAdulto) || !Array.isArray(rankingInfantil)) return 0;
     const isAdult = !(activeUserData.plan || '').toLowerCase().includes('infantil');
     const targetRank = isAdult ? rankingAdulto : rankingInfantil;
-    const position = targetRank.findIndex((s: any) => s.id === (activeUserData.id || auth.currentUser?.uid));
+    const studentId = activeUserData.id || auth.currentUser?.uid;
+    const position = targetRank.findIndex((s: any) => s.id === studentId);
     if (position === -1 || position >= 5) return 0;
     return (5 - position) * 200;
   };
@@ -1190,12 +1207,17 @@ export default function Dashboard() {
     let earnedDegree = false;
     const progressLog = Array.isArray(userData.progressLog) ? userData.progressLog : [];
     
+    let graduatedToBlackBelt = false;
+    
     for (const log of progressLog) {
       if (log.type === 'graduation') {
         if (log.text && log.text.match(/[1-9]º Grau/)) {
           earnedDegree = true;
         } else {
           earnedNewBelt = true;
+          if (log.text && log.text.toLowerCase().includes("preta")) {
+            graduatedToBlackBelt = true;
+          }
         }
       }
     }
@@ -1227,7 +1249,7 @@ export default function Dashboard() {
       { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, iconName: 'Shield', earned: attCount >= 200, xpBonus: 2000 },
       { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, iconName: 'Crown', earned: attCount >= 500, xpBonus: 5000 },
       { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthCount >= 25, xpBonus: 500 },
-      { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: isBlackBelt, xpBonus: 10000 },
+      { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: graduatedToBlackBelt, xpBonus: 10000 },
       // Ranking Achievements
       { id: 'rank_1', name: "O Campeão", desc: "Ficou em 1º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-yellow-400" />, iconName: 'Trophy', earned: lastMonthPos === 0, xpBonus: 1000 },
       { id: 'rank_2', name: "Vice-Campeão", desc: "Ficou em 2º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-gray-300" />, iconName: 'Trophy', earned: lastMonthPos === 1, xpBonus: 800 },
@@ -1272,24 +1294,27 @@ export default function Dashboard() {
 
   const calendarDaysList = [];
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
-  const daysInMonth = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
-  let monthAttCount = 0;
   
   if (activeUserData) {
-    for (let i = 0; i < firstDay; i++) {
-        calendarDaysList.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-      const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-      const isPresent = activeUserData.attendance?.includes(dateStr);
-      if (isPresent) monthAttCount++;
+    try {
+      const firstDay = new Date(currentCalendarYear, currentCalendarMonth, 1).getDay();
+      const daysInMonth = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
       
-      calendarDaysList.push(
-        <div key={`day-${i}`} className={`calendar-day ${isPresent ? 'present' : 'bg-gray-50 dark:bg-gray-700/50 shadow-sm'}`}>
-          {i}
-        </div>
-      );
+      for (let i = 0; i < firstDay; i++) {
+          calendarDaysList.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+      }
+      for (let i = 1; i <= daysInMonth; i++) {
+        const dateStr = `${currentCalendarYear}-${String(currentCalendarMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const isPresent = Array.isArray(activeUserData.attendance) && activeUserData.attendance.includes(dateStr);
+        
+        calendarDaysList.push(
+          <div key={`day-${i}`} className={`calendar-day ${isPresent ? 'present' : 'bg-gray-50 dark:bg-gray-700/50 shadow-sm'}`}>
+            {i}
+          </div>
+        );
+      }
+    } catch (e) {
+      console.error("Erro ao gerar calendário:", e);
     }
   }
 
@@ -1866,7 +1891,7 @@ export default function Dashboard() {
                   <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-700">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Total de Treinos (Mês)</span>
-                      <span className="text-xl font-bold text-brand-red">{monthAttCount}</span>
+                      <span className="text-xl font-bold text-brand-red">{currentMonthAttCount}</span>
                     </div>
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-bold text-gray-600 dark:text-gray-300">Total de Treinos (Geral)</span>
