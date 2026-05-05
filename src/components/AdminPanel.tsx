@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, Cake } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, Cake, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -326,32 +326,48 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   };
 
   const getMonthBirthdays = () => {
-    const currentMonth = new Date().getMonth() + 1;
+    const now = new Date();
+    // Use local month (1-12)
+    const currentMonth = now.getMonth() + 1;
+    
     return allStudents.filter(s => {
       if (!s.birthDate || typeof s.birthDate !== 'string') return false;
       
-      const parts = s.birthDate.split(/[-/]/).map(p => parseInt(p));
-      if (parts.some(p => isNaN(p))) return false;
+      // Split by common separators - / or space
+      const parts = s.birthDate.split(/[-/ ]/).map(p => parseInt(p));
+      const validParts = parts.filter(p => !isNaN(p));
+      if (validParts.length < 2) return false;
       
       let month = 0;
-      if (parts.length === 3) {
-        // YYYY-MM-DD or DD-MM-YYYY. Month is the middle one.
-        month = parts[1];
-      } else if (parts.length === 2) {
-        // MM-DD or DD-MM. Standard BR is DD-MM.
-        const p0 = parts[0];
-        const p1 = parts[1];
-        if (p0 > 12) month = p1;
-        else if (p1 > 12) month = p0;
-        else month = p1; // Default to DD-MM
+      if (validParts.length === 3) {
+        // Probable formats: YYYY-MM-DD or DD-MM-YYYY or MM-DD-YYYY
+        // We look for a part that's between 1 and 12. 
+        // Usually, ISO (input type date) is YYYY-MM-DD. 
+        // BR format is DD-MM-YYYY.
+        // In both common cases, the month is the second part.
+        // If the first part is > 31, it's definitely YYYY, so month is index 1.
+        // If the last part is > 31, it's definitely YYYY, so month is index 1.
+        month = validParts[1];
+      } else if (validParts.length === 2) {
+        // MM-DD or DD-MM
+        const p0 = validParts[0];
+        const p1 = validParts[1];
+        if (p0 > 12) month = p1; // p0 must be day
+        else if (p1 > 12) month = p0; // p1 must be day
+        else month = p1; // Ambiguous, assume DD-MM (BR)
       }
       
       return month === currentMonth;
     }).sort((a,b) => {
       const getDay = (dateStr: string) => {
-        const p = dateStr.split(/[-/]/).map(part => parseInt(part));
-        if (p.length === 3) return p[2] < 32 ? p[2] : p[0];
-        if (p.length === 2) return p[0] > 12 ? p[0] : p[1];
+        const p = dateStr.split(/[-/ ]/).map(part => parseInt(part)).filter(part => !isNaN(part));
+        if (p.length === 3) {
+           // If YYYY-MM-DD, day is index 2. If DD-MM-YYYY, day is index 0.
+           return p[0] > 31 ? p[2] : p[0];
+        }
+        if (p.length === 2) {
+          return p[0] > 12 ? p[0] : p[1];
+        }
         return 0;
       };
       return getDay(a.birthDate) - getDay(b.birthDate);
@@ -569,35 +585,44 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-display font-bold text-brand-dark dark:text-white flex items-center gap-3">
-             <ShieldCheck className="text-brand-red w-8 h-8" /> Painel de Administração
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Gerencie a grade horária, agendamentos e o feed da equipe.</p>
+      <div className="mb-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+          <div>
+            <h2 className="text-3xl font-display font-bold text-gray-900 dark:text-white tracking-tight uppercase flex items-center gap-3">
+              <ShieldCheck className="text-brand-red w-8 h-8" /> Administração
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Controle total da sua academia, alunos e agendamentos</p>
+          </div>
+          <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-1.5 rounded-2xl border border-gray-200 dark:border-gray-700">
+            <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest hidden md:block">Status do Sistema</div>
+            <div className="flex items-center gap-2 bg-white dark:bg-gray-700 shadow-sm px-4 py-1.5 rounded-xl text-xs font-bold text-green-500 uppercase tracking-tight">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Online
+            </div>
+          </div>
         </div>
 
-        <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner scroll-smooth overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2 p-1.5 bg-gray-100 dark:bg-gray-800/80 rounded-2xl border border-gray-200 dark:border-gray-700 scroll-smooth overflow-x-auto no-scrollbar shadow-inner">
           {[
             { id: 'bookings', label: 'Agendamentos', icon: Calendar },
             { id: 'schedule', label: 'Grade Horária', icon: Clock },
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
-            { id: 'birthdays', label: 'Aniversariantes', icon: Cake },
+            { id: 'birthdays', label: 'Niver', icon: Cake },
             { id: 'achievements', label: 'Conquistas', icon: Trophy },
             { id: 'churn', label: 'Evasão', icon: TrendingDown },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all shrink-0 ${
-                activeTab === tab.id 
-                  ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' 
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-300 flex-shrink-0 relative group ${
+                activeTab === tab.id
+                  ? 'bg-white dark:bg-gray-700 text-brand-red shadow-md transform scale-102'
+                  : 'text-gray-500 hover:text-brand-red dark:text-gray-400 dark:hover:text-white'
               }`}
             >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
+              <tab.icon size={17} className={activeTab === tab.id ? 'animate-pulse' : 'group-hover:scale-110 transition-transform'} />
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
@@ -1116,9 +1141,14 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                   </div>
                 ) : (
                   getMonthBirthdays().map(s => {
-                    const bdayParts = s.birthDate.split('-');
-                    const day = bdayParts[bdayParts.length - 1];
-                    const isToday = parseInt(day) === new Date().getDate();
+                    const getDay = (dateStr: string) => {
+                      const p = dateStr.split(/[-/ ]/).map(part => parseInt(part)).filter(part => !isNaN(part));
+                      if (p.length === 3) return p[0] > 31 ? p[2] : p[0];
+                      if (p.length === 2) return p[0] > 12 ? p[0] : p[1];
+                      return 0;
+                    };
+                    const day = getDay(s.birthDate);
+                    const isToday = day === new Date().getDate();
 
                     return (
                       <motion.div 
