@@ -509,7 +509,6 @@ export default function Dashboard() {
               }
               
               // These can run in background without blocking initial UI
-              loadRanking();
               loadUserBookings(data.id);
               loadAdminAchievements();
               loadFamilyMembers(data);
@@ -776,7 +775,7 @@ export default function Dashboard() {
                 studentId: docSnap.id,
                 studentName: student.nickname || student.name,
                 studentPhoto: student.photoBase64 || null,
-                content: `Hoje é aniversário de ${student.nickname || student.name}! Vamos desejar muitos anos de vida e muito Jiu-Jitsu! ������🥋`,
+                content: `Hoje é aniversário de ${student.nickname || student.name}! Vamos desejar muitos anos de vida e muito Jiu-Jitsu! 🎂🥋`,
                 type: 'birthday',
                 date: format(today, 'yyyy-MM-dd'),
                 timestamp: new Date().toISOString(),
@@ -802,132 +801,178 @@ export default function Dashboard() {
     loadUserBookings(newProfile.id);
   };
 
-  const loadRanking = async () => {
+  // Unified Student XP Calculation
+  // Unified XP calculation logic
+  const calculateStudentXP = useCallback((student: any, rankingBonus: number = 0) => {
+    if (!student) return 0;
+    
+    const xpPerClass = 50;
+    const totalAttCount = student.attendance ? student.attendance.length : 0;
+    const attendance = Array.isArray(student.attendance) ? student.attendance : [];
+
+    // Calculate month count
+    const now = new Date();
+    const currMonth = now.getMonth();
+    const currYear = now.getFullYear();
+    let monthCount = 0;
+    attendance.forEach((d: string) => {
+      const dateObj = new Date(d + 'T12:00:00');
+      if (dateObj.getMonth() === currMonth && dateObj.getFullYear() === currYear) monthCount++;
+    });
+
+    // Calculate streaks
+    let maxConsecutive = 0;
+    let currentConsecutive = 0;
+    if (attendance.length > 1) {
+      const sortedDates = [...attendance].sort();
+      let prevDateObj: Date | null = null;
+      for (const d of sortedDates) {
+        const dateObj = new Date(d + 'T12:00:00');
+        if (!prevDateObj) {
+          currentConsecutive = 1;
+        } else {
+          const diffDays = Math.round((dateObj.getTime() - prevDateObj.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays === 1) {
+            currentConsecutive++;
+          } else if (diffDays > 1) {
+            currentConsecutive = 1;
+          }
+        }
+        if (currentConsecutive > maxConsecutive) maxConsecutive = currentConsecutive;
+        prevDateObj = dateObj;
+      }
+    } else if (attendance.length === 1) {
+      maxConsecutive = 1;
+    }
+
+    const isBlackBelt = student.belt && student.belt.toLowerCase().includes("preta");
+    const hasPosted = !!(student.feedPosts && student.feedPosts > 0);
+    const isWeekendWarrior = attendance.some((d: string) => {
+      const day = new Date(d + 'T12:00:00').getDay();
+      return day === 0 || day === 6;
+    });
+    
+    let earnedNewBelt = false;
+    let earnedDegree = false;
+    const progressLog = Array.isArray(student.progressLog) ? student.progressLog : [];
+    for (const log of progressLog) {
+      if (log.type === 'graduation') {
+        if (log.text && log.text.match(/[1-9]º Grau/)) earnedDegree = true;
+        else earnedNewBelt = true;
+      }
+    }
+
+    const badges = [
+      { id: 'first_class', earned: totalAttCount >= 1, xpBonus: 100 },
+      { id: 'beginner', earned: totalAttCount >= 12, xpBonus: 200 },
+      { id: 'monthly_focus', earned: monthCount >= 20, xpBonus: 300 },
+      { id: 'streak_5', earned: maxConsecutive >= 5, xpBonus: 150 },
+      { id: 'weekend_warrior', earned: isWeekendWarrior, xpBonus: 150 },
+      { id: 'voice_tatame', earned: hasPosted, xpBonus: 100 },
+      { id: 'degree', earned: earnedDegree, xpBonus: 250 },
+      { id: 'graduated', earned: earnedNewBelt, xpBonus: 500 },
+      { id: 'warrior', earned: totalAttCount >= 50, xpBonus: 500 },
+      { id: 'centurion', earned: totalAttCount >= 100, xpBonus: 1000 },
+      { id: 'casca_grossa', earned: totalAttCount >= 200, xpBonus: 2000 },
+      { id: 'mestre', earned: totalAttCount >= 500, xpBonus: 5000 },
+      { id: 'rato_tatame', earned: monthCount >= 25, xpBonus: 500 },
+      { id: 'black_belt', earned: isBlackBelt, xpBonus: 10000 },
+    ];
+
+    let achXP = badges.filter(b => b.earned).reduce((sum, b) => sum + b.xpBonus, 0);
+
+    // Ranking Special Badges
+    const rankingBadgeValues: Record<string, number> = {
+      'rank_1': 1000, 'rank_2': 800, 'rank_3': 600, 'rank_4': 400, 'rank_5': 200
+    };
+    if (student.achievements && Array.isArray(student.achievements)) {
+      student.achievements.forEach((id: string) => {
+        if (rankingBadgeValues[id]) achXP += rankingBadgeValues[id];
+      });
+    }
+
+    return (student.extraXP || 0) + (totalAttCount * xpPerClass) + achXP + rankingBonus;
+  }, []);
+
+  const loadRanking = useCallback(() => {
+    if (!appId) return;
     try {
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
-      
       const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
       const lastMonth = lastMonthDate.getMonth();
       const lastYear = lastMonthDate.getFullYear();
-      const today = new Date();
       
       const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
-      const snap = await getDocs(q);
-      
-      const rankAdulto: any[] = [];
-      const rankInfantil: any[] = [];
-      const rankXpAdulto: any[] = [];
-      const rankXpInfantil: any[] = [];
-      
-      const rankAdultoLastMonth: any[] = [];
-      const rankInfantilLastMonth: any[] = [];
+      return onSnapshot(q, (snap) => {
+        const rankAdulto: any[] = [];
+        const rankInfantil: any[] = [];
+        const rankXpAdulto: any[] = [];
+        const rankXpInfantil: any[] = [];
+        const rankAdultoLastMonth: any[] = [];
+        const rankInfantilLastMonth: any[] = [];
 
-      snap.forEach(docSnap => {
-        const data = docSnap.data();
-        if(data.archived || data.enrollmentStatus === 'Inativo') return;
-        
-        // 1. Calcular Presença Mensal (Atual e Anterior)
-        let monthCount = 0;
-        let lastMonthCount = 0;
-        const totalAttendanceCount = data.attendance ? data.attendance.length : 0;
-        
-        if(data.attendance && data.attendance.length > 0) {
-          data.attendance.forEach((d: string) => {
-            const dateObj = new Date(d + 'T12:00:00');
-            if(dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear) monthCount++;
-            if(dateObj.getMonth() === lastMonth && dateObj.getFullYear() === lastYear) lastMonthCount++;
-          });
-        }
-        
-        // 2. Calcular XP TOTAL (Considerando bônus de conquistas para precisão)
-        const xpPerClass = 50;
-        let achBonus = 0;
-        
-        // Mapeamento idêntico ao do sistema de medalhas para garantir sincronia
-        if (data.achievements && Array.isArray(data.achievements)) {
-          const isBlackBelt = data.belt && data.belt.toLowerCase().includes("preta");
-          const badges = [
-            { id: 'first_class', earned: totalAttendanceCount >= 1, xpBonus: 100 },
-            { id: 'beginner', earned: totalAttendanceCount >= 12, xpBonus: 200 },
-            { id: 'committed', earned: totalAttendanceCount >= 50, xpBonus: 500 },
-            { id: 'advanced', earned: totalAttendanceCount >= 100, xpBonus: 1000 },
-            { id: 'expert', earned: totalAttendanceCount >= 200, xpBonus: 2000 },
-            { id: 'mestre', earned: totalAttendanceCount >= 500, xpBonus: 5000 },
-            { id: 'rato_tatame', earned: monthCount >= 25, xpBonus: 500 },
-            { id: 'black_belt', earned: isBlackBelt, xpBonus: 10000 },
-            // Bônus de Ranking (do mês passado - baseado no que calculamos acima)
-            { id: 'rank_1', xpBonus: 1000 },
-            { id: 'rank_2', xpBonus: 800 },
-            { id: 'rank_3', xpBonus: 600 },
-            { id: 'rank_4', xpBonus: 400 },
-            { id: 'rank_5', xpBonus: 200 },
-          ];
+        snap.forEach(docSnap => {
+          const data = { id: docSnap.id, ...docSnap.data() } as any;
+          if(data.archived || data.enrollmentStatus === 'Inativo') return;
+          
+          let monthCount = 0;
+          let lastMonthCount = 0;
+          if(data.attendance && data.attendance.length > 0) {
+            data.attendance.forEach((d: string) => {
+              const dateObj = new Date(d + 'T12:00:00');
+              if(dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear) monthCount++;
+              if(dateObj.getMonth() === lastMonth && dateObj.getFullYear() === lastYear) lastMonthCount++;
+            });
+          }
 
-          data.achievements.forEach((achId: string) => {
-            const badge = badges.find(b => b.id === achId);
-            if (badge) achBonus += badge.xpBonus;
-          });
-        }
+          const xp = calculateStudentXP(data);
+          const level = Math.floor(Math.sqrt(xp / 100)) + 1;
 
-        const exactXp = (data.extraXP || 0) + (totalAttendanceCount * xpPerClass) + achBonus;
-        const level = Math.floor(Math.sqrt(exactXp / 100)) + 1;
+          const studentItem = { 
+            id: docSnap.id,
+            name: data.name || 'Aluno', 
+            nickname: data.nickname || '', 
+            belt: data.belt || 'Faixa Branca', 
+            classes: monthCount,
+            lastMonthClasses: lastMonthCount,
+            xp: xp,
+            level: level,
+            photoBase64: data.photoBase64 || null
+          };
 
-        const studentItem = { 
-          id: docSnap.id,
-          name: data.name || 'Aluno', 
-          nickname: data.nickname || '', 
-          belt: data.belt || 'Faixa Branca', 
-          classes: monthCount,
-          lastMonthClasses: lastMonthCount,
-          xp: exactXp,
-          level: level,
-          photoBase64: data.photoBase64 || null
-        };
+          const planStr = (data.plan || '').toLowerCase();
+          const isAdultPlan = planStr.includes('adulto');
+          const isKids = (planStr.includes('infantil') || planStr.includes('kids')) && !isAdultPlan;
+          
+          if (isKids) {
+            if (monthCount > 0) rankInfantil.push({...studentItem});
+            if (lastMonthCount > 0) rankInfantilLastMonth.push({...studentItem, classes: lastMonthCount});
+            rankXpInfantil.push(studentItem);
+          } else {
+            if (monthCount > 0) rankAdulto.push({...studentItem});
+            if (lastMonthCount > 0) rankAdultoLastMonth.push({...studentItem, classes: lastMonthCount});
+            rankXpAdulto.push(studentItem);
+          }
+        });
 
-        const planStr = (data.plan || '').toLowerCase();
-        let age = 99;
-        if (data.birthDate) {
-          const birth = new Date(data.birthDate);
-          age = today.getFullYear() - birth.getFullYear();
-          const m = today.getMonth() - birth.getMonth();
-          if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-        }
+        rankAdulto.sort((a,b) => b.classes - a.classes);
+        rankInfantil.sort((a,b) => b.classes - a.classes);
+        rankAdultoLastMonth.sort((a,b) => b.classes - a.classes);
+        rankInfantilLastMonth.sort((a,b) => b.classes - a.classes);
+        rankXpAdulto.sort((a,b) => b.xp - a.xp);
+        rankXpInfantil.sort((a,b) => b.xp - a.xp);
 
-        const isAdultPlan = planStr.includes('adulto');
-        const isKidsKeywords = planStr.includes('infantil') || planStr.includes('kids');
-        const isKids = (age <= 11 && !isAdultPlan) || (isKidsKeywords && !isAdultPlan);
-        
-        if (isKids) {
-          if (monthCount > 0) rankInfantil.push({...studentItem});
-          if (lastMonthCount > 0) rankInfantilLastMonth.push({...studentItem, classes: lastMonthCount});
-          rankXpInfantil.push(studentItem);
-        } else {
-          if (monthCount > 0) rankAdulto.push({...studentItem});
-          if (lastMonthCount > 0) rankAdultoLastMonth.push({...studentItem, classes: lastMonthCount});
-          rankXpAdulto.push(studentItem);
-        }
+        setRankingAdulto(rankAdulto.slice(0, 10));
+        setRankingInfantil(rankInfantil.slice(0, 10));
+        setLastMonthRankingAdulto(rankAdultoLastMonth.slice(0, 5));
+        setLastMonthRankingInfantil(rankInfantilLastMonth.slice(0, 5));
+        setRankingXpAdulto(rankXpAdulto.slice(0, 10));
+        setRankingXpInfantil(rankXpInfantil.slice(0, 10));
       });
-
-      // Ordenação
-      rankAdulto.sort((a,b) => b.classes - a.classes);
-      rankInfantil.sort((a,b) => b.classes - a.classes);
-      rankAdultoLastMonth.sort((a,b) => b.classes - a.classes);
-      rankInfantilLastMonth.sort((a,b) => b.classes - a.classes);
-      rankXpAdulto.sort((a,b) => b.xp - a.xp);
-      rankXpInfantil.sort((a,b) => b.xp - a.xp);
-
-      setRankingAdulto(rankAdulto.slice(0, 10));
-      setRankingInfantil(rankInfantil.slice(0, 10));
-      setLastMonthRankingAdulto(rankAdultoLastMonth.slice(0, 5));
-      setLastMonthRankingInfantil(rankInfantilLastMonth.slice(0, 5));
-      setRankingXpAdulto(rankXpAdulto.slice(0, 10));
-      setRankingXpInfantil(rankXpInfantil.slice(0, 10));
-    } catch(e) { 
-      console.error("Ranking error:", e); 
-    }
-  };
+    } catch(e) { console.error("Ranking error:", e); }
+  }, [appId, calculateStudentXP]);
 
   const switchToDependent = async (depId: string) => {
     setViewingDependentId(depId);
@@ -1218,7 +1263,7 @@ export default function Dashboard() {
   const earnedBadgesCalculated = computeAchievementsList(activeUserData, totalAtt, currentMonthAttCount);
   const earnedBadgesXP = earnedBadgesCalculated.filter(b => b.earned).reduce((total, b: any) => total + (b.xpBonus || 100), 0);
 
-  const userXP = activeUserData ? ((activeUserData.extraXP || 0) + (totalAtt * xpPerClass) + earnedBadgesXP + rankingBonusXP) : 0;
+  const userXP = activeUserData ? calculateStudentXP(activeUserData, rankingBonusXP) : 0;
   const userLevel = Math.floor(Math.sqrt(userXP / 100)) + 1;
   const firstName = activeUserData ? (activeUserData.nickname || activeUserData.name || "Aluno").split(' ')[0] : "Aluno";
   const xpForNextLevel = Math.max(1, Math.pow(userLevel, 2) * 100);
@@ -1255,13 +1300,47 @@ export default function Dashboard() {
   const [prevLevel, setPrevLevel] = useState(userLevel);
   const [showLevelUp, setShowLevelUp] = useState(false);
 
+  const levelInitialLoadRef = useRef(false);
+
   useEffect(() => {
-    if (userLevel > prevLevel) {
+    if (!appId || !db) return;
+    const unsub = loadRanking();
+    return () => { if (unsub) unsub(); };
+  }, [appId, loadRanking]);
+
+  useEffect(() => {
+    if (!activeUserData || !db || !appId) return;
+    
+    // First data load: set prevLevel without animation
+    if (!levelInitialLoadRef.current && userLevel > 0) {
+      setPrevLevel(userLevel);
+      levelInitialLoadRef.current = true;
+      return;
+    }
+
+    if (userLevel > prevLevel && prevLevel > 0) {
       setShowLevelUp(true);
       setPrevLevel(userLevel);
-      setTimeout(() => setShowLevelUp(false), 5000); 
+      
+      const firstName = (activeUserData.nickname || activeUserData.name || "Guerreiro").split(' ')[0];
+      showAlert("⚡ LEVEL UP! ⚡", `Parabéns, ${firstName}! Você atingiu o Nível ${userLevel}!`, 'success');
+      
+      try {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+        audio.volume = 0.4;
+        audio.play().catch(() => {});
+      } catch (e) {}
+      
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#EF4444', '#000000', '#FFFFFF']
+      });
+    } else if (userLevel < prevLevel && userLevel > 0) {
+       setPrevLevel(userLevel);
     }
-  }, [userLevel, prevLevel]);
+  }, [userLevel, prevLevel, activeUserData, appId]);
 
   if (authError) {
     return (
