@@ -19,6 +19,7 @@ import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/Custo
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import confetti from 'canvas-confetti';
 
 const PLAN_DICT: Record<string, { price: number, short: string }> = {
   'infantil-mensal': { price: 189.90, short: 'Infantil Mensal' },
@@ -1008,7 +1009,7 @@ export default function Dashboard() {
         if (lastCelebration !== currentYearStr) {
           localStorage.setItem(`birthday_celebrated_${userData.id}`, currentYearStr);
           const firstName = (userData.nickname || userData.name || "Aluno").split(' ')[0];
-          showAlert(`🎉 **Feliz Aniversário, ${firstName}!** 🎉\nObrigado por fazer parte da nossa equipe. O tatame é melhor com você!`, 'success');
+          showAlert("🎉 Feliz Aniversário! 🎉", `Parabéns, ${firstName}! Obrigado por fazer parte da nossa equipe. O tatame é melhor com você!`, 'success');
 
           // Share to Feed automatically
           try {
@@ -1324,8 +1325,7 @@ export default function Dashboard() {
 
   const [prevLevel, setPrevLevel] = useState(userLevel);
   const [showLevelUp, setShowLevelUp] = useState(false);
-
-  const levelInitialLoadRef = useRef(false);
+  const lastViewedIdRef = useRef<string | null>(activeUserData?.id || null);
 
   useEffect(() => {
     if (!appId || !db) return;
@@ -1336,10 +1336,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (!activeUserData || !db || !appId) return;
     
-    // First data load: set prevLevel without animation
-    if (!levelInitialLoadRef.current && userLevel > 0) {
+    // Reset reference level silently if we switched users
+    if (activeUserData.id !== lastViewedIdRef.current) {
       setPrevLevel(userLevel);
-      levelInitialLoadRef.current = true;
+      lastViewedIdRef.current = activeUserData.id;
       return;
     }
 
