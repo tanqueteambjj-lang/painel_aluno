@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, UserPlus, Link, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, UserPlus, Link, ZoomIn, ZoomOut, RotateCcw, Cake, Megaphone, Pin, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -42,6 +42,67 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   // Student Search
   const [students, setStudents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Notices Management
+  const [adminNotices, setAdminNotices] = useState<any[]>([]);
+  const [newNotice, setNewNotice] = useState({ title: '', text: '', type: 'info', expiresDays: 7 });
+  const [isAddingNotice, setIsAddingNotice] = useState(false);
+
+  const fetchNotices = useCallback(() => {
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'notices'));
+    return onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setAdminNotices(list);
+    });
+  }, [appId]);
+
+  const addNotice = async () => {
+    if (!newNotice.title || !newNotice.text) {
+      showAlert("Aviso", "Preencha o título e o texto.", "error");
+      return;
+    }
+    try {
+      const expiresAt = new Date(Date.now() + newNotice.expiresDays * 24 * 60 * 60 * 1000).toISOString();
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'notices'), {
+        ...newNotice,
+        date: new Date().toISOString(),
+        expiresAt,
+        pinned: false
+      });
+      setIsAddingNotice(false);
+      setNewNotice({ title: '', text: '', type: 'info', expiresDays: 7 });
+      showAlert("Sucesso", "Aviso publicado!", "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao publicar aviso.", "error");
+    }
+  };
+
+  const deleteNotice = async (id: string) => {
+    showConfirm("Apagar Aviso", "Deseja realmente remover este aviso?", async () => {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notices', id));
+        showAlert("Sucesso", "Aviso removido.", "success");
+      } catch (e) {
+        console.error(e);
+        showAlert("Erro", "Falha ao remover aviso.", "error");
+      }
+    });
+  };
+
+  const togglePinNotice = async (id: string, currentPinned: boolean) => {
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notices', id), {
+        pinned: !currentPinned
+      });
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao atualizar destaque.", "error");
+    }
+  };
 
   const removeStudentPhoto = async (studentId: string, name: string) => {
     showConfirm("Remover Foto", `Tem certeza que deseja remover a foto de ${name}?`, async () => {
@@ -184,7 +245,14 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
   };
 
   useEffect(() => {
-    if ((activeTab === 'students' || activeTab === 'achievements') && allStudents.length === 0) {
+    if (activeTab === 'notices') {
+      const unsub = fetchNotices();
+      return () => unsub();
+    }
+  }, [activeTab, fetchNotices]);
+
+  useEffect(() => {
+    if ((activeTab === 'students' || activeTab === 'achievements' || activeTab === 'birthdays') && allStudents.length === 0) {
       fetchStudents();
     }
   }, [activeTab, appId]);
@@ -323,6 +391,21 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
 
     const userXP = (student.extraXP || 0) + (totalAtt * xpPerClass) + earnedBadgesXP;
     return Math.floor(Math.sqrt(userXP / 100)) + 1;
+  };
+
+  const getMonthBirthdays = () => {
+    const currentMonth = (new Date().getMonth() + 1).toString().padStart(2, '0');
+    return allStudents.filter(s => {
+      if (!s.birthDate || typeof s.birthDate !== 'string') return false;
+      const parts = s.birthDate.split('-');
+      // Format can be YYYY-MM-DD or MM-DD
+      const month = parts.length === 3 ? parts[1] : parts[0];
+      return month === currentMonth;
+    }).sort((a,b) => {
+      const dayA = parseInt(a.birthDate.split('-').pop() || '0');
+      const dayB = parseInt(b.birthDate.split('-').pop() || '0');
+      return dayA - dayB;
+    });
   };
 
   const getStudentAchievements = (student: any) => {
@@ -550,6 +633,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
             { id: 'schedule', label: 'Grade Horária', icon: Clock },
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
+            { id: 'birthdays', label: 'Aniversariantes', icon: Cake },
+            { id: 'notices', label: 'Avisos', icon: Megaphone },
             { id: 'achievements', label: 'Conquistas', icon: Trophy },
             { id: 'churn', label: 'Evasão', icon: TrendingDown },
           ].map((tab) => (
@@ -1050,6 +1135,243 @@ export default function AdminPanel({ appId, showAlert, showConfirm }: any) {
                   </div>
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          {/* BIRTHDAYS VIEW */}
+          {activeTab === 'birthdays' && (
+            <motion.div
+              key="birthdays"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-5">
+                   <Cake size={120} className="text-brand-red" />
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-2xl font-display font-bold dark:text-white flex items-center gap-3">
+                    <Cake className="text-brand-red" /> Aniversariantes de {format(new Date(), 'MMMM', { locale: ptBR })}
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 mt-1">Celebre o dia especial dos seus alunos!</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {getMonthBirthdays().length === 0 ? (
+                  <div className="col-span-full py-20 text-center bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                    <Cake className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium">Nenhum aniversariante encontrado para este mês.</p>
+                  </div>
+                ) : (
+                  getMonthBirthdays().map(s => {
+                    const bdayParts = s.birthDate.split('-');
+                    const day = bdayParts[bdayParts.length - 1];
+                    const isToday = parseInt(day) === new Date().getDate();
+
+                    return (
+                      <motion.div 
+                        key={s.id}
+                        whileHover={{ y: -5 }}
+                        className={`bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border ${isToday ? 'border-brand-red ring-2 ring-brand-red/10' : 'border-gray-100 dark:border-gray-700'} relative`}
+                      >
+                        {isToday && (
+                          <div className="absolute -top-3 -right-3 bg-brand-red text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg animate-bounce">
+                            HOJE! 🎂
+                          </div>
+                        )}
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700 border-2 border-gray-50 dark:border-gray-600 flex-shrink-0 shadow-sm">
+                            {s.photoBase64 ? (
+                              <img src={s.photoBase64} alt={s.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xl uppercase">
+                                {s.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-gray-900 dark:text-white truncate">{s.name}</h4>
+                            {s.nickname && <p className="text-xs text-gray-500 font-medium tracking-tight">({s.nickname})</p>}
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 uppercase">
+                                <Cake size={10} /> Dia {day}
+                              </span>
+                              <span className="text-[10px] text-gray-400 font-bold uppercase">{s.belt}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* NOTICES VIEW */}
+          {activeTab === 'notices' && (
+            <motion.div
+              key="notices"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div>
+                  <h3 className="text-xl font-bold dark:text-white flex items-center gap-2">
+                    <Megaphone className="text-brand-red" /> Gestão de Avisos
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider font-bold">Quadro de Avisos do Sistema</p>
+                </div>
+                <button 
+                  onClick={() => setIsAddingNotice(true)}
+                  className="bg-brand-red text-white px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg hover:bg-red-700 transition flex items-center gap-2"
+                >
+                  <Plus size={18} /> Novo Aviso
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6">
+                {adminNotices.length === 0 ? (
+                  <div className="py-20 text-center bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                    <Megaphone className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium">Nenhum aviso publicado.</p>
+                  </div>
+                ) : (
+                  [...adminNotices].sort((a,b) => {
+                    if (a.pinned && !b.pinned) return -1;
+                    if (!a.pinned && b.pinned) return 1;
+                    return new Date(b.date).getTime() - new Date(a.date).getTime();
+                  }).map(notice => (
+                    <motion.div 
+                      key={notice.id}
+                      className={`p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border transition-all ${notice.pinned ? 'border-brand-red ring-2 ring-brand-red/10' : 'border-gray-100 dark:border-gray-700'}`}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                            notice.type === 'alert' ? 'bg-yellow-100 text-yellow-600' : 
+                            notice.type === 'danger' ? 'bg-red-100 text-red-600' : 
+                            notice.type === 'success' ? 'bg-green-100 text-green-600' : 
+                            'bg-blue-100 text-blue-600'
+                          }`}>
+                            <AlertTriangle size={20} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold dark:text-white text-lg flex items-center gap-2">
+                              {notice.title}
+                              {notice.pinned && <Pin size={14} className="text-brand-red fill-brand-red" />}
+                            </h4>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                              Publicado em {format(new Date(notice.date), 'dd/MM/yyyy HH:mm')} • Expira em {format(new Date(notice.expiresAt), 'dd/MM/yyyy')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => togglePinNotice(notice.id, notice.pinned)}
+                            className={`p-2 rounded-xl transition ${notice.pinned ? 'bg-brand-red text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:text-brand-red'}`}
+                            title={notice.pinned ? "Desafixar" : "Fixar no topo"}
+                          >
+                            <Pin size={18} />
+                          </button>
+                          <button 
+                            onClick={() => deleteNotice(notice.id)}
+                            className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{notice.text}</p>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+
+              {/* Modal Adicionar Aviso */}
+              <AnimatePresence>
+                {isAddingNotice && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                  >
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.95, opacity: 0 }}
+                      className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border-t-4 border-brand-red"
+                    >
+                      <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                        <h3 className="text-xl font-bold dark:text-white">Novo Aviso</h3>
+                        <button onClick={() => setIsAddingNotice(false)} className="text-gray-400 hover:text-red-500 transition"><X size={24} /></button>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-400 uppercase ml-1">Título</label>
+                          <input 
+                            type="text" 
+                            value={newNotice.title}
+                            onChange={(e) => setNewNotice({...newNotice, title: e.target.value})}
+                            placeholder="Ex: Treino Suspenso no Feriado"
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-red outline-none dark:text-white"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-bold text-gray-400 uppercase ml-1">Mensagem</label>
+                          <textarea 
+                            value={newNotice.text}
+                            onChange={(e) => setNewNotice({...newNotice, text: e.target.value})}
+                            placeholder="Descreva o comunicado importante..."
+                            rows={4}
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-red outline-none dark:text-white resize-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-400 uppercase ml-1">Tipo de Aviso</label>
+                            <select 
+                              value={newNotice.type}
+                              onChange={(e) => setNewNotice({...newNotice, type: e.target.value})}
+                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-red outline-none dark:text-white"
+                            >
+                              <option value="info">ℹ️ Informação</option>
+                              <option value="alert">⚠️ Alerta</option>
+                              <option value="danger">🚨 Urgente</option>
+                              <option value="success">✅ Positivo</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-bold text-gray-400 uppercase ml-1 flex items-center gap-1">
+                              <CalendarDays size={12} /> Expira em (dias)
+                            </label>
+                            <input 
+                              type="number" 
+                              value={newNotice.expiresDays}
+                              onChange={(e) => setNewNotice({...newNotice, expiresDays: parseInt(e.target.value)})}
+                              min={1}
+                              max={60}
+                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-brand-red outline-none dark:text-white"
+                            />
+                          </div>
+                        </div>
+                        <button 
+                          onClick={addNotice}
+                          className="w-full py-4 bg-brand-red text-white rounded-2xl font-bold shadow-xl hover:bg-red-700 transition mt-4"
+                        >
+                          Publicar Aviso
+                        </button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 

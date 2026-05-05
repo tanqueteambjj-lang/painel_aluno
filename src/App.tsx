@@ -14,7 +14,7 @@ import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox, Pin } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -605,7 +605,11 @@ export default function Dashboard() {
           fetchedNotices.push({ id: docSnap.id, ...data });
         });
         
-        fetchedNotices.sort((a, b) => parseDateString(b.date).getTime() - parseDateString(a.date).getTime());
+        fetchedNotices.sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          return parseDateString(b.date).getTime() - parseDateString(a.date).getTime();
+        });
         setNotices(fetchedNotices);
 
         // Check for unread notices
@@ -1458,7 +1462,17 @@ export default function Dashboard() {
                   </h3>
                   <div className="space-y-3">
                     {notices.map(notice => (
-                      <div key={notice.id} className={`p-4 border rounded-xl shadow-sm animate-fade-in ${notice.type === 'alert' ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800' : notice.type === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : notice.type === 'danger' ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'}`}>
+                      <div key={notice.id} className={`p-4 border rounded-xl shadow-sm animate-fade-in relative overflow-hidden ${
+                        notice.pinned 
+                          ? 'border-brand-red ring-1 ring-brand-red/20' 
+                          : ''
+                        } ${
+                        notice.type === 'alert' ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800' : notice.type === 'success' ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : notice.type === 'danger' ? 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800' : 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'}`}>
+                        {notice.pinned && (
+                          <div className="absolute top-0 right-0 p-1">
+                             <Pin size={12} className="text-brand-red fill-brand-red rotate-45" />
+                          </div>
+                        )}
                         <div className="flex items-start gap-3">
                           <div className="text-xl mt-0.5">
                             {notice.type === 'alert' ? <AlertTriangle className="text-yellow-500 w-5 h-5" /> : notice.type === 'success' ? <CheckCircle className="text-green-500 w-5 h-5" /> : notice.type === 'danger' ? <X className="text-red-500 w-5 h-5" /> : <AlertTriangle className="text-blue-500 w-5 h-5" />}
