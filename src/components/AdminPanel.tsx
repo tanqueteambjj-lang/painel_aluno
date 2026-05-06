@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 
-export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonate }: any) {
+export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonate, lastMonthRankingAdulto = [], lastMonthRankingInfantil = [] }: any) {
   const [activeTab, setActiveTab] = useState('bookings');
   const [loading, setLoading] = useState(true);
   const [extraXPValue, setExtraXPValue] = useState(100);
@@ -24,6 +24,20 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     'Flame': Flame, 'Sun': Sun, 'Zap': Zap, 'Shield': Shield, 
     'Crown': Crown, 'Award': Award, 'Target-Red': Target
   };
+  
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [viewingXPHistoryStudent, setViewingXPHistoryStudent] = useState<any | null>(null);
+  const [newStudentData, setNewStudentData] = useState({
+    name: '',
+    nickname: '',
+    birthDate: '',
+    studentLogin: '',
+    studentPassword: '',
+    plan: 'Mensal',
+    belt: 'Faixa Branca - 0º Grau',
+    phone: '',
+    paymentStatus: 'Em dia'
+  });
   
   // Schedule Management
   const [gymSchedule, setGymSchedule] = useState<any[]>([]);
@@ -101,6 +115,59 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
   };
 
+  const handleAddStudent = async () => {
+    if (!newStudentData.name || !newStudentData.studentLogin || !newStudentData.studentPassword) {
+      showAlert("Aviso", "Nome, Login e Senha são obrigatórios.", "error");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const studentToAdd = {
+        ...newStudentData,
+        role: 'student',
+        extraXP: 0,
+        xpLog: [],
+        achievements: [],
+        attendance: [],
+        progressLog: [
+          {
+            type: 'graduation',
+            text: newStudentData.belt,
+            date: new Date().toLocaleDateString('pt-BR'),
+            isInitialRank: true
+          }
+        ],
+        registrationDate: new Date().toISOString().split('T')[0],
+        paymentHistory: [],
+        hasPaid: false
+      };
+
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'students'), studentToAdd);
+      
+      setIsAddingStudent(false);
+      setNewStudentData({
+        name: '',
+        nickname: '',
+        birthDate: '',
+        studentLogin: '',
+        studentPassword: '',
+        plan: 'Mensal',
+        belt: 'Faixa Branca - 0º Grau',
+        phone: '',
+        paymentStatus: 'Em dia'
+      });
+      
+      await fetchStudents();
+      showAlert("Sucesso", "Aluno adicionado com sucesso!", "success");
+    } catch (e) {
+      console.error(e);
+      showAlert("Erro", "Falha ao adicionar aluno.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<any | null>(null);
@@ -109,7 +176,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     nickname: '',
     birthDate: '',
     studentLogin: '',
-    plan: ''
+    plan: '',
+    belt: '',
+    isGraduationInitial: false
   });
 
   const handleEditStudent = (student: any) => {
@@ -119,20 +188,36 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       nickname: student.nickname || '',
       birthDate: student.birthDate || '',
       studentLogin: student.studentLogin || '',
-      plan: student.plan || ''
+      plan: student.plan || '',
+      belt: student.belt || 'Faixa Branca - 0º Grau',
+      isGraduationInitial: false
     });
   };
 
   const handleSaveStudentInfo = async () => {
     if (!editingStudent) return;
     try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', editingStudent.id), {
+      const updates: any = {
         name: editFormData.name,
         nickname: editFormData.nickname,
         birthDate: editFormData.birthDate,
         studentLogin: editFormData.studentLogin,
-        plan: editFormData.plan
-      });
+        plan: editFormData.plan,
+        belt: editFormData.belt
+      };
+
+      // If belt changed and it's not the same, we might want to log it
+      if (editFormData.belt !== editingStudent.belt) {
+        const newLog = {
+          type: 'graduation',
+          text: editFormData.belt,
+          date: new Date().toLocaleDateString('pt-BR'),
+          isInitialRank: editFormData.isGraduationInitial 
+        };
+        updates.progressLog = [...(editingStudent.progressLog || []), newLog];
+      }
+
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', editingStudent.id), updates);
       
       setAllStudents(prev => prev.map(s => s.id === editingStudent.id ? { 
         ...s, 
@@ -463,10 +548,19 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       const student = allStudents.find(s => s.id === studentId);
       const currentXP = student?.extraXP || 0;
       try {
+        const xpUpdate = {
+          amount: extraXPValue,
+          reason: 'Bônus Administrativo',
+          date: new Date().toISOString(),
+          type: 'extra'
+        };
+        const newLog = [...(student?.xpLog || []), xpUpdate];
+
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
-          extraXP: currentXP + extraXPValue
+          extraXP: currentXP + extraXPValue,
+          xpLog: newLog
         });
-        setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, extraXP: currentXP + extraXPValue } : s));
+        setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, extraXP: currentXP + extraXPValue, xpLog: newLog } : s));
         showAlert("Sucesso", `XP adicionado com sucesso!`, "success");
       } catch (e) {
         console.error(e);
@@ -506,15 +600,27 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
 
   const toggleAchievementForStudent = async (student: any, achId: string) => {
     const currentAchs = student.achievements || [];
-    const newAchs = currentAchs.includes(achId) 
-      ? currentAchs.filter((id: string) => id !== achId)
-      : [...currentAchs, achId];
+    const isAdding = !currentAchs.includes(achId);
+    const newAchs = isAdding 
+      ? [...currentAchs, achId]
+      : currentAchs.filter((id: string) => id !== achId);
     
     try {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
-        achievements: newAchs
-      });
-      setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, achievements: newAchs } : s));
+      const updates: any = { achievements: newAchs };
+      
+      if (isAdding) {
+        const ach = customAchievements.find(a => a.id === achId);
+        const xpUpdate = {
+          amount: ach?.xpBonus || 200,
+          reason: `Conquista: ${ach?.name || 'Nova Conquista'}`,
+          date: new Date().toISOString(),
+          type: 'achievement'
+        };
+        updates.xpLog = [...(student.xpLog || []), xpUpdate];
+      }
+
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), updates);
+      setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, ...updates } : s));
     } catch (e) {
       console.error(e);
       showAlert("Erro", "Falha ao atualizar conquistas do aluno.", "error");
@@ -663,6 +769,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
             { id: 'birthdays', label: 'Niver', icon: Cake },
+            { id: 'lastMonth', label: 'Top 5', icon: Award },
             { id: 'achievements', label: 'Conquistas', icon: Trophy },
             { id: 'churn', label: 'Evasão', icon: TrendingDown },
           ].map((tab) => (
@@ -993,8 +1100,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <div className="relative flex-1">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-4 items-center">
+                <div className="relative flex-1 w-full">
                   <Search className="absolute left-4 top-3 text-gray-400 w-5 h-5" />
                   <input 
                     type="text" 
@@ -1003,9 +1110,17 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     placeholder="Buscar aluno por nome ou login..."
                     className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
                   />
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button 
+                    onClick={() => setIsAddingStudent(true)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl flex items-center gap-2 font-bold text-sm shadow-lg transition-all"
+                  >
+                    <Plus size={18} /> Novo Aluno
+                  </button>
                   <button 
                     onClick={fetchStudents}
-                    className="absolute right-2 top-2 bg-brand-red px-3 py-1.5 rounded-lg text-white font-bold text-xs"
+                    className="bg-brand-red px-4 py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all"
                   >
                     Recarregar
                   </button>
@@ -1093,6 +1208,20 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                           </span>
                           <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{s.belt}</span>
                         </div>
+                        {(() => {
+                           const isAdult = !(s.plan || '').toLowerCase().includes('infantil');
+                           const targetRank = isAdult ? lastMonthRankingAdulto : lastMonthRankingInfantil;
+                           const pos = targetRank.findIndex(rs => rs.id === s.id);
+                           if (pos >= 0 && pos < 5) {
+                             return (
+                               <div className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/50 rounded-lg w-fit">
+                                 <Trophy className="w-3 h-3 text-yellow-600" />
+                                 <span className="text-[9px] font-bold text-yellow-700 dark:text-yellow-400 uppercase">Top {pos + 1} Mês Anterior</span>
+                               </div>
+                             );
+                           }
+                           return null;
+                        })()}
                       </div>
                     </div>
 
@@ -1101,9 +1230,18 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         <p className="text-gray-400 font-bold uppercase text-[9px]">ID Sistema</p>
                         <p className="dark:text-white font-medium">{s.studentLogin}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400 font-bold uppercase text-[9px]">Plano Atual</p>
-                        <p className="dark:text-white font-medium truncate">{s.plan}</p>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-gray-400 font-bold uppercase text-[9px]">Plano Atual</p>
+                          <p className="dark:text-white font-medium truncate">{s.plan}</p>
+                        </div>
+                        <button 
+                          onClick={() => setViewingXPHistoryStudent(s)}
+                          className="p-1.5 bg-white dark:bg-gray-800 text-brand-red rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 hover:bg-red-50 transition"
+                          title="Ver Histórico de XP"
+                        >
+                          <TrendingUp size={14} />
+                        </button>
                       </div>
                     </div>
 
@@ -1264,6 +1402,89 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     );
                   })
                 )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* TOP 5 VIEW */}
+          {activeTab === 'lastMonth' && (
+            <motion.div
+              key="lastMonth"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-5">
+                   <Trophy size={120} className="text-yellow-500" />
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-2xl font-display font-bold dark:text-white flex items-center gap-3">
+                    <Trophy className="text-yellow-500" /> Top 5 do Mês Anterior
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 mt-1">Os alunos que mais se destacaram no último ciclo.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Ranking Adulto */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest px-2">Ranking Adulto</h4>
+                  <div className="space-y-3">
+                    {lastMonthRankingAdulto.slice(0, 5).map((s, idx) => (
+                      <div key={s.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center gap-4 relative overflow-hidden group">
+                        <div className={`absolute left-0 top-0 h-full w-1 ${idx === 0 ? 'bg-yellow-400' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-600' : 'bg-brand-red/20'}`}></div>
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-900 font-bold text-gray-800 dark:text-gray-200 text-sm">
+                           {idx + 1}º
+                        </div>
+                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-gray-100 dark:border-gray-700">
+                          {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-300"><User size={20} /></div>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
+                          <p className="text-[10px] text-gray-400 uppercase font-black">{s.belt}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-black text-brand-red uppercase">{s.xp || 0} XP</p>
+                          <p className="text-[9px] text-gray-400 uppercase font-bold">{s.attendanceCount || 0} Treinos</p>
+                        </div>
+                      </div>
+                    ))}
+                    {lastMonthRankingAdulto.length === 0 && (
+                       <p className="text-center py-10 text-gray-400 italic text-sm">Sem dados de ranking adulto.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ranking Infantil */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest px-2">Ranking Infantil</h4>
+                  <div className="space-y-3">
+                    {lastMonthRankingInfantil.slice(0, 5).map((s, idx) => (
+                      <div key={s.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center gap-4 relative overflow-hidden group">
+                        <div className={`absolute left-0 top-0 h-full w-1 ${idx === 0 ? 'bg-yellow-400' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-600' : 'bg-brand-red/20'}`}></div>
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-900 font-bold text-gray-800 dark:text-gray-200 text-sm">
+                           {idx + 1}º
+                        </div>
+                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-gray-100 dark:border-gray-700">
+                          {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-300"><User size={20} /></div>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
+                          <p className="text-[10px] text-gray-400 uppercase font-black">{s.belt}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-black text-brand-red uppercase">{s.xp || 0} XP</p>
+                          <p className="text-[9px] text-gray-400 uppercase font-bold">{s.attendanceCount || 0} Treinos</p>
+                        </div>
+                      </div>
+                    ))}
+                    {lastMonthRankingInfantil.length === 0 && (
+                       <p className="text-center py-10 text-gray-400 italic text-sm">Sem dados de ranking infantil.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1587,6 +1808,26 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Faixa / Graduação</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.belt}
+                    onChange={e => setEditFormData({...editFormData, belt: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
+                    placeholder="Ex: Faixa Azul - 1º Grau"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="checkbox"
+                    id="isInitialGrad"
+                    checked={editFormData.isGraduationInitial}
+                    onChange={e => setEditFormData({...editFormData, isGraduationInitial: e.target.checked})}
+                    className="w-4 h-4 text-brand-red rounded border-gray-300 focus:ring-brand-red"
+                  />
+                  <label htmlFor="isInitialGrad" className="text-xs font-bold text-gray-500 uppercase">Graduação Inicial (Não gera XP)</label>
+                </div>
               </div>
               
               <div className="p-6 bg-gray-50 dark:bg-gray-800/50 flex gap-3">
@@ -1652,6 +1893,232 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               >
                 Cancelar
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL HISTÓRICO DE XP (ADMIN) */}
+      <AnimatePresence>
+        {viewingXPHistoryStudent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setViewingXPHistoryStudent(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold dark:text-white">Histórico de XP</h3>
+                  <p className="text-xs text-brand-red font-bold uppercase tracking-widest">{viewingXPHistoryStudent.name}</p>
+                </div>
+                <button onClick={() => setViewingXPHistoryStudent(null)} className="text-gray-400 hover:text-red-500"><X size={20} /></button>
+              </div>
+              
+              <div className="p-4 max-h-[60vh] overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800">
+                {(() => {
+                  const student = viewingXPHistoryStudent;
+                  const history: any[] = [];
+                  
+                  // Attendance
+                  if (Array.isArray(student.attendance)) {
+                    student.attendance.forEach((date: string) => {
+                      history.push({ date, amount: 50, reason: 'Treino Realizado', type: 'attendance' });
+                    });
+                  }
+                  
+                  // Manual Logs
+                  if (Array.isArray(student.xpLog)) {
+                    student.xpLog.forEach((log: any) => history.push(log));
+                  }
+                  
+                  // Sort
+                  history.sort((a, b) => {
+                    const parseDate = (d: any) => {
+                       if (!d || typeof d !== 'string') return 0;
+                       if (d.includes('/')) {
+                         const p = d.split('/');
+                         return new Date(`${p[2]}-${p[1]}-${p[0]}T12:00:00`).getTime();
+                       }
+                       return new Date(d.includes('T') ? d : `${d}T12:00:00`).getTime();
+                    };
+                    return parseDate(b.date) - parseDate(a.date);
+                  });
+
+                  if (history.length === 0) {
+                    return <div className="py-20 text-center text-gray-400 italic">Nenhuma atividade registrada.</div>;
+                  }
+
+                  return history.map((item, idx) => (
+                    <div key={idx} className="py-3 flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                           item.type === 'attendance' ? 'bg-orange-50 text-orange-500' : 
+                           item.type === 'achievement' ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-500'
+                         }`}>
+                           {item.type === 'attendance' ? <Flame size={14} /> : 
+                            item.type === 'achievement' ? <Trophy size={14} /> : <TrendingUp size={14} />}
+                         </div>
+                         <div>
+                            <p className="text-xs font-bold dark:text-white leading-tight">{item.reason}</p>
+                            <p className="text-[9px] text-gray-400">
+                               {item.date && item.date.includes('-') && !item.date.includes('/') ? 
+                                format(new Date(item.date + (item.date.includes('T') ? '' : 'T12:00:00')), 'dd/MM/yyyy') : 
+                                item.date}
+                            </p>
+                         </div>
+                       </div>
+                       <div className="text-right">
+                         <span className="text-xs font-black text-green-600">+{item.amount} XP</span>
+                       </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+
+              <div className="p-6 bg-gray-50 dark:bg-gray-800/50">
+                <button 
+                  onClick={() => setViewingXPHistoryStudent(null)}
+                  className="w-full py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 rounded-xl font-bold text-sm"
+                >
+                  Fechar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL ADICIONAR ALUNO */}
+      <AnimatePresence>
+        {isAddingStudent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                <h3 className="text-xl font-bold dark:text-white">Adicionar Novo Aluno</h3>
+                <button onClick={() => setIsAddingStudent(false)} className="text-gray-400 hover:text-red-500"><X size={20} /></button>
+              </div>
+              
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-2">Importante: O aluno iniciará com 0 XP e sem conquistas.</p>
+                
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo *</label>
+                  <input 
+                    type="text" 
+                    value={newStudentData.name}
+                    onChange={e => setNewStudentData({...newStudentData, name: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white font-medium"
+                    placeholder="Nome completo do aluno"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Apelido (Opcional)</label>
+                  <input 
+                    type="text" 
+                    value={newStudentData.nickname}
+                    onChange={e => setNewStudentData({...newStudentData, nickname: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white font-medium"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Login *</label>
+                    <input 
+                      type="text" 
+                      value={newStudentData.studentLogin}
+                      onChange={e => setNewStudentData({...newStudentData, studentLogin: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
+                      placeholder="Login de acesso"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Senha *</label>
+                    <input 
+                      type="text" 
+                      value={newStudentData.studentPassword}
+                      onChange={e => setNewStudentData({...newStudentData, studentPassword: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
+                      placeholder="Senha inicial"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data Nasc.</label>
+                    <input 
+                      type="text" 
+                      value={newStudentData.birthDate}
+                      onChange={e => setNewStudentData({...newStudentData, birthDate: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
+                      placeholder="DD/MM/AAAA"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp</label>
+                    <input 
+                      type="text" 
+                      value={newStudentData.phone}
+                      onChange={e => setNewStudentData({...newStudentData, phone: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
+                      placeholder="11999998888"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plano</label>
+                  <input 
+                    type="text" 
+                    value={newStudentData.plan}
+                    onChange={e => setNewStudentData({...newStudentData, plan: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Faixa / Graduação</label>
+                  <input 
+                    type="text" 
+                    value={newStudentData.belt}
+                    onChange={e => setNewStudentData({...newStudentData, belt: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-6 bg-gray-50 dark:bg-gray-800/50 flex gap-3">
+                <button 
+                  onClick={() => setIsAddingStudent(false)}
+                  className="flex-1 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 rounded-xl font-bold text-sm"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleAddStudent}
+                  disabled={loading}
+                  className="flex-[2] py-3 bg-brand-red text-white rounded-xl font-bold text-sm shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
+                >
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : <><Plus size={18} /> Adicionar Aluno</>}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

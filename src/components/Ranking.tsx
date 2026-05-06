@@ -36,19 +36,31 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle || "Reconhecimento pela sua dedicação e técnica."}</p>
         </div>
 
-        <div className="flex bg-gray-100 dark:bg-gray-800/50 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shrink-0">
-          <button 
-            onClick={() => onTabChange && onTabChange('presence')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'presence' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
-          >
-            Treinos
-          </button>
-          <button 
-            onClick={() => onTabChange && onTabChange('xp')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'xp' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
-          >
-            Nível
-          </button>
+        {/* MANUAL BUTTON */}
+        <div className="flex gap-2">
+           <button 
+             onClick={() => {
+               const el = document.getElementById('ranking-manual');
+               if (el) el.scrollIntoView({ behavior: 'smooth' });
+             }}
+             className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-100 dark:border-blue-800/50 hover:bg-blue-100 transition-colors"
+           >
+              <Star size={14} /> Como Funciona?
+           </button>
+           <div className="flex bg-gray-100 dark:bg-gray-800/50 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shrink-0">
+             <button 
+               onClick={() => onTabChange && onTabChange('presence')}
+               className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'presence' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+             >
+               Treinos
+             </button>
+             <button 
+               onClick={() => onTabChange && onTabChange('xp')}
+               className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'xp' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+             >
+               Nível
+             </button>
+           </div>
         </div>
       </div>
       
@@ -173,6 +185,87 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               <p className="text-gray-500 dark:text-gray-400 font-medium">Nenhum guerreiro rankeado ainda.</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* RANKING MANUAL SECTION */}
+      <div id="ranking-manual" className="mt-12 space-y-8 scroll-mt-24">
+        <div className="text-center space-y-2">
+          <h3 className="text-xl font-display font-black dark:text-white uppercase tracking-wider">Manual do Guerreiro</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Entenda como conquistar o topo da academia.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-4">
+            <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center text-brand-red">
+              <Flame size={24} />
+            </div>
+            <h4 className="font-bold dark:text-white">Ranking de Treinos</h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              Baseado na sua constância. Cada vez que você marca presença e treina, seu contador sobe.
+            </p>
+            <ul className="text-xs space-y-2 text-gray-400 font-medium">
+              <li className="flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-brand-red"></div>
+                O ranking reinicia internamente todo mês para definir o Top 5.
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-brand-red"></div>
+                O Top 5 do mês anterior ganha <span className="text-yellow-500 font-bold">XP BÔNUS</span> para subir de nível mais rápido.
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-4">
+            <div className="w-12 h-12 bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl flex items-center justify-center text-yellow-600">
+              <Star size={24} />
+            </div>
+            <h4 className="font-bold dark:text-white">Ranking de Nível (XP)</h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              Reflete sua jornada total na academia. O XP nunca reseta.
+            </p>
+            <div className="space-y-3">
+               <p className="text-[10px] font-black uppercase text-gray-300 tracking-widest">Como ganhar XP:</p>
+               <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                    <p className="text-[10px] font-bold dark:text-white">+50 XP</p>
+                    <p className="text-[8px] text-gray-400 uppercase">Por Aula</p>
+                  </div>
+                  <div className="p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                    <p className="text-[10px] font-bold dark:text-white">+200 XP</p>
+                    <p className="text-[8px] text-gray-400 uppercase">Por Conquista</p>
+                  </div>
+                  <div className="p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                    <p className="text-[10px] font-bold dark:text-white">+200-1000 XP</p>
+                    <p className="text-[8px] text-gray-400 uppercase">Top 5 Mensal</p>
+                  </div>
+                  <div className="p-2 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-800">
+                    <p className="text-[10px] font-bold dark:text-white">Variável</p>
+                    <p className="text-[8px] text-gray-400 uppercase">XP Extra (Adm)</p>
+                  </div>
+               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-brand-dark dark:bg-black p-8 rounded-[2.5rem] text-white overflow-hidden relative">
+           <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
+              <Trophy size={140} />
+           </div>
+           <div className="relative z-10 max-w-lg">
+             <h4 className="text-xl font-bold mb-3 italic uppercase italic">O Top 5 e o Futuro</h4>
+             <p className="text-sm text-gray-400 leading-relaxed">
+               Ser Top 5 da Tanque Team não é apenas sobre o bônus de XP. É sobre reconhecimento, disciplina e servir de exemplo para os novos alunos.
+             </p>
+             <div className="mt-6 flex items-center gap-4">
+                <div className="flex -space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-yellow-400 border-2 border-brand-dark"></div>
+                  <div className="w-8 h-8 rounded-full bg-gray-300 border-2 border-brand-dark"></div>
+                  <div className="w-8 h-8 rounded-full bg-amber-600 border-2 border-brand-dark"></div>
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Mantenha a chama acesa. Oss!</p>
+             </div>
+           </div>
         </div>
       </div>
     </div>

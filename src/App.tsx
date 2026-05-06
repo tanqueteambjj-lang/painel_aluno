@@ -14,7 +14,7 @@ import Finance from '@/components/Finance';
 import Ranking from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox, Pin, Cake } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox, Pin, Cake, TrendingUp } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -804,10 +804,63 @@ export default function Dashboard() {
 
   // Unified Student XP Calculation
   // Unified XP calculation logic
+  const xpPerClass = 50;
+
+  const getUnifiedHistory = (student: any, customAchievements: any[]) => {
+    if (!student) return [];
+    const history: any[] = [];
+    
+    // 1. Attendance (50 XP each)
+    if (Array.isArray(student.attendance)) {
+      student.attendance.forEach((date: any) => {
+        if (typeof date !== 'string') return;
+        history.push({
+          date,
+          amount: xpPerClass,
+          reason: 'Treino Realizado',
+          type: 'attendance'
+        });
+      });
+    }
+
+    // 2. Extra XP & Manual Achievement Logs
+    if (Array.isArray(student.xpLog)) {
+      student.xpLog.forEach((log: any) => {
+        if (log && typeof log === 'object') history.push(log);
+      });
+    }
+
+    // 3. Progress Log (Graduations)
+    if (Array.isArray(student.progressLog)) {
+      student.progressLog.forEach((log: any) => {
+        if (log && log.type === 'graduation' && !log.isInitialRank) {
+           const isDegree = typeof log.text === 'string' && log.text.match(/[1-9]º Grau/);
+           history.push({
+             date: log.date || '',
+             amount: isDegree ? 250 : 500,
+             reason: `Graduação: ${log.text || 'Nível'}`,
+             type: 'graduation'
+           });
+        }
+      });
+    }
+
+    return history.sort((a, b) => {
+      const parseDate = (d: any) => {
+        if (!d || typeof d !== 'string') return 0;
+        if (d.includes('/')) {
+          const p = d.split('/');
+          return new Date(`${p[2]}-${p[1]}-${p[0]}T12:00:00`).getTime();
+        }
+        return new Date(d.includes('T') ? d : `${d}T12:00:00`).getTime();
+      };
+      return parseDate(b.date) - parseDate(a.date);
+    });
+  };
+
   const calculateStudentXP = useCallback((student: any, rankingBonus: number = 0) => {
     if (!student) return 0;
     
-    const xpPerClass = 50;
     const attendance = Array.isArray(student.attendance) ? student.attendance : [];
     const totalAttCount = attendance.length;
 
@@ -863,8 +916,9 @@ export default function Dashboard() {
     let earnedDegree = false;
     let graduatedToBlackBelt = false;
     const progressLog = Array.isArray(student.progressLog) ? student.progressLog : [];
+    // Graduation Rewards logic: only count if NOT initial rank
     for (const log of progressLog) {
-      if (log.type === 'graduation') {
+      if (log.type === 'graduation' && !log.isInitialRank) {
         if (log.text && log.text.match(/[1-9]º Grau/)) earnedDegree = true;
         else {
           earnedNewBelt = true;
@@ -1137,7 +1191,6 @@ export default function Dashboard() {
   const isAdmin = isRealAdmin;
   
   // XP e Nível
-  const xpPerClass = 50;
 
   // Bônus de XP por Ranking (Top 5 Presença Mensal)
   const getRankingBonus = () => {
@@ -1211,7 +1264,7 @@ export default function Dashboard() {
     let graduatedToBlackBelt = false;
     
     for (const log of progressLog) {
-      if (log.type === 'graduation') {
+      if (log.type === 'graduation' && !log.isInitialRank) {
         if (log.text && log.text.match(/[1-9]º Grau/)) {
           earnedDegree = true;
         } else {
@@ -1353,8 +1406,10 @@ export default function Dashboard() {
       try {
         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
         audio.volume = 0.4;
-        audio.play().catch(() => {});
-      } catch (e) {}
+        audio.play().catch(err => console.debug("Audio play failed:", err));
+      } catch (e) {
+        console.debug("Audio initialization failed:", e);
+      }
       
       confetti({
         particleCount: 150,
@@ -1942,6 +1997,60 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+                {/* Unified Activity & XP History */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-8 border-t-4 border-brand-red overflow-hidden">
+                  <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
+                    <div>
+                      <h3 className="font-display text-xl font-bold text-brand-dark dark:text-white flex items-center gap-2">
+                        <TrendingUp className="text-brand-red w-5 h-5" /> Histórico de XP
+                      </h3>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Atividades Recentes</p>
+                    </div>
+                  </div>
+                  
+                  <div className="max-h-[300px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                    {(() => {
+                      const history = getUnifiedHistory(activeUserData, adminAchievements);
+                      if (history.length === 0) {
+                        return <div className="p-10 text-center text-gray-400 text-sm">Nenhuma atividade registrada ainda.</div>;
+                      }
+                      return history.slice(0, 30).map((item, idx) => (
+                        <div key={idx} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              item.type === 'attendance' ? 'bg-orange-50 text-orange-500' :
+                              item.type === 'achievement' ? 'bg-yellow-50 text-yellow-600' :
+                              item.type === 'graduation' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-500'
+                            }`}>
+                              {item.type === 'attendance' ? <Flame size={16} /> : 
+                               item.type === 'achievement' ? <Trophy size={16} /> : 
+                               item.type === 'graduation' ? <Medal size={16} /> : <TrendingUp size={16} />}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold dark:text-white leading-none mb-1">{item.reason}</p>
+                              <p className="text-[10px] text-gray-400 font-medium">
+                                {item.date && item.date.includes('-') && !item.date.includes('/') ? 
+                                  format(new Date(item.date + (item.date.includes('T') ? '' : 'T12:00:00')), 'dd/MM/yyyy') : 
+                                  item.date}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-xs font-black ${item.amount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {item.amount >= 0 ? `+${item.amount}` : item.amount} XP
+                            </span>
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                  {activeUserData?.attendance?.length > 30 && (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-700/30 text-center border-t border-gray-100 dark:border-gray-700">
+                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Exibindo as últimas 30 atividades</p>
+                    </div>
+                  )}
+                </div>
+
                 {/* Achievements Widget */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-t-4 border-yellow-500 flex flex-col h-full">
                   <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 shrink-0">
@@ -2083,6 +2192,8 @@ export default function Dashboard() {
                     setView('dashboard');
                     setIsMobileMenuOpen(false);
                   }}
+                  lastMonthRankingAdulto={lastMonthRankingAdulto}
+                  lastMonthRankingInfantil={lastMonthRankingInfantil}
                 />
               </motion.div>
             )}
