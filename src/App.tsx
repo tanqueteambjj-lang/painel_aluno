@@ -11,7 +11,7 @@ import HistoryModal from '@/components/HistoryModal';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import Feed from '@/components/Feed';
 import Finance from '@/components/Finance';
-import Ranking from '@/components/Ranking';
+import Ranking, { RankingManual } from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
 import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox, Pin, Cake, TrendingUp } from 'lucide-react';
@@ -2158,6 +2158,7 @@ export default function Dashboard() {
                     subtitle={rankingTab === 'presence' ? "Os 10 pequenos guerreiros que mais treinaram neste mês." : "Ranking infantil de XP acumulado."}
                   />
                 )}
+                <RankingManual />
               </motion.div>
             )}
 
