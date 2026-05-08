@@ -881,13 +881,7 @@ export default function Dashboard() {
 
     // Graduation Rewards
     let graduationXP = 0;
-    const progressLog = Array.isArray(student.progressLog) ? student.progressLog : [];
-    for (const log of progressLog) {
-      if (log.type === 'graduation' && !log.isInitialRank) {
-        if (log.text && log.text.match(/[1-9]º Grau/)) graduationXP += 250;
-        else graduationXP += 500;
-      }
-    }
+    // Removed XP for graduations per user request
 
     // System Badges
     const badgeXP = [
@@ -1263,14 +1257,14 @@ export default function Dashboard() {
     
     let graduatedToBlackBelt = false;
     
-    // Achievement temporal lock: only grad records strictly after this date will count
-    const LOCK_DATE = '2026-05-06';
+    // Achievement logic: only grad records strictly after this date will count
+    const LOCK_DATE = '2026-05-09';
     
     for (const log of progressLog) {
       if (log.type === 'graduation' && !log.isInitialRank) {
         // Only count if it's a NEW graduation record (date > LOCK_DATE)
         const logDateStr = log.date || '';
-        if (logDateStr > LOCK_DATE) {
+        if (logDateStr >= LOCK_DATE) {
           if (log.text && log.text.match(/[1-9]º Grau/)) {
             earnedDegree = true;
           } else {
@@ -1923,27 +1917,27 @@ export default function Dashboard() {
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-brand-red relative overflow-hidden flex flex-col justify-between">
                       {recentGrad && !recentGrad.isNewBelt && (
                         <div className="absolute top-0 left-0 w-full bg-yellow-400 text-yellow-900 text-center text-xs font-bold py-1 z-10">
-                          <span>{`⭐ PARABÉNS PELO NOVO GRAU! (${currentUserData.belt}) ⭐`}</span>
+                          <span>{`⭐ PARABÉNS PELO NOVO GRAU! (${activeUserData?.belt}) ⭐`}</span>
                         </div>
                       )}
                       <div>
                         <div className="flex justify-between items-start mb-4 mt-2">
                           <div>
                             <h3 className="text-gray-400 dark:text-gray-500 text-xs font-bold uppercase tracking-widest">Graduação Atual</h3>
-                            <p className="text-xl font-bold text-brand-dark dark:text-white mt-1">{currentUserData.belt || "Faixa Branca - 0º Grau"}</p>
+                            <p className="text-xl font-bold text-brand-dark dark:text-white mt-1">{activeUserData?.belt || "Faixa Branca - 0º Grau"}</p>
                           </div>
                           <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg text-brand-dark dark:text-gray-300">
                             <Medal className="w-6 h-6" />
                           </div>
                         </div>
                         <div className="w-full h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 shadow-inner overflow-hidden relative">
-                          {renderBeltSVG(currentUserData.belt || "Faixa Branca - 0º Grau")}
+                          {renderBeltSVG(activeUserData?.belt || "Faixa Branca - 0º Grau")}
                         </div>
                         {recentGrad && !recentGrad.isNewBelt && (
                           <button 
                             onClick={() => handleShareBadge({
                               name: "Novo Grau",
-                              desc: `Avançou para ${currentUserData.belt}`,
+                              desc: `Avançou para ${activeUserData?.belt}`,
                               icon: <Star className="w-5 h-5" />,
                               iconName: 'Star',
                               color: "text-yellow-600"
@@ -1961,12 +1955,12 @@ export default function Dashboard() {
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="text-gray-400 dark:text-gray-500 text-xs font-bold uppercase tracking-widest">Financeiro</h3>
-                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold mt-2 ${currentUserData.paymentStatus === 'Pendente' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : currentUserData.paymentStatus === 'Isento' || planKey === 'dependente' ? 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                            {currentUserData.paymentStatus === 'Pendente' ? <><AlertTriangle className="w-3 h-3 mr-1" /> Pendente</> : currentUserData.paymentStatus === 'Isento' || planKey === 'dependente' ? <><LinkIcon className="w-3 h-3 mr-1" /> Isento</> : <><CheckCircle className="w-3 h-3 mr-1" /> Em dia</>}
+                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold mt-2 ${activeUserData?.paymentStatus === 'Pendente' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                            {activeUserData?.paymentStatus === 'Pendente' ? <><AlertTriangle className="w-3 h-3 mr-1" /> Pendente</> : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? <><LinkIcon className="w-3 h-3 mr-1" /> Isento</> : <><CheckCircle className="w-3 h-3 mr-1" /> Em dia</>}
                           </div>
                         </div>
-                        <div className={`p-2 rounded-lg ${currentUserData.paymentStatus === 'Pendente' ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : currentUserData.paymentStatus === 'Isento' || planKey === 'dependente' ? 'bg-gray-50 dark:bg-gray-700 text-gray-400' : 'bg-green-50 dark:bg-green-900/20 text-green-500'}`}>
-                          {currentUserData.paymentStatus === 'Pendente' ? <X className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />}
+                        <div className={`p-2 rounded-lg ${activeUserData?.paymentStatus === 'Pendente' ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? 'bg-gray-50 dark:bg-gray-700 text-gray-400' : 'bg-green-50 dark:bg-green-900/20 text-green-500'}`}>
+                          {activeUserData?.paymentStatus === 'Pendente' ? <X className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />}
                         </div>
                       </div>
                       <div className="mt-4">
@@ -1999,10 +1993,12 @@ export default function Dashboard() {
                               disabled={!isUnlocked}
                               onClick={async () => {
                                 if (!isUnlocked) return;
-                                const studentId = viewingDependentId || currentUserData.id;
+                                const studentId = activeUserData?.id || currentUserData.id;
                                 const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
                                 await updateDoc(ref, { selectedVisualTier: tier.id });
-                                if (viewingDependentId) {
+                                if (impersonatedStudent) {
+                                   setImpersonatedStudent((prev: any) => prev ? { ...prev, selectedVisualTier: tier.id } : null);
+                                } else if (viewingDependentId) {
                                    setDependents(prev => prev.map(d => d.id === viewingDependentId ? { ...d, selectedVisualTier: tier.id } : d));
                                 } else {
                                    setCurrentUserData((prev: any) => ({ ...prev, selectedVisualTier: tier.id }));

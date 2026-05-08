@@ -446,7 +446,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     if (totalAtt >= 200) earnedBadgesXP += badgeXPBonusMap['casca_grossa'];
     if (totalAtt >= 500) earnedBadgesXP += badgeXPBonusMap['mestre'];
     
-    // Progress Log (Graduations) - Matching App.tsx
+    // Progress Log (Graduations) - Removed XP per user request
+    /*
     if (student.progressLog) {
       student.progressLog.forEach((log: any) => {
         if (log.type === 'graduation' && !log.isInitialRank) {
@@ -455,6 +456,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         }
       });
     }
+    */
 
     // Ranking Special Badges & Custom Admin Achievements
     const rankingBadgeValues: Record<string, number> = {
