@@ -43,6 +43,21 @@ const PLAN_DICT: Record<string, { price: number, short: string }> = {
   'isento': { price: 0.00, short: 'Isento' }
 };
 
+const WEEKLY_QUESTS = [
+  { id: 'q_train_3', title: 'Guerreiro da Semana', desc: 'Treine 3 vezes nesta semana', goal: 3, xp: 250, type: 'attendance' },
+  { id: 'q_social_5', title: 'Influenciador do Tatame', desc: 'Curta 5 posts no Feed', goal: 5, xp: 100, type: 'social' },
+  { id: 'q_comment_2', title: 'Crítico de Lutas', desc: 'Comente em 2 posts no Feed', goal: 2, xp: 150, type: 'social' },
+  { id: 'q_weekend', title: 'Samurai do Sábado', desc: 'Treine em um final de semana', goal: 1, xp: 200, type: 'weekend' },
+];
+
+const VISUAL_TIERS = [
+  { id: 'none', name: 'Nenhum', minLevel: 1, glow: '' },
+  { id: 'warrior', name: 'Guerreiro', minLevel: 10, glow: 'shadow-[0_0_15px_rgba(239,68,68,0.5)] border-red-500' },
+  { id: 'elite', name: 'Elite', minLevel: 25, glow: 'shadow-[0_0_20px_rgba(59,130,246,0.6)] border-blue-500 animate-pulse' },
+  { id: 'legend', name: 'Lendário', minLevel: 50, glow: 'shadow-[0_0_25px_rgba(245,158,11,0.7)] border-amber-500 ring-2 ring-amber-400' },
+  { id: 'mythic', name: 'Mítico', minLevel: 100, glow: 'shadow-[0_0_30px_rgba(168,85,247,0.8)] border-purple-500 ring-2 ring-purple-400' },
+];
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -62,6 +77,7 @@ export default function Dashboard() {
   const [lastMonthRankingInfantil, setLastMonthRankingInfantil] = useState<any[]>([]);
   const [rankingXpAdulto, setRankingXpAdulto] = useState<any[]>([]);
   const [rankingXpInfantil, setRankingXpInfantil] = useState<any[]>([]);
+  const [rankingSocialAdulto, setRankingSocialAdulto] = useState<any[]>([]);
   const [rankingTab, setRankingTab] = useState<'presence' | 'xp'>('presence');
   const [userBookings, setUserBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
@@ -747,47 +763,9 @@ export default function Dashboard() {
 
   const checkTodayBirthdays = async (appId: string) => {
     try {
-      const today = new Date();
-      const todayStr = format(today, 'MM-dd');
-      const lastCheck = localStorage.getItem(`bday_check_${todayStr}`);
-      if (lastCheck) return;
-
-      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'));
-      const snap = await getDocs(q);
-      
-      snap.forEach(async (docSnap) => {
-        const student = docSnap.data();
-        if (student.birthDate && typeof student.birthDate === 'string' && student.birthDate.includes('-')) {
-          const bdayPart = student.birthDate.split('-').slice(1).join('-'); // MM-DD
-          if (bdayPart === todayStr) {
-            // Verificar se já existe post de aniversário hoje para evitar duplicatas
-            const qPost = query(
-              collection(db, 'artifacts', appId, 'public', 'data', 'feed'),
-              where('type', '==', 'birthday'),
-              where('studentId', '==', docSnap.id),
-              where('date', '==', format(today, 'yyyy-MM-dd'))
-            );
-            const postSnap = await getDocs(qPost);
-            
-            if (postSnap.empty) {
-              await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), {
-                studentId: docSnap.id,
-                studentName: student.nickname || student.name,
-                studentPhoto: student.photoBase64 || null,
-                content: `Hoje é aniversário de ${student.nickname || student.name}! Vamos desejar muitos anos de vida e muito Jiu-Jitsu! 🎂🥋`,
-                type: 'birthday',
-                date: format(today, 'yyyy-MM-dd'),
-                timestamp: new Date().toISOString(),
-                likes: [],
-                comments: []
-              });
-            }
-          }
-        }
-      });
-      localStorage.setItem(`bday_check_${todayStr}`, 'done');
+      // Check for birthdays periodically removed as per user request
     } catch (e) {
-      console.error("Erro no check de aniversários:", e);
+      // Silence or log error
     }
   };
 
@@ -862,7 +840,10 @@ export default function Dashboard() {
     const attendance = Array.isArray(student.attendance) ? student.attendance : [];
     const totalAttCount = attendance.length;
 
-    // Calculate month count
+    // Use totalAttCount * 50 as base
+    const attendanceXP = totalAttCount * 50;
+
+    // Calculate month count for specific badges
     const now = new Date();
     const currMonth = now.getMonth();
     const currYear = now.getFullYear();
@@ -873,34 +854,6 @@ export default function Dashboard() {
       if (!isNaN(dateObj.getTime()) && dateObj.getMonth() === currMonth && dateObj.getFullYear() === currYear) monthCount++;
     });
 
-    // Calculate streaks
-    let maxConsecutive = 0;
-    let currentConsecutive = 0;
-    if (attendance.length > 1) {
-      const sortedDates = [...attendance].filter(d => typeof d === 'string').sort();
-      let prevDateObj: Date | null = null;
-      for (const d of sortedDates) {
-        const dateObj = new Date(d + 'T12:00:00');
-        if (isNaN(dateObj.getTime())) continue;
-        
-        if (!prevDateObj) {
-          currentConsecutive = 1;
-        } else {
-          const diffDays = Math.round((dateObj.getTime() - prevDateObj.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays === 1) {
-            currentConsecutive++;
-          } else if (diffDays > 1) {
-            currentConsecutive = 1;
-          }
-        }
-        if (currentConsecutive > maxConsecutive) maxConsecutive = currentConsecutive;
-        prevDateObj = dateObj;
-      }
-    } else if (attendance.length === 1) {
-      maxConsecutive = 1;
-    }
-
-    const isBlackBelt = !!(student.belt && student.belt.toLowerCase().includes("preta"));
     const hasPosted = !!(student.feedPosts && student.feedPosts > 0);
     const isWeekendWarrior = attendance.some((d: any) => {
       if (typeof d !== 'string') return false;
@@ -910,51 +863,78 @@ export default function Dashboard() {
       return day === 0 || day === 6;
     });
     
-    let earnedNewBelt = false;
-    let earnedDegree = false;
-    let graduatedToBlackBelt = false;
+    // Calculate Streak (Weekly)
+    let streakWeeks = 0;
+    if (attendance.length > 0) {
+      const sortedDates = [...attendance].filter(d => typeof d === 'string').sort();
+      const attendanceWeeks = new Set();
+      sortedDates.forEach(d => {
+        const date = new Date(d + 'T12:00:00');
+        const startOfYear = new Date(date.getFullYear(), 0, 1);
+        const week = Math.ceil((((date.getTime() - startOfYear.getTime()) / 86400000) + startOfYear.getDay() + 1) / 7);
+        attendanceWeeks.add(`${date.getFullYear()}-W${week}`);
+      });
+      streakWeeks = attendanceWeeks.size;
+    }
+    
+    const streakMultiplier = Math.min(1.25, 1 + (Math.floor(streakWeeks / 4) * 0.05));
+
+    // Graduation Rewards
+    let graduationXP = 0;
     const progressLog = Array.isArray(student.progressLog) ? student.progressLog : [];
-    // Graduation Rewards logic: only count if NOT initial rank
     for (const log of progressLog) {
       if (log.type === 'graduation' && !log.isInitialRank) {
-        if (log.text && log.text.match(/[1-9]º Grau/)) earnedDegree = true;
-        else {
-          earnedNewBelt = true;
-          if (log.text && log.text.toLowerCase().includes("preta")) graduatedToBlackBelt = true;
-        }
+        if (log.text && log.text.match(/[1-9]º Grau/)) graduationXP += 250;
+        else graduationXP += 500;
       }
     }
 
-    const badges = [
+    if (student.belt && student.belt.toLowerCase().includes("preta")) {
+      graduationXP += 10000;
+    }
+
+    // System Badges
+    const badgeXP = [
       { id: 'first_class', earned: totalAttCount >= 1, xpBonus: 100 },
       { id: 'beginner', earned: totalAttCount >= 12, xpBonus: 200 },
       { id: 'monthly_focus', earned: monthCount >= 20, xpBonus: 300 },
-      { id: 'streak_5', earned: maxConsecutive >= 5, xpBonus: 150 },
+      { id: 'streak_5', earned: totalAttCount >= 5, xpBonus: 150 }, // Simplified streak to 5+ classes
       { id: 'weekend_warrior', earned: isWeekendWarrior, xpBonus: 150 },
       { id: 'voice_tatame', earned: hasPosted, xpBonus: 100 },
-      { id: 'degree', earned: earnedDegree, xpBonus: 250 },
       { id: 'warrior', earned: totalAttCount >= 50, xpBonus: 500 },
       { id: 'centurion', earned: totalAttCount >= 100, xpBonus: 1000 },
       { id: 'casca_grossa', earned: totalAttCount >= 200, xpBonus: 2000 },
       { id: 'mestre', earned: totalAttCount >= 500, xpBonus: 5000 },
       { id: 'rato_tatame', earned: monthCount >= 25, xpBonus: 500 },
-      { id: 'black_belt', earned: graduatedToBlackBelt, xpBonus: 10000 },
-    ];
+    ].filter(b => b.earned).reduce((sum, b) => sum + b.xpBonus, 0);
 
-    let achXP = badges.filter(b => b.earned).reduce((sum, b) => sum + b.xpBonus, 0);
-
-    // Ranking Special Badges
+    // Custom & Ranking Badges
+    let customAchXP = 0;
     const rankingBadgeValues: Record<string, number> = {
       'rank_1': 1000, 'rank_2': 800, 'rank_3': 600, 'rank_4': 400, 'rank_5': 200
     };
+    
     if (student.achievements && Array.isArray(student.achievements)) {
       student.achievements.forEach((id: string) => {
-        if (rankingBadgeValues[id]) achXP += rankingBadgeValues[id];
+        if (rankingBadgeValues[id]) {
+          customAchXP += rankingBadgeValues[id];
+        } else {
+          // Find in adminAchievements if available
+          const customAch = adminAchievements.find(a => a.id === id);
+          if (customAch) {
+            customAchXP += (Number(customAch.xpBonus) || 0);
+          }
+        }
       });
     }
 
-    return (Number(student.extraXP) || 0) + (totalAttCount * xpPerClass) + achXP + rankingBonus;
-  }, []);
+    // Social XP from local storage/state (since we don't store it in DB yet, let's rely on student.extraXP for now)
+    // In a real app we'd have a socialXP field.
+    const socialXP = Number(student.socialXP) || 0;
+
+    const totalCalculated = (Number(student.extraXP) || 0) + attendanceXP + badgeXP + graduationXP + customAchXP + socialXP;
+    return Math.floor(totalCalculated * streakMultiplier) + rankingBonus;
+  }, [adminAchievements]);
 
   const loadRanking = useCallback(() => {
     if (!appId) return;
@@ -972,6 +952,7 @@ export default function Dashboard() {
         const rankInfantil: any[] = [];
         const rankXpAdulto: any[] = [];
         const rankXpInfantil: any[] = [];
+        const rankSocialAdulto: any[] = [];
         const rankAdultoLastMonth: any[] = [];
         const rankInfantilLastMonth: any[] = [];
 
@@ -1000,6 +981,7 @@ export default function Dashboard() {
             classes: monthCount,
             lastMonthClasses: lastMonthCount,
             xp: xp,
+            socialXP: data.socialXP || 0,
             level: level,
             photoBase64: data.photoBase64 || null
           };
@@ -1016,6 +998,7 @@ export default function Dashboard() {
             if (monthCount > 0) rankAdulto.push({...studentItem});
             if (lastMonthCount > 0) rankAdultoLastMonth.push({...studentItem, classes: lastMonthCount});
             rankXpAdulto.push(studentItem);
+            if ((data.socialXP || 0) > 0) rankSocialAdulto.push(studentItem);
           }
         });
 
@@ -1025,16 +1008,79 @@ export default function Dashboard() {
         rankInfantilLastMonth.sort((a,b) => b.classes - a.classes);
         rankXpAdulto.sort((a,b) => b.xp - a.xp);
         rankXpInfantil.sort((a,b) => b.xp - a.xp);
+        rankSocialAdulto.sort((a,b) => b.socialXP - a.socialXP);
 
         setRankingAdulto(rankAdulto.slice(0, 10));
         setRankingInfantil(rankInfantil.slice(0, 10));
         setLastMonthRankingAdulto(rankAdultoLastMonth.slice(0, 5));
         setLastMonthRankingInfantil(rankInfantilLastMonth.slice(0, 5));
-        setRankingXpAdulto(rankXpAdulto.slice(0, 10));
-        setRankingXpInfantil(rankXpInfantil.slice(0, 10));
+        setRankingXpAdulto(rankXpAdulto.slice(0, 20));
+        setRankingXpInfantil(rankXpInfantil.slice(0, 20));
+        setRankingSocialAdulto(rankSocialAdulto.slice(0, 10));
       });
     } catch(e) { console.error("Ranking error:", e); }
   }, [appId, calculateStudentXP]);
+
+  const awardSocialXP = async (amount: number, reason: string) => {
+    if (!currentUserData || !appId) return;
+    const currentSocialXP = Number(currentUserData.socialXP) || 0;
+    
+    // Check for daily cap to prevent spam (e.g. 50 XP per day)
+    const today = new Date().toISOString().split('T')[0];
+    const dailyKey = `socialXP_cap_${currentUserData.id}_${today}`;
+    const dailyEarned = Number(localStorage.getItem(dailyKey)) || 0;
+    
+    if (dailyEarned >= 50) return; // Cap reached
+
+    try {
+      const studentId = viewingDependentId || currentUserData.id;
+      const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
+      await updateDoc(ref, {
+        socialXP: increment(amount)
+      });
+      localStorage.setItem(dailyKey, (dailyEarned + amount).toString());
+      
+      // Also update local state for immediate feedback
+      if (viewingDependentId) {
+        setDependents(prev => prev.map(d => d.id === viewingDependentId ? { ...d, socialXP: (d.socialXP || 0) + amount } : d));
+      } else {
+        setCurrentUserData((prev: any) => ({ ...prev, socialXP: currentSocialXP + amount }));
+      }
+      
+      // Handle Quest progress for Social Quests
+      if (reason.toLowerCase().includes('curtida')) {
+        updateQuestProgress('social', 1);
+      } else if (reason.toLowerCase().includes('comentário')) {
+        updateQuestProgress('social', 1);
+      }
+
+    } catch (e) {
+      console.error("Erro ao conceder social XP:", e);
+    }
+  };
+
+  const updateQuestProgress = async (type: string, amount: number) => {
+    if (!currentUserData || !appId) return;
+    const studentId = viewingDependentId || currentUserData.id;
+    const questData = currentUserData.questProgress || {};
+    
+    // Simple update - for production this should ideally be handled via a clean quest state
+    // We'll just track generic progress for now
+    const newProgress = (questData[type] || 0) + amount;
+    
+    try {
+      const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
+      await updateDoc(ref, {
+        [`questProgress.${type}`]: newProgress
+      });
+      
+      if (viewingDependentId) {
+        setDependents(prev => prev.map(d => d.id === viewingDependentId ? { ...d, questProgress: { ...questData, [type]: newProgress } } : d));
+      } else {
+        setCurrentUserData((prev: any) => ({ ...prev, questProgress: { ...questData, [type]: newProgress } }));
+      }
+    } catch (e) {}
+  };
 
   const switchToDependent = async (depId: string) => {
     setViewingDependentId(depId);
@@ -1631,52 +1677,63 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                {/* Welcome Section */}
-              <div className="mb-8 flex justify-between items-end">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 shadow-md overflow-hidden flex-shrink-0 relative">
-                    {activeUserData?.photoBase64 ? (
-                      <>
-                        <img src={activeUserData.photoBase64} loading="lazy" className="w-full h-full object-cover" alt="Profile" />
-                      </>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400 text-2xl font-bold font-display">
-                        {firstName.charAt(0).toUpperCase()}
+                 {/* Welcome Section */}
+                 {(() => {
+                    const currentAura = VISUAL_TIERS.find(t => t.id === (activeUserData?.selectedVisualTier || 'none'))?.glow || '';
+                    return (
+                      <div className="mb-8 flex justify-between items-end">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 shadow-xl overflow-hidden flex-shrink-0 relative transition-all duration-500 unselectable ${currentAura}`}>
+                            {activeUserData?.photoBase64 ? (
+                              <img src={activeUserData.photoBase64} loading="lazy" className="w-full h-full object-cover" alt="Profile" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-400 text-2xl font-bold font-display">
+                                {firstName.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-gray-500 dark:text-gray-400 text-[10px] uppercase font-black tracking-[0.2em] mb-1">Bem-vindo(a) de volta,</p>
+                            <div className="flex items-center gap-2">
+                               <h1 className="text-3xl md:text-4xl font-display font-bold text-brand-dark dark:text-white leading-tight">{activeUserData?.nickname || activeUserData?.name || "Aluno"}</h1>
+                               <div className="bg-brand-red text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm border border-brand-red/30 italic">
+                                Nível {userLevel}
+                              </div>
+                            </div>
+                            {/* XP Progress Bar */}
+                            <div className="mt-3 w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden shadow-inner border border-black/5 dark:border-white/5">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${progress}%` }}
+                                className="h-full bg-gradient-to-r from-brand-red to-orange-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+                              />
+                            </div>
+                            <div className="flex justify-between mt-1">
+                              <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-none">Progresso {Math.round(progress)}%</span>
+                              <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-none">{userXP} / {xpForNextLevel} XP</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="hidden md:flex flex-col items-end gap-2">
+                          <div className="flex items-center gap-2">
+                            {VISUAL_TIERS.filter(t => t.id !== 'none' && userLevel >= t.minLevel).map(t => (
+                              <div key={t.id} title={`Desbloqueado: ${t.name}`} className="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center shadow-md border border-yellow-500 ring-2 ring-yellow-400/20">
+                                <Crown className="w-3 h-3 text-yellow-900" />
+                              </div>
+                            ))}
+                          </div>
+                          {!pushEnabled && (
+                            <button onClick={requestPushPermission} className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-4 py-2 rounded-full shadow-sm text-sm font-bold border border-blue-200 dark:border-blue-800 flex items-center transition">
+                              <Bell className="w-4 h-4 mr-2" /> Ativar Notificações
+                            </button>
+                          )}
+                          <span className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm text-sm font-bold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 flex items-center">
+                            <Calendar className="w-4 h-4 mr-2 text-brand-red" /> {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' }).toUpperCase()}
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm uppercase font-bold tracking-wider mb-1">Bem-vindo(a) de volta,</p>
-                    <div className="flex items-center gap-2">
-                       <h1 className="text-3xl md:text-4xl font-display font-bold text-brand-dark dark:text-white">{activeUserData?.nickname || activeUserData?.name || "Aluno"}</h1>
-                       <span className="bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        Nível {userLevel}
-                      </span>
-                    </div>
-                    {/* XP Progress Bar */}
-                    <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${progress}%` }}
-                        className="h-full bg-brand-red"
-                      />
-                    </div>
-                    <div className="flex justify-between mt-1">
-                      <span className="text-[9px] text-gray-500">XP: {userXP} / {xpForNextLevel}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="hidden md:flex items-center gap-3">
-                  {!pushEnabled && (
-                    <button onClick={requestPushPermission} className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 px-4 py-2 rounded-full shadow-sm text-sm font-bold border border-blue-200 dark:border-blue-800 flex items-center transition">
-                      <Bell className="w-4 h-4 mr-2" /> Ativar Notificações
-                    </button>
-                  )}
-                  <span className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm text-sm font-bold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 flex items-center">
-                    <Calendar className="w-4 h-4 mr-2 text-brand-red" /> {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' })}
-                  </span>
-                </div>
-              </div>
+                    );
+                 })()}
 
               {/* Check-in Button */}
               <div className="mb-8 no-print">
@@ -1806,6 +1863,63 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div className="lg:col-span-2 space-y-6">
+                  {/* Weekly Quests */}
+                  <div className="bg-gradient-to-br from-brand-dark to-gray-900 rounded-2xl shadow-xl p-6 text-white overflow-hidden relative border-b-4 border-brand-red">
+                    <div className="relative z-10">
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <h3 className="text-sm font-black uppercase tracking-[0.2em] text-brand-red mb-1">Missões Semanais</h3>
+                          <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Complete para ganhar bônus de XP</p>
+                        </div>
+                        <div className="bg-brand-red/20 border border-brand-red/40 px-3 py-1 rounded-full flex items-center gap-2">
+                          <Target className="w-3 h-3 text-brand-red" />
+                          <span className="text-[10px] font-black uppercase tracking-tighter">Temporada 01</span>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {WEEKLY_QUESTS.map(quest => {
+                          const progressValue = activeUserData?.questProgress?.[quest.type] || 0;
+                          const isDone = progressValue >= quest.goal;
+                          const pct = Math.min(100, (progressValue / quest.goal) * 100);
+                          
+                          return (
+                            <div key={quest.id} className={`p-4 rounded-xl border transition-all ${isDone ? 'bg-green-500/10 border-green-500/30' : 'bg-white/5 border-white/10'}`}>
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex gap-3">
+                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDone ? 'bg-green-500 text-white' : 'bg-brand-red/20 text-brand-red'}`}>
+                                    {quest.type === 'attendance' ? <Flame size={16} /> : <MessageSquare size={16} />}
+                                  </div>
+                                  <div>
+                                    <h4 className={`text-xs font-black uppercase tracking-tight ${isDone ? 'text-green-400' : 'text-white'}`}>{quest.title}</h4>
+                                    <p className="text-[9px] text-gray-400 font-bold uppercase mt-0.5">{quest.desc}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className={`text-[10px] font-black italic ${isDone ? 'text-green-500' : 'text-brand-red'}`}>+{quest.xp} XP</span>
+                                </div>
+                              </div>
+                              <div className="mt-3">
+                                <div className="flex justify-between text-[8px] font-black uppercase tracking-widest mb-1 text-gray-500">
+                                  <span>{isDone ? 'CONCLUÍDO' : 'EM PROGRESSO'}</span>
+                                  <span>{progressValue} / {quest.goal}</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${pct}%` }}
+                                    className={`h-full ${isDone ? 'bg-green-500' : 'bg-brand-red'}`}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <Target className="absolute -bottom-8 -right-8 w-32 h-32 text-white/5 -rotate-12" />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Belt Status */}
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-brand-red relative overflow-hidden flex flex-col justify-between">
@@ -1863,6 +1977,49 @@ export default function Dashboard() {
                             <Clock className="w-3 h-3 mr-1" /> Ver Histórico de Pagamentos
                           </button>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Visual Tier Selection */}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-yellow-500">
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <h3 className="text-gray-400 dark:text-gray-500 text-xs font-bold uppercase tracking-widest">Estilo Aura</h3>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase mt-1">Desbloqueado por Nível</p>
+                        </div>
+                        <Crown className="w-5 h-5 text-yellow-500" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-4">
+                        {VISUAL_TIERS.map(tier => {
+                          const isUnlocked = userLevel >= tier.minLevel;
+                          const isSelected = (activeUserData?.selectedVisualTier || 'none') === tier.id;
+                          
+                          return (
+                            <button
+                              key={tier.id}
+                              disabled={!isUnlocked}
+                              onClick={async () => {
+                                if (!isUnlocked) return;
+                                const studentId = viewingDependentId || currentUserData.id;
+                                const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
+                                await updateDoc(ref, { selectedVisualTier: tier.id });
+                                if (viewingDependentId) {
+                                   setDependents(prev => prev.map(d => d.id === viewingDependentId ? { ...d, selectedVisualTier: tier.id } : d));
+                                } else {
+                                   setCurrentUserData((prev: any) => ({ ...prev, selectedVisualTier: tier.id }));
+                                }
+                              }}
+                              className={`p-2 rounded-lg border text-[10px] font-black uppercase transition-all flex flex-col items-center gap-1 ${
+                                isSelected ? 'bg-yellow-400 text-yellow-900 border-yellow-500 ring-2 ring-yellow-400/50' : 
+                                isUnlocked ? 'bg-white dark:bg-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-yellow-400' : 
+                                'bg-gray-100 dark:bg-gray-900 text-gray-400 border-transparent cursor-not-allowed grayscale'
+                              }`}
+                            >
+                              {tier.name}
+                              {!isUnlocked && <span className="text-[8px] opacity-70">Nível {tier.minLevel}</span>}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1929,44 +2086,7 @@ export default function Dashboard() {
 
               {/* Ranking & Achievements */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 no-print">
-                {/* Ranking */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-t-4 border-brand-dark dark:border-gray-600 flex flex-col h-full">
-                  <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center shrink-0">
-                    <div>
-                      <h3 className="font-display text-xl font-bold text-brand-dark dark:text-white flex items-center gap-2"><Flame className="text-orange-500 w-5 h-5" /> Top 5 - Frequência</h3>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Os guerreiros que mais treinaram</p>
-                    </div>
-                    <span className="text-xs font-bold text-brand-dark dark:text-gray-200 bg-gray-200 dark:bg-gray-600 px-3 py-1 rounded-full uppercase tracking-wider shadow-inner">{monthNames[new Date().getMonth()]}</span>
-                  </div>
-                  <div className="p-0 flex-1 overflow-y-auto max-h-[300px]">
-                    <table className="w-full text-left text-sm">
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {displayRanking.length === 0 ? (
-                          <tr><td className="px-6 py-8 text-center text-gray-400 dark:text-gray-500 italic">Nenhum treino registrado este mês.</td></tr>
-                        ) : (
-                          displayRanking.map((s, idx) => (
-                            <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                              <td className="px-4 py-3 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  {idx === 0 ? <Medal className="text-yellow-500 w-6 h-6" /> : idx === 1 ? <Medal className="text-gray-400 w-6 h-6" /> : idx === 2 ? <Medal className="text-amber-600 w-6 h-6" /> : <span className="font-bold text-gray-500 w-6 inline-block text-center">{idx+1}º</span>}
-                                  <div>
-                                    <p className="font-bold text-gray-800 dark:text-gray-200">
-                                      {isAdmin ? (s.name || '').split(' ')[0] : (s.nickname || (s.name || '').split(' ')[0] || 'Aluno')}
-                                    </p>
-                                    <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">{(s.belt || 'Branca').split('-')[0].replace('Faixa ', '').trim()}</p>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <span className="bg-brand-red text-white text-xs font-bold px-2 py-1 rounded shadow-sm">{s.classes}</span>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+
 
                 {/* Unified Activity & XP History */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-8 border-t-4 border-brand-red overflow-hidden">
@@ -2090,7 +2210,14 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                <Feed currentUserData={currentUserData} appId={appId} showAlert={showAlert} showConfirm={showConfirm} isAdmin={isAdmin} />
+                <Feed 
+                  currentUserData={currentUserData} 
+                  appId={appId} 
+                  showAlert={showAlert} 
+                  showConfirm={showConfirm} 
+                  isAdmin={isAdmin} 
+                  onAwardXP={awardSocialXP}
+                />
               </motion.div>
             )}
 
@@ -2104,31 +2231,44 @@ export default function Dashboard() {
                 transition={{ duration: 0.3 }}
                 className="space-y-8"
               >
-                {(isAdmin || !(activeUserData?.plan || '').toLowerCase().includes('infantil')) && (
-                  <Ranking 
-                    currentUserData={activeUserData} 
-                    ranking={rankingTab === 'presence' ? rankingAdulto : rankingXpAdulto} 
-                    lastMonthRanking={lastMonthRankingAdulto}
-                    isAdmin={isAdmin} 
-                    activeTab={rankingTab}
-                    onTabChange={setRankingTab}
-                    title={rankingTab === 'presence' ? "Ranking Adulto / Geral" : "Mestres da Técnica (Adulto)"}
-                    subtitle={rankingTab === 'presence' ? "Os 10 guerreiros que mais treinaram neste mês." : "Ranking geral de XP acumulado."}
-                  />
-                )}
-                
-                {(isAdmin || (activeUserData?.plan || '').toLowerCase().includes('infantil')) && (
-                  <Ranking 
-                    currentUserData={activeUserData} 
-                    ranking={rankingTab === 'presence' ? rankingInfantil : rankingXpInfantil} 
-                    lastMonthRanking={lastMonthRankingInfantil}
-                    isAdmin={isAdmin} 
-                    activeTab={rankingTab}
-                    onTabChange={setRankingTab}
-                    title={rankingTab === 'presence' ? "Ranking Infantil" : "Pequenos Samurais (Infantil)"}
-                    subtitle={rankingTab === 'presence' ? "Os 10 pequenos guerreiros que mais treinaram neste mês." : "Ranking infantil de XP acumulado."}
-                  />
-                )}
+                 <RankingBento 
+                    rankings={{
+                      xpAdulto: rankingXpAdulto,
+                      presenceAdulto: rankingAdulto,
+                      socialAdulto: rankingSocialAdulto,
+                      xpInfantil: rankingXpInfantil
+                    }}
+                    currentUserData={activeUserData}
+                    isAdmin={isAdmin}
+                 />
+                 
+                 <div className="pt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {(isAdmin || !(activeUserData?.plan || '').toLowerCase().includes('infantil')) && (
+                      <Ranking 
+                        currentUserData={activeUserData} 
+                        ranking={rankingTab === 'presence' ? rankingAdulto : rankingXpAdulto} 
+                        lastMonthRanking={lastMonthRankingAdulto}
+                        isAdmin={isAdmin} 
+                        activeTab={rankingTab}
+                        onTabChange={setRankingTab}
+                        title={rankingTab === 'presence' ? "Ranking Adulto / Geral" : "Mestres da Técnica (Adulto)"}
+                        subtitle={rankingTab === 'presence' ? "Os 10 guerreiros que mais treinaram neste mês." : "Ranking geral de XP acumulado."}
+                      />
+                    )}
+                    
+                    {(isAdmin || (activeUserData?.plan || '').toLowerCase().includes('infantil')) && (
+                      <Ranking 
+                        currentUserData={activeUserData} 
+                        ranking={rankingTab === 'presence' ? rankingInfantil : rankingXpInfantil} 
+                        lastMonthRanking={lastMonthRankingInfantil}
+                        isAdmin={isAdmin} 
+                        activeTab={rankingTab}
+                        onTabChange={setRankingTab}
+                        title={rankingTab === 'presence' ? "Ranking Infantil" : "Pequenos Samurais (Infantil)"}
+                        subtitle={rankingTab === 'presence' ? "Os 10 pequenos guerreiros que mais treinaram neste mês." : "Ranking infantil de XP acumulado."}
+                      />
+                    )}
+                 </div>
                 <RankingManual />
               </motion.div>
             )}

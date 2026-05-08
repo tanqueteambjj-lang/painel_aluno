@@ -16,7 +16,9 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
   };
 
   const formatDisplayName = (student: any) => {
-    if (isAdmin) return student.name || 'Aluno';
+    if (isAdmin) {
+      return student.nickname ? `${student.name} (${student.nickname})` : (student.name || 'Aluno');
+    }
     if (student.nickname) return student.nickname;
     const name = student.name || 'Aluno';
     const parts = name.trim().split(/\s+/);

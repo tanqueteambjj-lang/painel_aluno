@@ -26,7 +26,7 @@ const parseDateString = (dateStr: any) => {
   return new Date(dateStr);
 };
 
-export default function Feed({ currentUserData, appId, showAlert, showConfirm, isAdmin }: any) {
+export default function Feed({ currentUserData, appId, showAlert, showConfirm, isAdmin, onAwardXP }: any) {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
@@ -213,6 +213,9 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm, i
           };
       
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feed', postId), updateQuery);
+      if (!hasLiked && onAwardXP) {
+        onAwardXP(5, 'Curtida no Feed');
+      }
     } catch (e) {
       console.error("Erro ao dar like:", e);
     }
@@ -234,6 +237,9 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm, i
         comments: arrayUnion(newComment)
       });
       setCommentText("");
+      if (onAwardXP) {
+        onAwardXP(10, 'Comentário no Feed');
+      }
     } catch (e) {
       console.error("Erro ao enviar comentário", e);
     }
@@ -485,7 +491,11 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm, i
                         <div key={comment.id} className="flex gap-2">
                            <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 mt-0.5 border border-gray-200 dark:border-gray-600 overflow-hidden">
                             {comment.authorPhoto ? (
-                              <img src={comment.authorPhoto} className="w-full h-full object-cover" />
+                              <img 
+                                src={comment.authorPhoto} 
+                                className="w-full h-full object-cover" 
+                                referrerPolicy="no-referrer"
+                              />
                             ) : (
                               comment.authorName.charAt(0).toUpperCase()
                             )}

@@ -26,53 +26,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     'Clock': Clock, 'Users': Users, 'Camera': Camera, 'MessageSquare': MessageSquare
   };
 
-  const syncNovaFaixaXP = async () => {
-    showConfirm("Sincronizar XP", "Isso removerá 500 XP de todos os alunos que possuem a conquista 'Nova Faixa' bloqueada (concedida antes de 06/05/2026). Deseja continuar?", async () => {
-      try {
-        let count = 0;
-        const xpToRemove = 500;
-        const LOCK_DATE = '2026-05-06';
-
-        for (const student of allStudents) {
-          const hasNewBeltAch = (student.achievements || []).includes('new_belt');
-          const progressLog = Array.isArray(student.progressLog) ? student.progressLog : [];
-          
-          // Check if they have a belt graduation BEFORE lock date
-          const hasOldBeltGrad = progressLog.some((log: any) => 
-            log.type === 'graduation' && 
-            !log.isInitialRank && 
-            (log.date || '') <= LOCK_DATE &&
-            log.text && !log.text.match(/[1-9]º Grau/)
-          );
-
-          if (hasNewBeltAch || hasOldBeltGrad) {
-            const updates: any = {};
-            // Remove the achievement ID if it exists
-            updates.achievements = (student.achievements || []).filter((id: string) => id !== 'new_belt');
-            
-            // Filter XP Log to remove "Nova Faixa" entries
-            const oldLog = Array.isArray(student.xpLog) ? student.xpLog : [];
-            const newLog = oldLog.filter((log: any) => !log.reason?.includes('Nova Faixa'));
-            
-            if (newLog.length < oldLog.length) {
-               updates.xpLog = newLog;
-               const currentExtraXP = Number(student.extraXP) || 0;
-               updates.extraXP = Math.max(0, currentExtraXP - xpToRemove);
-               
-               await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), updates);
-               count++;
-            }
-          }
-        }
-        showAlert("Sucesso", `${count} alunos tiveram o XP de Nova Faixa corrigido.`, "success");
-        // Reload or update local state would be ideal here... simplest is just letting them know.
-      } catch (e) {
-        console.error(e);
-        showAlert("Erro", "Falha ao sincronizar XP.", "error");
-      }
-    });
-  };
-  
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [viewingXPHistoryStudent, setViewingXPHistoryStudent] = useState<any | null>(null);
   const [newStudentData, setNewStudentData] = useState({
@@ -1426,13 +1379,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     <p className="text-sm text-gray-400">Crie medalhas personalizadas para seus alunos.</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button 
-                      onClick={syncNovaFaixaXP}
-                      className="flex items-center gap-2 bg-amber-50 text-amber-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-amber-100 transition border border-amber-200"
-                      title="Sincronizar XP (Remover Nova Faixa retroativo)"
-                    >
-                      <RotateCcw size={16} /> Corrigir XP Faixas
-                    </button>
+
                     <button 
                       onClick={() => setIsAddingAchievement(!isAddingAchievement)}
                       className="bg-brand-red text-white p-2 rounded-lg shadow-md hover:bg-red-700 transition"
@@ -1588,16 +1535,43 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       <div className="flex flex-col gap-2 w-full max-w-md">
                         {/* XP Penalty/Bonus Section */}
                         <div className="flex items-center gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                          <TrendingDown size={16} className="text-brand-red" />
+                          <div className="flex flex-col gap-1 items-center px-1 border-r border-gray-200 dark:border-gray-700 pr-2">
+                             <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg">
+                               <button 
+                                 id={`bonus-${s.id}`}
+                                 onClick={() => {
+                                   document.getElementById(`bonus-${s.id}`)?.classList.add('bg-white', 'text-green-600');
+                                   document.getElementById(`bonus-${s.id}`)?.classList.remove('text-gray-400');
+                                   document.getElementById(`penalty-${s.id}`)?.classList.remove('bg-white', 'text-red-500');
+                                   document.getElementById(`penalty-${s.id}`)?.classList.add('text-gray-400');
+                                 }}
+                                 className="px-2 py-0.5 rounded-md text-[8px] font-bold bg-white text-green-600 shadow-sm transition-all"
+                               >Bônus</button>
+                               <button 
+                                 id={`penalty-${s.id}`}
+                                 onClick={() => {
+                                   document.getElementById(`penalty-${s.id}`)?.classList.add('bg-white', 'text-red-500');
+                                   document.getElementById(`penalty-${s.id}`)?.classList.remove('text-gray-400');
+                                   document.getElementById(`bonus-${s.id}`)?.classList.remove('bg-white', 'text-green-600');
+                                   document.getElementById(`bonus-${s.id}`)?.classList.add('text-gray-400');
+                                 }}
+                                 className="px-2 py-0.5 rounded-md text-[8px] font-bold text-gray-400 hover:text-red-500 transition-all"
+                               >Penalidade</button>
+                             </div>
+                          </div>
                           <input 
                             type="number" 
-                            placeholder="Penalidade/Extra XP" 
+                            placeholder="Valor" 
                             className="bg-transparent text-sm font-bold w-full outline-none dark:text-white"
                             onKeyDown={async (e) => {
                               if (e.key === 'Enter') {
-                                const val = parseInt((e.target as HTMLInputElement).value);
+                                let val = Math.abs(parseInt((e.target as HTMLInputElement).value));
                                 if (isNaN(val)) return;
-                                const reason = prompt("Motivo da penalidade/abono:");
+                                
+                                const isPenalty = document.getElementById(`penalty-${s.id}`)?.classList.contains('bg-white');
+                                if (isPenalty) val = -val;
+
+                                const reason = prompt(val < 0 ? "Motivo da penalidade:" : "Motivo do bônus:");
                                 if (reason) {
                                   await addExtraXP(s.id, val, reason);
                                   (e.target as HTMLInputElement).value = '';
@@ -1605,7 +1579,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                               }
                             }}
                           />
-                          <p className="text-[8px] text-gray-400 font-bold uppercase whitespace-nowrap">Enter para aplicar</p>
+                          <p className="text-[8px] text-gray-400 font-bold uppercase whitespace-nowrap">Enter</p>
                         </div>
 
                         {/* Achievements Display and Toggle */}
@@ -1909,6 +1883,41 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   }
                   
                   // Sort and limit to 10
+                  history.sort((a, b) => {
+                    const parseDate = (d: any) => {
+                       if (!d || typeof d !== 'string') return 0;
+                       if (d.includes('/')) {
+                         const p = d.split('/');
+                         return new Date(`${p[2]}-${p[1]}-${p[0]}T12:00:00`).getTime();
+                       }
+                       return new Date(d.includes('T') ? d : `${d}T12:00:00`).getTime();
+                    };
+                    return parseDate(b.date) - parseDate(a.date);
+                  });
+
+                  // Add System achievements if possible (mocking date as updatedAt)
+                  const totalAtt = Array.isArray(student.attendance) ? student.attendance.length : 0;
+                  const systemBadges = [
+                    { id: 'first_class', earned: totalAtt >= 1, xpBonus: 100, name: "Primeiro Treino" },
+                    { id: 'beginner', earned: totalAtt >= 12, xpBonus: 200, name: "Iniciante" },
+                    { id: 'warrior', earned: totalAtt >= 50, xpBonus: 500, name: "Guerreiro" },
+                    { id: 'centurion', earned: totalAtt >= 100, xpBonus: 1000, name: "Centurião" },
+                    { id: 'casca_grossa', earned: totalAtt >= 200, xpBonus: 2000, name: "Casca Grossa" },
+                    { id: 'mestre', earned: totalAtt >= 500, xpBonus: 5000, name: "Mestre" },
+                  ];
+
+                  systemBadges.forEach(b => {
+                    if (b.earned) {
+                      history.push({
+                        date: student.updatedAt || new Date().toISOString(),
+                        amount: b.xpBonus,
+                        reason: `${b.name} (Auto)`,
+                        type: 'achievement'
+                      });
+                    }
+                  });
+
+                  // Re-sort after adding system badges
                   history.sort((a, b) => {
                     const parseDate = (d: any) => {
                        if (!d || typeof d !== 'string') return 0;

@@ -195,17 +195,17 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
                         {userData.belt || "Faixa Branca"}
                       </span>
                     </div>
-                    
-                    <div className="flex flex-col">
-                      <span className="text-[8px] sm:text-[9px] text-zinc-400 uppercase font-bold tracking-widest">Plano</span>
-                      <span className="text-xs sm:text-sm text-zinc-100 font-bold uppercase truncate">{planShort}</span>
-                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer / QR Code */}
               <div className="bg-gradient-to-b from-zinc-100 to-white p-5 flex flex-col items-center justify-center relative z-10 border-t border-zinc-200 gap-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[9px] bg-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full font-black uppercase tracking-widest border border-zinc-700 shadow-sm">
+                    {planShort}
+                  </span>
+                </div>
                 <div className="bg-white p-3 rounded-xl shadow-md border border-gray-200">
                   {isBlocked ? (
                     <div className="flex flex-col items-center justify-center w-[160px] h-[160px] sm:w-[180px] sm:h-[180px] text-center bg-red-50 rounded-lg p-4">
