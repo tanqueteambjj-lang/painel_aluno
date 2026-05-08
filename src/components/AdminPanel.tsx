@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, Cake, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, Cake, ZoomIn, ZoomOut, RotateCcw, ThumbsUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1942,7 +1942,21 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     });
                   }
                   
-                  // Manual Logs
+                  // Graduations
+                  if (Array.isArray(student.progressLog)) {
+                    student.progressLog.forEach((log: any) => {
+                      if (log.type === 'graduation' && !log.isInitialRank) {
+                        history.push({
+                          date: log.date,
+                          amount: 1000,
+                          reason: `Graduação: ${log.text}`,
+                          type: 'graduation'
+                        });
+                      }
+                    });
+                  }
+
+                  // Manual Logs (Extra XP, Social XP, Quests)
                   if (Array.isArray(student.xpLog)) {
                     student.xpLog.forEach((log: any) => history.push(log));
                   }

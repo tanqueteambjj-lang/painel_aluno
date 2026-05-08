@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot, increment } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot, increment, arrayUnion } from 'firebase/firestore';
 import Login from '@/components/Login';
 import Sidebar from '@/components/Sidebar';
 import QrModal from '@/components/QrModal';
@@ -14,7 +14,7 @@ import Finance from '@/components/Finance';
 import Ranking, { RankingManual } from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox, Pin, Cake, TrendingUp } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Bell, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Inbox, Pin, Cake, TrendingUp, ThumbsUp } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -45,8 +45,8 @@ const PLAN_DICT: Record<string, { price: number, short: string }> = {
 
 const WEEKLY_QUESTS = [
   { id: 'q_train_3', title: 'Guerreiro da Semana', desc: 'Treine 3 vezes nesta semana', goal: 3, xp: 250, type: 'attendance' },
-  { id: 'q_social_5', title: 'Influenciador do Tatame', desc: 'Curta 5 posts no Feed', goal: 5, xp: 100, type: 'social' },
-  { id: 'q_comment_2', title: 'Crítico de Lutas', desc: 'Comente em 2 posts no Feed', goal: 2, xp: 150, type: 'social' },
+  { id: 'q_social_5', title: 'Influenciador do Tatame', desc: 'Curta 5 posts no Feed', goal: 5, xp: 100, type: 'social_likes' },
+  { id: 'q_comment_2', title: 'Crítico de Lutas', desc: 'Comente em 2 posts no Feed', goal: 2, xp: 150, type: 'social_comments' },
   { id: 'q_weekend', title: 'Samurai do Sábado', desc: 'Treine em um final de semana', goal: 1, xp: 200, type: 'weekend' },
 ];
 
@@ -95,6 +95,7 @@ export default function Dashboard() {
 
   const [sharingBadge, setSharingBadge] = useState<any>(null);
   const [shareMessage, setShareMessage] = useState("");
+  const prevAttendanceCount = useRef(0);
   const [isSharing, setIsSharing] = useState(false);
   const isSharingRef = useRef(false);
 
@@ -103,7 +104,6 @@ export default function Dashboard() {
   const [toastState, setToastState] = useState({ isOpen: false, message: '', type: 'success' as AlertType });
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [loadingText, setLoadingText] = useState("Iniciando...");
 
   const showToast = (message: string, type: AlertType = 'success') => {
     setToastState({ isOpen: true, message, type });
@@ -116,6 +116,54 @@ export default function Dashboard() {
   
   const listenersRef = useRef<{ notices?: any, feed?: any, student?: any, notifications?: any, bookings?: any }>({});
   const initialLoadRef = useRef(true);
+
+  const getPlanInfoFromData = (data: any) => {
+    const rawPlanKey = data?.plan || 'N/A';
+    const basePlanName = rawPlanKey.split(' - R$')[0].trim();
+    const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return { planKey, basePlanName, planInfo: PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined } };
+  };
+
+  const activeUserData = impersonatedStudent || currentUserData;
+  const { planKey, planInfo } = getPlanInfoFromData(activeUserData);
+  
+  // Real Admin status (always based on the logged-in user)
+  const { planKey: realUserPlanKey } = getPlanInfoFromData(currentUserData);
+  const isRealAdmin = currentUserData?.role === 'admin' || realUserPlanKey === 'administracao';
+  const isAdmin = isRealAdmin;
+
+  const totalAtt = activeUserData?.attendance ? activeUserData.attendance.length : 0;
+  
+  const [prevLevel, setPrevLevel] = useState(0);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const lastViewedIdRef = useRef<string | null>(null);
+
+  // Sync prevAttendanceCount
+  useEffect(() => {
+    if (activeUserData?.attendance) {
+      prevAttendanceCount.current = activeUserData.attendance.length;
+    }
+  }, [activeUserData?.id]);
+
+  // Watch for attendance changes to update quests
+  useEffect(() => {
+    if (!activeUserData || !activeUserData.attendance || !appId) return;
+    const attCount = activeUserData.attendance.length;
+    const pCount = prevAttendanceCount.current;
+    
+    if (attCount > pCount) {
+      updateQuestProgress('attendance', 1);
+      try {
+        const lastDate = activeUserData.attendance[attCount - 1];
+        const dateObj = new Date(lastDate + 'T12:00:00');
+        const day = dateObj.getDay();
+        if (day === 0 || day === 6) updateQuestProgress('weekend', 1);
+      } catch (e) {
+        console.error("Error checking weekend quest:", e);
+      }
+    }
+    prevAttendanceCount.current = attCount;
+  }, [activeUserData?.attendance?.length]);
 
   const loadNotifications = (studentId: string) => {
     try {
@@ -806,7 +854,64 @@ export default function Dashboard() {
       });
     }
 
-    // 3. Progress Log (Graduations)
+    // 3. Social XP (Summary if not logged individually)
+    if (Number(student.socialXP) > 0 && !history.some(h => h.reason.includes('XP Social'))) {
+      history.push({
+        date: new Date().toISOString(),
+        amount: Number(student.socialXP),
+        reason: 'XP Social Acumulado',
+        type: 'social'
+      });
+    }
+
+    // 4. Badges & Achievements (On-the-fly calculated from calculateStudentXP logic)
+    const attendance = Array.isArray(student.attendance) ? student.attendance : [];
+    const totalAttCount = attendance.length;
+    
+    // System Badges mapping (simplified for history)
+    const systemBadges = [
+      { id: 'first_class', earned: totalAttCount >= 1, name: "Primeiro Treino", xp: 100 },
+      { id: 'beginner', earned: totalAttCount >= 12, name: "Iniciante", xp: 200 },
+      { id: 'streak_5', earned: totalAttCount >= 5, name: "Sequência Quente", xp: 150 },
+      { id: 'warrior', earned: totalAttCount >= 50, name: "Guerreiro", xp: 500 },
+      { id: 'centurion', earned: totalAttCount >= 100, name: "Centurião", xp: 1000 },
+      { id: 'casca_grossa', earned: totalAttCount >= 200, name: "Casca Grossa", xp: 2000 },
+      { id: 'mestre', earned: totalAttCount >= 500, name: "Mestre dos Tatames", xp: 5000 },
+    ];
+
+    systemBadges.forEach(b => {
+      if (b.earned) {
+        history.push({
+          date: student.attendance?.[b.id === 'first_class' ? 0 : 
+                       b.id === 'beginner' ? 11 : 
+                       b.id === 'streak_5' ? 4 : 
+                       b.id === 'warrior' ? 49 : 
+                       b.id === 'centurion' ? 99 : 
+                       b.id === 'casca_grossa' ? 199 : 
+                       b.id === 'mestre' ? 499 : 0] || '',
+          amount: b.xp,
+          reason: `Conquista: ${b.name}`,
+          type: 'achievement'
+        });
+      }
+    });
+
+    // Custom achievements
+    if (student.achievements && Array.isArray(student.achievements)) {
+      student.achievements.forEach((id: string) => {
+        const customAch = customAchievements.find(a => a.id === id);
+        if (customAch) {
+          history.push({
+            date: '', // No date available usually
+            amount: Number(customAch.xpBonus) || 200,
+            reason: `Conquista: ${customAch.name}`,
+            type: 'achievement'
+          });
+        }
+      });
+    }
+
+    // 5. Progress Log (Graduations)
     if (Array.isArray(student.progressLog)) {
       student.progressLog.forEach((log: any) => {
         if (log && log.type === 'graduation' && !log.isInitialRank) {
@@ -880,7 +985,7 @@ export default function Dashboard() {
     const streakMultiplier = Math.min(1.25, 1 + (Math.floor(streakWeeks / 4) * 0.05));
 
     // Graduation Rewards
-    let graduationXP = 0;
+    const graduationXP = 0;
     // Removed XP for graduations per user request
 
     // System Badges
@@ -1013,7 +1118,6 @@ export default function Dashboard() {
 
   const awardSocialXP = async (amount: number, reason: string) => {
     if (!currentUserData || !appId) return;
-    const currentSocialXP = Number(currentUserData.socialXP) || 0;
     
     // Check for daily cap to prevent spam (e.g. 50 XP per day)
     const today = new Date().toISOString().split('T')[0];
@@ -1025,23 +1129,41 @@ export default function Dashboard() {
     try {
       const studentId = viewingDependentId || currentUserData.id;
       const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
+      
+      const xpLogEntry = {
+        date: new Date().toISOString(),
+        amount: amount,
+        reason: reason,
+        type: 'social'
+      };
+
       await updateDoc(ref, {
-        socialXP: increment(amount)
+        socialXP: increment(amount),
+        xpLog: arrayUnion(xpLogEntry)
       });
+      
       localStorage.setItem(dailyKey, (dailyEarned + amount).toString());
       
       // Also update local state for immediate feedback
       if (viewingDependentId) {
-        setDependents(prev => prev.map(d => d.id === viewingDependentId ? { ...d, socialXP: (d.socialXP || 0) + amount } : d));
+        setDependents(prev => prev.map(d => d.id === viewingDependentId ? { 
+          ...d, 
+          socialXP: (d.socialXP || 0) + amount,
+          xpLog: [...(d.xpLog || []), xpLogEntry]
+        } : d));
       } else {
-        setCurrentUserData((prev: any) => ({ ...prev, socialXP: currentSocialXP + amount }));
+        setCurrentUserData((prev: any) => ({ 
+          ...prev, 
+          socialXP: (prev.socialXP || 0) + amount,
+          xpLog: [...(prev.xpLog || []), xpLogEntry]
+        }));
       }
       
       // Handle Quest progress for Social Quests
       if (reason.toLowerCase().includes('curtida')) {
-        updateQuestProgress('social', 1);
+        updateQuestProgress('social_likes', 1);
       } else if (reason.toLowerCase().includes('comentário')) {
-        updateQuestProgress('social', 1);
+        updateQuestProgress('social_comments', 1);
       }
 
     } catch (e) {
@@ -1054,20 +1176,51 @@ export default function Dashboard() {
     const studentId = viewingDependentId || currentUserData.id;
     const questData = currentUserData.questProgress || {};
     
-    // Simple update - for production this should ideally be handled via a clean quest state
-    // We'll just track generic progress for now
     const newProgress = (questData[type] || 0) + amount;
     
     try {
       const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId);
-      await updateDoc(ref, {
+      const updates: any = {
         [`questProgress.${type}`]: newProgress
-      });
+      };
+
+      // Check if any quest of this type is completed
+      // We look at WEEKLY_QUESTS and check if newProgress just hit the goal
+      const questsToComplete = WEEKLY_QUESTS.filter(q => q.type === type && newProgress >= q.goal && (questData[type] || 0) < q.goal);
+      
+      if (questsToComplete.length > 0) {
+        questsToComplete.forEach(q => {
+          const xpEntry = {
+            date: new Date().toISOString(),
+            amount: q.xp,
+            reason: `Missão: ${q.title}`,
+            type: 'quest'
+          };
+          
+          if (!updates.xpLog) updates.xpLog = arrayUnion(xpEntry);
+          else updates.xpLog = [...updates.xpLog, xpEntry];
+          
+          updates.extraXP = increment(q.xp);
+          
+          // Show alert for quest completion
+          showAlert("Missão Concluída!", `Você completou '${q.title}' e ganhou ${q.xp} XP!`, "success");
+        });
+      }
+
+      await updateDoc(ref, updates);
       
       if (viewingDependentId) {
-        setDependents(prev => prev.map(d => d.id === viewingDependentId ? { ...d, questProgress: { ...questData, [type]: newProgress } } : d));
+        setDependents(prev => prev.map(d => d.id === viewingDependentId ? { 
+          ...d, 
+          questProgress: { ...questData, [type]: newProgress },
+          extraXP: (d.extraXP || 0) + questsToComplete.reduce((sum, q) => sum + q.xp, 0)
+        } : d));
       } else {
-        setCurrentUserData((prev: any) => ({ ...prev, questProgress: { ...questData, [type]: newProgress } }));
+        setCurrentUserData((prev: any) => ({ 
+          ...prev, 
+          questProgress: { ...questData, [type]: newProgress },
+          extraXP: (prev.extraXP || 0) + questsToComplete.reduce((sum, q) => sum + q.xp, 0)
+        }));
       }
     } catch (e) {
       console.error("Error updating progress:", e);
@@ -1166,24 +1319,6 @@ export default function Dashboard() {
     return null;
   };
 
-  // Extract base plan name if it contains " - R$"
-  const getPlanInfoFromData = (data: any) => {
-    const rawPlanKey = data?.plan || 'N/A';
-    const basePlanName = rawPlanKey.split(' - R$')[0].trim();
-    const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return { planKey, basePlanName, planInfo: PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined } };
-  };
-
-  const activeUserData = impersonatedStudent || currentUserData;
-  const { planKey, basePlanName, planInfo } = getPlanInfoFromData(activeUserData);
-  
-  // Real Admin status (always based on the logged-in user)
-  const { planKey: realUserPlanKey } = getPlanInfoFromData(currentUserData);
-  const isRealAdmin = currentUserData?.role === 'admin' || realUserPlanKey === 'administracao';
-  
-  // Display Admin (may change if viewing as student, used for UI context)
-  const isAdmin = isRealAdmin;
-  
   // XP e Nível
 
   // Bônus de XP por Ranking (Top 5 Presença Mensal)
@@ -1198,7 +1333,6 @@ export default function Dashboard() {
   };
 
   const rankingBonusXP = getRankingBonus();
-  const totalAtt = activeUserData?.attendance ? activeUserData.attendance.length : 0;
   
   const computeMonthAttCount = () => {
     if (!activeUserData) return 0;
@@ -1346,15 +1480,12 @@ export default function Dashboard() {
     });
   };
 
-  const earnedBadgesCalculated = computeAchievementsList(activeUserData, totalAtt, currentMonthAttCount);
-  const earnedBadgesXP = earnedBadgesCalculated.filter(b => b.earned).reduce((total, b: any) => total + (b.xpBonus || 100), 0);
-
+  const earnedBadges = computeAchievementsList(activeUserData, totalAtt, currentMonthAttCount);
   const userXP = activeUserData ? calculateStudentXP(activeUserData, rankingBonusXP) : 0;
   const userLevel = Math.floor(Math.sqrt(userXP / 100)) + 1;
   const firstName = activeUserData ? (activeUserData.nickname || activeUserData.name || "Aluno").split(' ')[0] : "Aluno";
   const xpForNextLevel = Math.max(1, Math.pow(userLevel, 2) * 100);
   const progress = Math.min(100, Math.max(0, (userXP / xpForNextLevel) * 100));
-  const earnedBadges = earnedBadgesCalculated;
 
   const calendarDaysList = [];
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -1386,10 +1517,9 @@ export default function Dashboard() {
   const displayRanking = isInfantilPlan ? rankingInfantil : rankingAdulto;
   const recentGrad = activeUserData ? checkForRecentGraduation(activeUserData.progressLog, activeUserData.belt || "Faixa Branca - 0º Grau") : null;
 
-  const [prevLevel, setPrevLevel] = useState(userLevel);
-  const [showLevelUp, setShowLevelUp] = useState(false);
-  const lastViewedIdRef = useRef<string | null>(activeUserData?.id || null);
+  // Level effects moved to top
 
+  // Watch for rank/level changes
   useEffect(() => {
     if (!appId || !db) return;
     const unsub = loadRanking();
@@ -1398,6 +1528,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!activeUserData || !db || !appId) return;
+    const userXP = calculateStudentXP(activeUserData);
+    const userLevel = Math.floor(Math.sqrt(userXP / 100)) + 1;
     
     // Reset reference level silently if we switched users
     if (activeUserData.id !== lastViewedIdRef.current) {
@@ -1422,15 +1554,13 @@ export default function Dashboard() {
       }
       
       confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
+        particleCount: 150, spread: 70, origin: { y: 0.6 },
         colors: ['#EF4444', '#000000', '#FFFFFF']
       });
     } else if (userLevel < prevLevel && userLevel > 0) {
        setPrevLevel(userLevel);
     }
-  }, [userLevel, prevLevel, activeUserData, appId]);
+  }, [activeUserData?.attendance?.length, activeUserData?.id, appId]);
 
   if (authError) {
     return (
@@ -1688,21 +1818,51 @@ export default function Dashboard() {
                             <p className="text-gray-500 dark:text-gray-400 text-[10px] uppercase font-black tracking-[0.2em] mb-1">Bem-vindo(a) de volta,</p>
                             <div className="flex items-center gap-2">
                                <h1 className="text-3xl md:text-4xl font-display font-bold text-brand-dark dark:text-white leading-tight">{activeUserData?.nickname || activeUserData?.name || "Aluno"}</h1>
-                               <div className="bg-brand-red text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm border border-brand-red/30 italic">
-                                Nível {userLevel}
+                               <div className="relative group cursor-help">
+                                 <div className="absolute -inset-1 bg-gradient-to-r from-brand-red to-orange-500 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
+                                 <div className="relative bg-brand-red text-white text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-tighter shadow-xl border border-brand-red/30 italic flex items-center gap-1.5 ring-2 ring-white/20 dark:ring-black/20">
+                                  <Zap className="w-3 h-3 text-yellow-300 fill-yellow-300" />
+                                  Nível {userLevel}
+                                </div>
                               </div>
                             </div>
                             {/* XP Progress Bar */}
-                            <div className="mt-3 w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden shadow-inner border border-black/5 dark:border-white/5">
+                            <div className="mt-5 w-full h-6 bg-gray-100 dark:bg-gray-800/50 rounded-2xl p-1 shadow-inner relative border border-gray-200 dark:border-gray-700/50 overflow-hidden">
+                              <div className="absolute inset-x-0 top-0 h-[1px] bg-white/20 z-10" />
                               <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progress}%` }}
-                                className="h-full bg-gradient-to-r from-brand-red to-orange-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
-                              />
+                                transition={{ duration: 1.5, ease: "circOut" }}
+                                className="h-full bg-gradient-to-r from-brand-red via-red-500 to-orange-400 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.3)] relative group overflow-hidden"
+                              >
+                                <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:30px_30px] animate-[progress-shine_2s_linear_infinite]" />
+                                <motion.div 
+                                  initial={{ x: '-100%' }}
+                                  animate={{ x: '100%' }}
+                                  transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+                                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-1/2"
+                                />
+                              </motion.div>
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-[10px] font-black text-brand-dark dark:text-white uppercase tracking-[0.2em] mix-blend-difference opacity-50">
+                                  {Math.round(progress)}%
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex justify-between mt-1">
-                              <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-none">Progresso {Math.round(progress)}%</span>
-                              <span className="text-[9px] text-gray-400 font-black uppercase tracking-widest leading-none">{userXP} / {xpForNextLevel} XP</span>
+                            <div className="flex justify-between mt-2 px-1">
+                              <div className="flex items-center gap-2">
+                                <div className="flex -space-x-1">
+                                  {[...Array(3)].map((_, i) => (
+                                    <div key={i} className="w-2 h-2 rounded-full bg-brand-red/40 animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+                                  ))}
+                                </div>
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-black uppercase tracking-widest">{Math.round(progress)}% Progressão</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-sm font-display font-black text-brand-dark dark:text-white italic tracking-tighter">
+                                  {userXP} <span className="text-[10px] text-gray-400 dark:text-gray-500 not-italic uppercase font-bold tracking-normal">/ {xpForNextLevel} XP</span>
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1879,9 +2039,11 @@ export default function Dashboard() {
                             <div key={quest.id} className={`p-4 rounded-xl border transition-all ${isDone ? 'bg-green-500/10 border-green-500/30' : 'bg-white/5 border-white/10'}`}>
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex gap-3">
-                                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDone ? 'bg-green-500 text-white' : 'bg-brand-red/20 text-brand-red'}`}>
-                                    {quest.type === 'attendance' ? <Flame size={16} /> : <MessageSquare size={16} />}
-                                  </div>
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDone ? 'bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.3)]' : 'bg-brand-red/20 text-brand-red border border-brand-red/30'}`}>
+                                {quest.type === 'attendance' ? <Flame size={20} /> : 
+                                 quest.type === 'social_likes' ? <ThumbsUp size={20} /> : 
+                                 <MessageSquare size={20} />}
+                              </div>
                                   <div>
                                     <h4 className={`text-xs font-black uppercase tracking-tight ${isDone ? 'text-green-400' : 'text-white'}`}>{quest.title}</h4>
                                     <p className="text-[9px] text-gray-400 font-bold uppercase mt-0.5">{quest.desc}</p>
@@ -2105,12 +2267,16 @@ export default function Dashboard() {
                         <div key={idx} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                              item.type === 'attendance' ? 'bg-orange-50 text-orange-500' :
-                              item.type === 'achievement' ? 'bg-yellow-50 text-yellow-600' :
-                              item.type === 'graduation' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-500'
+                              item.type === 'attendance' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-500' :
+                              item.type === 'achievement' ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600' :
+                              item.type === 'quest' ? 'bg-green-50 dark:bg-green-900/20 text-green-600' :
+                              item.type === 'social' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500' :
+                              item.type === 'graduation' ? 'bg-red-50 dark:bg-red-900/20 text-red-600' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-500'
                             }`}>
                               {item.type === 'attendance' ? <Flame size={16} /> : 
                                item.type === 'achievement' ? <Trophy size={16} /> : 
+                               item.type === 'quest' ? <Target size={16} /> : 
+                               item.type === 'social' ? <MessageSquare size={16} /> : 
                                item.type === 'graduation' ? <Medal size={16} /> : <TrendingUp size={16} />}
                             </div>
                             <div>
