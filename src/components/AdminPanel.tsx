@@ -446,10 +446,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     if (totalAtt >= 200) earnedBadgesXP += badgeXPBonusMap['casca_grossa'];
     if (totalAtt >= 500) earnedBadgesXP += badgeXPBonusMap['mestre'];
     
-    if (student.belt && student.belt.toLowerCase().includes('preta')) {
-       earnedBadgesXP += 10000; // Matching App.tsx black_belt
-    }
-
     // Progress Log (Graduations) - Matching App.tsx
     if (student.progressLog) {
       student.progressLog.forEach((log: any) => {
@@ -1298,29 +1294,96 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     </div>
                     
                     <div className="flex flex-wrap gap-2 border-t border-gray-100 dark:border-gray-700 pt-3">
-                      <div className="flex gap-2 w-full mb-2">
-                        {/* XP Action */}
-                        <div className="flex items-center gap-1 flex-1">
-                          <input 
-                            type="number" 
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-1.5 text-[11px] font-bold outline-none"
-                            placeholder="+/- XP"
-                            defaultValue={50}
-                            id={`xp-${s.id}`}
-                          />
-                          <button 
-                            onClick={() => {
-                              const input = document.getElementById(`xp-${s.id}`) as HTMLInputElement;
-                              const val = parseInt(input?.value || '100');
-                              addExtraXP(s.id, val);
-                            }}
-                            className="bg-brand-red text-white p-1.5 rounded hover:bg-red-700 transition"
-                            title="Atribuir XP Extra"
-                          >
-                            <Zap size={14} />
-                          </button>
+                      {/* XP Penalty/Bonus Section */}
+                      <div className="flex items-center gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl w-full">
+                        <div className="flex flex-col gap-1 items-center px-1 border-r border-gray-200 dark:border-gray-700 pr-2">
+                           <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg">
+                             <button 
+                               id={`bonus-card-${s.id}`}
+                               onClick={() => {
+                                 document.getElementById(`bonus-card-${s.id}`)?.classList.add('bg-white', 'text-green-600');
+                                 document.getElementById(`bonus-card-${s.id}`)?.classList.remove('text-gray-400');
+                                 document.getElementById(`penalty-card-${s.id}`)?.classList.remove('bg-white', 'text-red-500');
+                                 document.getElementById(`penalty-card-${s.id}`)?.classList.add('text-gray-400');
+                               }}
+                               className="px-2 py-0.5 rounded-md text-[8px] font-bold bg-white text-green-600 shadow-sm transition-all"
+                             >Bônus</button>
+                             <button 
+                               id={`penalty-card-${s.id}`}
+                               onClick={() => {
+                                 document.getElementById(`penalty-card-${s.id}`)?.classList.add('bg-white', 'text-red-500');
+                                 document.getElementById(`penalty-card-${s.id}`)?.classList.remove('text-gray-400');
+                                 document.getElementById(`bonus-card-${s.id}`)?.classList.remove('bg-white', 'text-green-600');
+                                 document.getElementById(`bonus-card-${s.id}`)?.classList.add('text-gray-400');
+                               }}
+                               className="px-2 py-0.5 rounded-md text-[8px] font-bold text-gray-400 hover:text-red-500 transition-all"
+                             >Penalidade</button>
+                           </div>
                         </div>
-                        
+                        <input 
+                          type="number" 
+                          placeholder="Valor XP" 
+                          className="bg-transparent text-sm font-bold w-full outline-none dark:text-white"
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter') {
+                              let val = Math.abs(parseInt((e.target as HTMLInputElement).value));
+                              if (isNaN(val)) return;
+                              
+                              const isPenalty = document.getElementById(`penalty-card-${s.id}`)?.classList.contains('bg-white');
+                              if (isPenalty) val = -val;
+
+                              const reason = prompt(val < 0 ? "Motivo da penalidade:" : "Motivo do bônus:");
+                              if (reason) {
+                                await addExtraXP(s.id, val, reason);
+                                (e.target as HTMLInputElement).value = '';
+                              }
+                            }
+                          }}
+                        />
+                        <button 
+                          onClick={() => {
+                            const input = (document.activeElement as HTMLInputElement);
+                            let val = Math.abs(parseInt(input?.value || '0'));
+                            if (isNaN(val) || val === 0) return;
+                            const isPenalty = document.getElementById(`penalty-card-${s.id}`)?.classList.contains('bg-white');
+                            if (isPenalty) val = -val;
+                            const reason = prompt(val < 0 ? "Motivo da penalidade:" : "Motivo do bônus:");
+                            if (reason) addExtraXP(s.id, val, reason);
+                          }}
+                          className="bg-brand-red text-white p-2 rounded-lg hover:bg-red-700 transition shadow-sm"
+                        >
+                          <Zap size={14} />
+                        </button>
+                      </div>
+
+                      {/* Custom Achievements Toggle */}
+                      <div className="w-full mb-3">
+                        <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Atribuir Conquistas Personalizadas:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {customAchievements.map(ach => {
+                            const IconComp = iconOptions[ach.iconName] || Trophy;
+                            const hasAch = (s.achievements || []).includes(ach.id);
+                            return (
+                              <button
+                                key={ach.id}
+                                onClick={() => toggleAchievementForStudent(s, ach.id)}
+                                className={`p-2 rounded-lg border transition-all flex items-center gap-1.5 shadow-sm group/achbtn ${
+                                  hasAch 
+                                    ? 'bg-brand-red text-white border-brand-red scale-105 ring-2 ring-brand-red/20' 
+                                    : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-400 hover:border-brand-red hover:text-brand-red'
+                                }`}
+                                title={ach.name}
+                              >
+                                <IconComp size={14} className={hasAch ? 'animate-bounce' : ''} />
+                                <span className="text-[9px] font-bold uppercase">{ach.name}</span>
+                              </button>
+                            );
+                          })}
+                          {customAchievements.length === 0 && <p className="text-[9px] text-gray-400 italic">Nenhuma conquista criada na aba Conquistas.</p>}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 w-full mb-2">
                         {/* Family Connection */}
                         <button 
                           onClick={() => setIsLinkingFamily({ studentId: s.id, name: s.name })}

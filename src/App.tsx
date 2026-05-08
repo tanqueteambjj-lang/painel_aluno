@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot, increment } from 'firebase/firestore';
 import Login from '@/components/Login';
 import Sidebar from '@/components/Sidebar';
 import QrModal from '@/components/QrModal';
@@ -889,10 +889,6 @@ export default function Dashboard() {
       }
     }
 
-    if (student.belt && student.belt.toLowerCase().includes("preta")) {
-      graduationXP += 10000;
-    }
-
     // System Badges
     const badgeXP = [
       { id: 'first_class', earned: totalAttCount >= 1, xpBonus: 100 },
@@ -1079,7 +1075,9 @@ export default function Dashboard() {
       } else {
         setCurrentUserData((prev: any) => ({ ...prev, questProgress: { ...questData, [type]: newProgress } }));
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("Error updating progress:", e);
+    }
   };
 
   const switchToDependent = async (depId: string) => {
@@ -1991,7 +1989,8 @@ export default function Dashboard() {
                       </div>
                       <div className="grid grid-cols-2 gap-2 mt-4">
                         {VISUAL_TIERS.map(tier => {
-                          const isUnlocked = userLevel >= tier.minLevel;
+                          const isAdmin = currentUserData?.role === 'admin';
+                          const isUnlocked = isAdmin || userLevel >= tier.minLevel;
                           const isSelected = (activeUserData?.selectedVisualTier || 'none') === tier.id;
                           
                           return (
@@ -2017,6 +2016,7 @@ export default function Dashboard() {
                             >
                               {tier.name}
                               {!isUnlocked && <span className="text-[8px] opacity-70">Nível {tier.minLevel}</span>}
+                              {isAdmin && ! (userLevel >= tier.minLevel) && <span className="text-[8px] text-brand-red font-bold">Admin Unlocked</span>}
                             </button>
                           );
                         })}
@@ -2231,18 +2231,7 @@ export default function Dashboard() {
                 transition={{ duration: 0.3 }}
                 className="space-y-8"
               >
-                 <RankingBento 
-                    rankings={{
-                      xpAdulto: rankingXpAdulto,
-                      presenceAdulto: rankingAdulto,
-                      socialAdulto: rankingSocialAdulto,
-                      xpInfantil: rankingXpInfantil
-                    }}
-                    currentUserData={activeUserData}
-                    isAdmin={isAdmin}
-                 />
-                 
-                 <div className="pt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {(isAdmin || !(activeUserData?.plan || '').toLowerCase().includes('infantil')) && (
                       <Ranking 
                         currentUserData={activeUserData} 
@@ -2268,7 +2257,7 @@ export default function Dashboard() {
                         subtitle={rankingTab === 'presence' ? "Os 10 pequenos guerreiros que mais treinaram neste mês." : "Ranking infantil de XP acumulado."}
                       />
                     )}
-                 </div>
+                  </div>
                 <RankingManual />
               </motion.div>
             )}
