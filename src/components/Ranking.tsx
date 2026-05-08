@@ -1,7 +1,7 @@
 import { Trophy, ShieldHalf, Flame, Star } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Ranking({ currentUserData, ranking, lastMonthRanking, isAdmin, title, subtitle, activeTab, onTabChange, showManual = false }: any) {
+export default function Ranking({ currentUserData, ranking, lastMonthRanking, isAdmin, title, subtitle, activeTab, onTabChange }: any) {
   const getBeltColorClass = (belt: string) => {
     const b = belt?.toLowerCase() || '';
     if (b.includes('preta')) return 'bg-zinc-900 border-zinc-700 text-white';
@@ -187,8 +187,6 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
           )}
         </div>
       </div>
-      {/* RANKING MANUAL SECTION */}
-      {showManual && <RankingManual />}
     </div>
   );
 }

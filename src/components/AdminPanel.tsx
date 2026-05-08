@@ -22,7 +22,55 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const iconOptions: Record<string, any> = {
     'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
     'Flame': Flame, 'Sun': Sun, 'Zap': Zap, 'Shield': Shield, 
-    'Crown': Crown, 'Award': Award, 'Target-Red': Target
+    'Crown': Crown, 'Award': Award, 'Target-Red': Target,
+    'Clock': Clock, 'Users': Users, 'Camera': Camera, 'MessageSquare': MessageSquare
+  };
+
+  const syncNovaFaixaXP = async () => {
+    showConfirm("Sincronizar XP", "Isso removerá 500 XP de todos os alunos que possuem a conquista 'Nova Faixa' bloqueada (concedida antes de 06/05/2026). Deseja continuar?", async () => {
+      try {
+        let count = 0;
+        const xpToRemove = 500;
+        const LOCK_DATE = '2026-05-06';
+
+        for (const student of allStudents) {
+          const hasNewBeltAch = (student.achievements || []).includes('new_belt');
+          const progressLog = Array.isArray(student.progressLog) ? student.progressLog : [];
+          
+          // Check if they have a belt graduation BEFORE lock date
+          const hasOldBeltGrad = progressLog.some((log: any) => 
+            log.type === 'graduation' && 
+            !log.isInitialRank && 
+            (log.date || '') <= LOCK_DATE &&
+            log.text && !log.text.match(/[1-9]º Grau/)
+          );
+
+          if (hasNewBeltAch || hasOldBeltGrad) {
+            const updates: any = {};
+            // Remove the achievement ID if it exists
+            updates.achievements = (student.achievements || []).filter((id: string) => id !== 'new_belt');
+            
+            // Filter XP Log to remove "Nova Faixa" entries
+            const oldLog = Array.isArray(student.xpLog) ? student.xpLog : [];
+            const newLog = oldLog.filter((log: any) => !log.reason?.includes('Nova Faixa'));
+            
+            if (newLog.length < oldLog.length) {
+               updates.xpLog = newLog;
+               const currentExtraXP = Number(student.extraXP) || 0;
+               updates.extraXP = Math.max(0, currentExtraXP - xpToRemove);
+               
+               await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), updates);
+               count++;
+            }
+          }
+        }
+        showAlert("Sucesso", `${count} alunos tiveram o XP de Nova Faixa corrigido.`, "success");
+        // Reload or update local state would be ideal here... simplest is just letting them know.
+      } catch (e) {
+        console.error(e);
+        showAlert("Erro", "Falha ao sincronizar XP.", "error");
+      }
+    });
   };
   
   const [isAddingStudent, setIsAddingStudent] = useState(false);
@@ -30,7 +78,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [newStudentData, setNewStudentData] = useState({
     name: '',
     nickname: '',
-    birthDate: '',
     studentLogin: '',
     studentPassword: '',
     plan: 'Mensal',
@@ -149,7 +196,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       setNewStudentData({
         name: '',
         nickname: '',
-        birthDate: '',
         studentLogin: '',
         studentPassword: '',
         plan: 'Mensal',
@@ -174,7 +220,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [editFormData, setEditFormData] = useState({
     name: '',
     nickname: '',
-    birthDate: '',
     studentLogin: '',
     plan: '',
     belt: '',
@@ -186,7 +231,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     setEditFormData({
       name: student.name || '',
       nickname: student.nickname || '',
-      birthDate: student.birthDate || '',
       studentLogin: student.studentLogin || '',
       plan: student.plan || '',
       belt: student.belt || 'Faixa Branca - 0º Grau',
@@ -200,7 +244,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       const updates: any = {
         name: editFormData.name,
         nickname: editFormData.nickname,
-        birthDate: editFormData.birthDate,
         studentLogin: editFormData.studentLogin,
         plan: editFormData.plan,
         belt: editFormData.belt
@@ -223,7 +266,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         ...s, 
         name: editFormData.name,
         nickname: editFormData.nickname,
-        birthDate: editFormData.birthDate,
         studentLogin: editFormData.studentLogin,
         plan: editFormData.plan
       } : s));
@@ -232,7 +274,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         ...s, 
         name: editFormData.name,
         nickname: editFormData.nickname,
-        birthDate: editFormData.birthDate,
         studentLogin: editFormData.studentLogin,
         plan: editFormData.plan
       } : s));
@@ -325,7 +366,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   };
 
   useEffect(() => {
-    if ((activeTab === 'students' || activeTab === 'achievements' || activeTab === 'birthdays') && allStudents.length === 0) {
+    if ((activeTab === 'students' || activeTab === 'achievements') && allStudents.length === 0) {
       fetchStudents();
     }
   }, [activeTab, appId]);
@@ -437,7 +478,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     const xpPerClass = 50;
     const badgeXPBonusMap: Record<string, number> = {
       'first_class': 100, 'beginner': 200, 'monthly_focus': 300, 'streak_5': 250,
-      'weekend_warrior': 150, 'voice_tatame': 50, 'degree': 500, 'graduated': 1000,
+      'weekend_warrior': 150, 'voice_tatame': 50, 'degree': 500, 
       'warrior': 500, 'centurion': 1000, 'casca_grossa': 2000, 'mestre': 5000, 'rato_tatame': 400
     };
 
@@ -452,72 +493,47 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     if (totalAtt >= 200) earnedBadgesXP += badgeXPBonusMap['casca_grossa'];
     if (totalAtt >= 500) earnedBadgesXP += badgeXPBonusMap['mestre'];
     
-    // Manual achievements XP
-    if (student.achievements) {
-      student.achievements.forEach((achId: string) => {
-        const custom = customAchievements.find(ca => ca.id === achId);
-        if (custom) {
-          earnedBadgesXP += custom.xpBonus || 200;
+    if (student.belt && student.belt.toLowerCase().includes('preta')) {
+       earnedBadgesXP += 10000; // Matching App.tsx black_belt
+    }
+
+    // Progress Log (Graduations) - Matching App.tsx
+    if (student.progressLog) {
+      student.progressLog.forEach((log: any) => {
+        if (log.type === 'graduation' && !log.isInitialRank) {
+          if (log.text && log.text.match(/[1-9]º Grau/)) earnedBadgesXP += 250;
+          else earnedBadgesXP += 500;
         }
       });
     }
 
-    const userXP = (student.extraXP || 0) + (totalAtt * xpPerClass) + earnedBadgesXP;
-    return Math.floor(Math.sqrt(userXP / 100)) + 1;
-  };
+    // Ranking Special Badges & Custom Admin Achievements
+    const rankingBadgeValues: Record<string, number> = {
+      'rank_1': 1000, 'rank_2': 800, 'rank_3': 600, 'rank_4': 400, 'rank_5': 200
+    };
+    if (student.achievements) {
+      student.achievements.forEach((id: string) => {
+        if (rankingBadgeValues[id]) {
+          earnedBadgesXP += rankingBadgeValues[id];
+        } else {
+          // Check for custom achievements
+          const custom = customAchievements.find(ca => ca.id === id);
+          if (custom) {
+            earnedBadgesXP += Number(custom.xpBonus) || 200;
+          }
+        }
+      });
+    }
 
-  const getMonthBirthdays = () => {
-    const now = new Date();
-    // Use local month (1-12)
-    const currentMonth = now.getMonth() + 1;
-    
-    return allStudents.filter(s => {
-      if (!s.birthDate || typeof s.birthDate !== 'string') return false;
-      
-      const parts = s.birthDate.split(/[-/ ]/).map(p => p.trim()).filter(p => p);
-      if (parts.length < 2) return false;
-      
-      const numParts = parts.map(p => parseInt(p));
-      const validParts = numParts.filter(p => !isNaN(p));
-      if (validParts.length < 2) return false;
-      
-      let month = 0;
-      if (validParts.length === 3) {
-        // Handle formats: DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY
-        // If the first part is > 31, it's YYYY-MM-DD.
-        // If index 0 is > 12, it's DD/MM/YYYY.
-        // If index 1 is between 1 and 12, it's probably the month in both BR/ISO.
-        // Let's use a simple guess: index 1 is usually the month in BR and ISO.
-        month = validParts[1];
-      } else if (validParts.length === 2) {
-        // DD/MM or MM/DD
-        if (validParts[0] > 12) month = validParts[1];
-        else if (validParts[1] > 12) month = validParts[0];
-        else month = validParts[1]; // Default to DD/MM
-      }
-      
-      return month === currentMonth;
-    }).sort((a,b) => {
-      const getDay = (dateStr: string) => {
-        const p = dateStr.split(/[-/ ]/).map(part => parseInt(part)).filter(part => !isNaN(part));
-        if (p.length === 3) {
-           // If YYYY-MM-DD, day is index 2. If DD-MM-YYYY, day is index 0.
-           return p[0] > 31 ? p[2] : p[0];
-        }
-        if (p.length === 2) {
-          return p[0] > 12 ? p[0] : p[1];
-        }
-        return 0;
-      };
-      return getDay(a.birthDate) - getDay(b.birthDate);
-    });
+    const userXP = (Number(student.extraXP) || 0) + (totalAtt * xpPerClass) + earnedBadgesXP;
+    return Math.floor(Math.sqrt(userXP / 100)) + 1;
   };
 
   const getStudentAchievements = (student: any) => {
     const badges: any[] = [];
     const totalAtt = student.attendance ? student.attendance.length : 0;
     
-    // Dynamic badges logic (simplified for admin preview)
+    // Dynamic badges logic
     if (totalAtt >= 1) badges.push({ id: 'first_class', icon: <Star className="w-3 h-3 text-yellow-500" />, name: "Primeiro Treino" });
     if (totalAtt >= 12) badges.push({ id: 'beginner', icon: <Medal className="w-3 h-3 text-gray-400" />, name: "Iniciante" });
     if (totalAtt >= 50) badges.push({ id: 'warrior', icon: <Medal className="w-3 h-3 text-yellow-600" />, name: "Guerreiro" });
@@ -525,9 +541,26 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     if (totalAtt >= 200) badges.push({ id: 'casca_grossa', icon: <Shield className="w-3 h-3 text-stone-500" />, name: "Casca Grossa" });
     if (totalAtt >= 500) badges.push({ id: 'mestre', icon: <Crown className="w-3 h-3 text-amber-500" />, name: "Mestre" });
     
-    if (student.belt && student.belt.toLowerCase().includes('preta')) {
-      badges.push({ id: 'black_belt', icon: <Crown className="w-3 h-3 text-black dark:text-gray-100" />, name: "A Lenda" });
-    }
+    // Graduation Badges
+    const progressLog = Array.isArray(student.progressLog) ? student.progressLog : [];
+    const LOCK_DATE = '2026-05-06';
+    let hasNewBelt = false;
+    let hasNewDegree = false;
+    let hasBlackBelt = false;
+
+    progressLog.forEach((log: any) => {
+      if (log.type === 'graduation' && !log.isInitialRank && (log.date || '') > LOCK_DATE) {
+        if (log.text && log.text.match(/[1-9]º Grau/)) hasNewDegree = true;
+        else {
+          hasNewBelt = true;
+          if (log.text && log.text.toLowerCase().includes('preta')) hasBlackBelt = true;
+        }
+      }
+    });
+
+    if (hasNewDegree) badges.push({ id: 'degree', icon: <ArrowUpCircle className="w-3 h-3 text-yellow-600" />, name: "Evolução" });
+    if (hasNewBelt) badges.push({ id: 'new_belt', icon: <Medal className="w-3 h-3 text-brand-red" />, name: "Nova Faixa" });
+    if (hasBlackBelt) badges.push({ id: 'black_belt', icon: <Crown className="w-3 h-3 text-black dark:text-gray-100" />, name: "A Lenda" });
 
     // Manual achievements from admin
     if (student.achievements) {
@@ -535,7 +568,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         const custom = customAchievements.find(ca => ca.id === achId);
         if (custom) {
           const Icon = iconOptions[custom.iconName] || Trophy;
-          badges.push({ id: custom.id, icon: <Icon className="w-3 h-3 text-brand-red" />, name: custom.name });
+          badges.push({ id: custom.id, icon: <Icon className="w-3 h-3 text-brand-red" />, name: custom.name, isManual: true });
         }
       });
     }
@@ -543,28 +576,32 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     return badges;
   };
 
-  const addExtraXP = async (studentId: string, name: string) => {
-    showConfirm("Adicionar XP", `Deseja adicionar ${extraXPValue} XP para ${name}?`, async () => {
-      const student = allStudents.find(s => s.id === studentId);
-      const currentXP = student?.extraXP || 0;
+  const addExtraXP = async (studentId: string, amount: number, customReason?: string) => {
+    const student = allStudents.find(s => s.id === studentId);
+    if (!student) return;
+
+    showConfirm(amount >= 0 ? "Adicionar XP" : "Penalidade de XP", 
+      `Deseja aplicar ${amount} XP para ${student.name}?`, async () => {
+      const currentExtraXP = student.extraXP || 0;
       try {
         const xpUpdate = {
-          amount: extraXPValue,
-          reason: 'Bônus Administrativo',
+          amount: amount,
+          reason: customReason || (amount >= 0 ? 'Bônus Administrativo' : 'Penalidade Administrativa'),
           date: new Date().toISOString(),
-          type: 'extra'
+          type: 'extra',
+          id: `extra_${Date.now()}`
         };
-        const newLog = [...(student?.xpLog || []), xpUpdate];
+        const newLog = [...(student.xpLog || []), xpUpdate];
 
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
-          extraXP: currentXP + extraXPValue,
+          extraXP: currentExtraXP + amount,
           xpLog: newLog
         });
-        setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, extraXP: currentXP + extraXPValue, xpLog: newLog } : s));
-        showAlert("Sucesso", `XP adicionado com sucesso!`, "success");
+        setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, extraXP: currentExtraXP + amount, xpLog: newLog } : s));
+        showAlert("Sucesso", "Operação realizada com sucesso!", "success");
       } catch (e) {
         console.error(e);
-        showAlert("Erro", "Falha ao adicionar XP.", "error");
+        showAlert("Erro", "Falha ao atualizar XP.", "error");
       }
     });
   };
@@ -598,29 +635,81 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     // For now, let's just make it possible via a toggle if we show the list
   };
 
+  const removeManualXP = async (student: any, logToRemove: any) => {
+    showConfirm("Remover Registro", "Tem certeza que deseja remover este registro de XP? O total de XP do aluno será atualizado.", async () => {
+      try {
+        const currentXP = Number(student.extraXP) || 0;
+        // Compare by ID if exists, otherwise compare by object reference
+        const newLog = (student.xpLog || []).filter((log: any) => {
+          if (logToRemove.id && log.id) return log.id !== logToRemove.id;
+          return log !== logToRemove;
+        });
+        const amountToRemove = Number(logToRemove.amount) || 0;
+        
+        const updates: any = {
+          xpLog: newLog,
+          extraXP: Math.max(0, currentXP - amountToRemove)
+        };
+
+        // If it's an achievement being removed by deleting the log, 
+        // we should also check if we should remove the achievement ID from achievements array
+        // However, it's safer to just remove the XP. 
+        // The user specifically asked to remove XP/Achievement.
+        
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), updates);
+        setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, ...updates } : s));
+        
+        if (viewingXPHistoryStudent && viewingXPHistoryStudent.id === student.id) {
+          setViewingXPHistoryStudent({ ...viewingXPHistoryStudent, ...updates });
+        }
+        
+        showAlert("Sucesso", "Registro de XP removido com sucesso.", "success");
+      } catch (e) {
+        console.error(e);
+        showAlert("Erro", "Falha ao remover registro de XP.", "error");
+      }
+    });
+  };
+
   const toggleAchievementForStudent = async (student: any, achId: string) => {
     const currentAchs = student.achievements || [];
+    const currentExtraXP = Number(student.extraXP) || 0;
     const isAdding = !currentAchs.includes(achId);
-    const newAchs = isAdding 
-      ? [...currentAchs, achId]
-      : currentAchs.filter((id: string) => id !== achId);
     
     try {
-      const updates: any = { achievements: newAchs };
+      const ach = customAchievements.find(a => a.id === achId);
+      const achXP = Number(ach?.xpBonus) || 200;
+      
+      const updates: any = {};
       
       if (isAdding) {
-        const ach = customAchievements.find(a => a.id === achId);
+        updates.achievements = [...currentAchs, achId];
         const xpUpdate = {
-          amount: ach?.xpBonus || 200,
+          amount: achXP,
           reason: `Conquista: ${ach?.name || 'Nova Conquista'}`,
           date: new Date().toISOString(),
-          type: 'achievement'
+          type: 'achievement',
+          id: `${achId}_${Date.now()}` // Added ID for easier tracking
         };
         updates.xpLog = [...(student.xpLog || []), xpUpdate];
+        updates.extraXP = currentExtraXP + achXP;
+      } else {
+        updates.achievements = currentAchs.filter((id: string) => id !== achId);
+        // When removing achievement, we don't necessarily remove the XP log automatically
+        // as the admin might want to keep history. 
+        // But for consistency with "removing achievement AND xp", we can look for the log
+        const newLog = (student.xpLog || []).filter((log: any) => !log.reason?.includes(`Conquista: ${ach?.name}`));
+        updates.xpLog = newLog;
+        
+        // Calculate only the XP to remove (those logs we just filtered out)
+        const removedLogs = (student.xpLog || []).filter((log: any) => log.reason?.includes(`Conquista: ${ach?.name}`));
+        const xpToSubtract = removedLogs.reduce((sum: number, l: any) => sum + (Number(l.amount) || 0), 0);
+        updates.extraXP = Math.max(0, currentExtraXP - xpToSubtract);
       }
 
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), updates);
       setAllStudents(prev => prev.map(s => s.id === student.id ? { ...s, ...updates } : s));
+      showAlert("Sucesso", isAdding ? "Conquista atribuída!" : "Conquista removida!", "success");
     } catch (e) {
       console.error(e);
       showAlert("Erro", "Falha ao atualizar conquistas do aluno.", "error");
@@ -768,8 +857,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             { id: 'schedule', label: 'Grade Horária', icon: Clock },
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
-            { id: 'birthdays', label: 'Niver', icon: Cake },
-            { id: 'lastMonth', label: 'Top 5', icon: Award },
             { id: 'achievements', label: 'Conquistas', icon: Trophy },
             { id: 'churn', label: 'Evasão', icon: TrendingDown },
           ].map((tab) => (
@@ -1113,12 +1200,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 </div>
                 <div className="flex gap-2 shrink-0">
                   <button 
-                    onClick={() => setIsAddingStudent(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl flex items-center gap-2 font-bold text-sm shadow-lg transition-all"
-                  >
-                    <Plus size={18} /> Novo Aluno
-                  </button>
-                  <button 
                     onClick={fetchStudents}
                     className="bg-brand-red px-4 py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all"
                   >
@@ -1174,29 +1255,25 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                                 {s.nickname && <span className="text-xs text-gray-400 font-medium truncate max-w-[100px]">({s.nickname})</span>}
                                 <button 
                                   onClick={() => handleEditStudent(s)}
-                                  className="p-1 text-gray-400 hover:text-brand-red transition-all"
+                                  className="p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-400 hover:text-brand-red transition-all"
                                   title="Editar Informações"
                                 >
                                    <Edit2 size={14} />
                                 </button>
-                             </div>
-                             <div className="flex items-center gap-2 mt-0.5">
-                                <Cake size={12} className="text-brand-red" />
-                                <span className="text-[10px] font-black text-brand-red uppercase tracking-widest">{s.birthDate || s.birthdate || 'Sem Data'}</span>
                              </div>
                           </div>
                           <div className="flex items-center gap-2">
                             {onImpersonate && (
                               <button 
                                 onClick={() => onImpersonate(s)}
-                                className="bg-brand-red hover:bg-brand-red text-white px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95"
+                                className="bg-brand-red hover:bg-brand-red text-white px-2.5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md active:scale-95 shrink-0"
                               >
                                 Ver Painel
                               </button>
                             )}
-                            <div className="bg-brand-red/10 border border-brand-red/20 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
-                              <ArrowUpCircle className="w-3.5 h-3.5 text-brand-red" />
-                              <span className="text-[10px] font-bold text-brand-red">NÍVEL {calculateStudentLevel(s)}</span>
+                            <div className="bg-brand-red/10 border border-brand-red/20 rounded-lg px-2 py-1 flex items-center gap-1 shrink-0">
+                              <ArrowUpCircle className="w-3 h-3 text-brand-red" />
+                              <span className="text-[9px] font-black text-brand-red">NÍVEL {calculateStudentLevel(s)}</span>
                             </div>
                           </div>
                         </div>
@@ -1226,18 +1303,18 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 dark:bg-gray-900/50 p-3 rounded-xl">
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-gray-400 font-bold uppercase text-[9px]">ID Sistema</p>
-                        <p className="dark:text-white font-medium">{s.studentLogin}</p>
+                        <p className="dark:text-white font-medium truncate text-[11px]">{s.studentLogin}</p>
                       </div>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-gray-400 font-bold uppercase text-[9px]">Plano Atual</p>
-                          <p className="dark:text-white font-medium truncate">{s.plan}</p>
+                      <div className="flex justify-between items-start min-w-0">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <p className="text-gray-400 font-bold uppercase text-[9px]">Nível Atual</p>
+                          <p className="dark:text-white font-medium text-[11px] leading-tight">Lvl {calculateStudentLevel(s)}</p>
                         </div>
                         <button 
                           onClick={() => setViewingXPHistoryStudent(s)}
-                          className="p-1.5 bg-white dark:bg-gray-800 text-brand-red rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 hover:bg-red-50 transition"
+                          className="p-1.5 bg-white dark:bg-gray-800 text-brand-red rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 hover:bg-red-50 transition shrink-0"
                           title="Ver Histórico de XP"
                         >
                           <TrendingUp size={14} />
@@ -1245,18 +1322,23 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       </div>
                     </div>
 
-                    {/* Minimalist Achievements Preview */}
-                    <div className="flex flex-wrap gap-1 mt-1 px-1">
-                      {getStudentAchievements(s).slice(0, 8).map((ach, idx) => (
-                        <div key={idx} className="bg-gray-100 dark:bg-gray-700 p-1 rounded-md mb-1" title={ach.name}>
-                          {ach.icon}
+                    <div className="flex flex-wrap gap-1.5 mt-1 px-1">
+                      {getStudentAchievements(s).map((ach, idx) => (
+                        <div key={idx} className="relative group/ach mb-1">
+                          <div className="bg-gray-100 dark:bg-gray-700 p-1.5 rounded-md shadow-sm flex items-center justify-center" title={ach.name}>
+                            {ach.icon}
+                          </div>
+                          {ach.isManual && (
+                            <button 
+                              onClick={() => toggleAchievementForStudent(s, ach.id)}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/ach:opacity-100 transition-opacity border border-white"
+                              title="Remover conquista do aluno"
+                            >
+                              <X size={8} />
+                            </button>
+                          )}
                         </div>
                       ))}
-                      {getStudentAchievements(s).length > 8 && (
-                        <div className="text-[9px] font-bold text-gray-400 self-center ml-1">
-                          +{getStudentAchievements(s).length - 8}
-                        </div>
-                      )}
                       {getStudentAchievements(s).length === 0 && (
                         <span className="text-[9px] text-gray-400 italic">Sem conquistas</span>
                       )}
@@ -1268,9 +1350,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         <div className="flex items-center gap-1 flex-1">
                           <input 
                             type="number" 
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-1.5 text-[10px] outline-none"
-                            placeholder="XP Extra"
-                            defaultValue={100}
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-1.5 text-[11px] font-bold outline-none"
+                            placeholder="+/- XP"
+                            defaultValue={50}
                             id={`xp-${s.id}`}
                           />
                           <button 
@@ -1328,167 +1410,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             </motion.div>
           )}
 
-          {/* BIRTHDAYS VIEW */}
-          {activeTab === 'birthdays' && (
-            <motion.div
-              key="birthdays"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-5">
-                   <Cake size={120} className="text-brand-red" />
-                </div>
-                <div className="relative z-10">
-                  <h3 className="text-2xl font-display font-bold dark:text-white flex items-center gap-3">
-                    <Cake className="text-brand-red" /> Aniversariantes de {format(new Date(), 'MMMM', { locale: ptBR })}
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 mt-1">Celebre o dia especial dos seus alunos!</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {getMonthBirthdays().length === 0 ? (
-                  <div className="col-span-full py-20 text-center bg-gray-50 dark:bg-gray-800/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                    <Cake className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">Nenhum aniversariante encontrado para este mês.</p>
-                  </div>
-                ) : (
-                  getMonthBirthdays().map(s => {
-                    const getDay = (dateStr: string) => {
-                      const p = dateStr.split(/[-/ ]/).map(part => parseInt(part)).filter(part => !isNaN(part));
-                      if (p.length === 3) return p[0] > 31 ? p[2] : p[0];
-                      if (p.length === 2) return p[0] > 12 ? p[0] : p[1];
-                      return 0;
-                    };
-                    const day = getDay(s.birthDate);
-                    const isToday = day === new Date().getDate();
-
-                    return (
-                      <motion.div 
-                        key={s.id}
-                        whileHover={{ y: -5 }}
-                        className={`bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border ${isToday ? 'border-brand-red ring-2 ring-brand-red/10' : 'border-gray-100 dark:border-gray-700'} relative`}
-                      >
-                        {isToday && (
-                          <div className="absolute -top-3 -right-3 bg-brand-red text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg animate-bounce">
-                            HOJE! 🎂
-                          </div>
-                        )}
-                        <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700 border-2 border-gray-50 dark:border-gray-600 flex-shrink-0 shadow-sm">
-                            {s.photoBase64 ? (
-                              <img src={s.photoBase64} alt={s.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400 font-bold text-xl uppercase">
-                                {s.name.charAt(0)}
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="font-bold text-gray-900 dark:text-white truncate">{s.name}</h4>
-                            {s.nickname && <p className="text-xs text-gray-500 font-medium tracking-tight">({s.nickname})</p>}
-                            <div className="mt-2 flex items-center gap-2">
-                              <span className="bg-brand-red text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 uppercase">
-                                <Cake size={10} /> Dia {day}
-                              </span>
-                              <span className="text-[10px] text-gray-400 font-bold uppercase">{s.belt}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* TOP 5 VIEW */}
-          {activeTab === 'lastMonth' && (
-            <motion.div
-              key="lastMonth"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-5">
-                   <Trophy size={120} className="text-yellow-500" />
-                </div>
-                <div className="relative z-10">
-                  <h3 className="text-2xl font-display font-bold dark:text-white flex items-center gap-3">
-                    <Trophy className="text-yellow-500" /> Top 5 do Mês Anterior
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 mt-1">Os alunos que mais se destacaram no último ciclo.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Ranking Adulto */}
-                <div className="space-y-4">
-                  <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest px-2">Ranking Adulto</h4>
-                  <div className="space-y-3">
-                    {lastMonthRankingAdulto.slice(0, 5).map((s, idx) => (
-                      <div key={s.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center gap-4 relative overflow-hidden group">
-                        <div className={`absolute left-0 top-0 h-full w-1 ${idx === 0 ? 'bg-yellow-400' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-600' : 'bg-brand-red/20'}`}></div>
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-900 font-bold text-gray-800 dark:text-gray-200 text-sm">
-                           {idx + 1}º
-                        </div>
-                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-gray-100 dark:border-gray-700">
-                          {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-300"><User size={20} /></div>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
-                          <p className="text-[10px] text-gray-400 uppercase font-black">{s.belt}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs font-black text-brand-red uppercase">{s.xp || 0} XP</p>
-                          <p className="text-[9px] text-gray-400 uppercase font-bold">{s.attendanceCount || 0} Treinos</p>
-                        </div>
-                      </div>
-                    ))}
-                    {lastMonthRankingAdulto.length === 0 && (
-                       <p className="text-center py-10 text-gray-400 italic text-sm">Sem dados de ranking adulto.</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Ranking Infantil */}
-                <div className="space-y-4">
-                  <h4 className="font-bold text-gray-400 uppercase text-xs tracking-widest px-2">Ranking Infantil</h4>
-                  <div className="space-y-3">
-                    {lastMonthRankingInfantil.slice(0, 5).map((s, idx) => (
-                      <div key={s.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 flex items-center gap-4 relative overflow-hidden group">
-                        <div className={`absolute left-0 top-0 h-full w-1 ${idx === 0 ? 'bg-yellow-400' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-600' : 'bg-brand-red/20'}`}></div>
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-900 font-bold text-gray-800 dark:text-gray-200 text-sm">
-                           {idx + 1}º
-                        </div>
-                        <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-gray-100 dark:border-gray-700">
-                          {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 text-gray-300"><User size={20} /></div>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
-                          <p className="text-[10px] text-gray-400 uppercase font-black">{s.belt}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs font-black text-brand-red uppercase">{s.xp || 0} XP</p>
-                          <p className="text-[9px] text-gray-400 uppercase font-bold">{s.attendanceCount || 0} Treinos</p>
-                        </div>
-                      </div>
-                    ))}
-                    {lastMonthRankingInfantil.length === 0 && (
-                       <p className="text-center py-10 text-gray-400 italic text-sm">Sem dados de ranking infantil.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
           {/* ACHIEVEMENTS VIEW */}
           {activeTab === 'achievements' && (
             <motion.div
@@ -1504,12 +1425,21 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     <h3 className="font-bold text-lg dark:text-white">Gerenciar Conquistas</h3>
                     <p className="text-sm text-gray-400">Crie medalhas personalizadas para seus alunos.</p>
                   </div>
-                  <button 
-                    onClick={() => setIsAddingAchievement(!isAddingAchievement)}
-                    className="bg-brand-red text-white p-2 rounded-lg shadow-md hover:bg-red-700 transition"
-                  >
-                    {isAddingAchievement ? <X size={20} /> : <Plus size={20} />}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={syncNovaFaixaXP}
+                      className="flex items-center gap-2 bg-amber-50 text-amber-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-amber-100 transition border border-amber-200"
+                      title="Sincronizar XP (Remover Nova Faixa retroativo)"
+                    >
+                      <RotateCcw size={16} /> Corrigir XP Faixas
+                    </button>
+                    <button 
+                      onClick={() => setIsAddingAchievement(!isAddingAchievement)}
+                      className="bg-brand-red text-white p-2 rounded-lg shadow-md hover:bg-red-700 transition"
+                    >
+                      {isAddingAchievement ? <X size={20} /> : <Plus size={20} />}
+                    </button>
+                  </div>
                 </div>
 
                 <AnimatePresence>
@@ -1635,7 +1565,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 </div>
 
                 <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                  {(allStudents || []).filter(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 10).map(s => (
+                  {allStudents.filter(s => (s.name || '').toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 10).map(s => (
                     <div key={s.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
                          <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center shrink-0">
@@ -1655,22 +1585,55 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                             <p className="text-[10px] text-gray-400 truncate">{s.belt}</p>
                          </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {customAchievements.map(ach => {
-                          const IconComp = iconOptions[ach.iconName] || Trophy;
-                          const hasAch = (s.achievements || []).includes(ach.id);
-                          return (
-                            <button
-                              key={ach.id}
-                              onClick={() => toggleAchievementForStudent(s, ach.id)}
-                              className={`p-1.5 rounded-lg border transition flex items-center gap-2 ${hasAch ? 'bg-green-50 border-green-200 text-green-600 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 shadow-sm'}`}
-                              title={ach.name}
-                            >
-                              <IconComp size={14} />
-                              {hasAch && <Check size={10} />}
-                            </button>
-                          );
-                        })}
+                      <div className="flex flex-col gap-2 w-full max-w-md">
+                        {/* XP Penalty/Bonus Section */}
+                        <div className="flex items-center gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                          <TrendingDown size={16} className="text-brand-red" />
+                          <input 
+                            type="number" 
+                            placeholder="Penalidade/Extra XP" 
+                            className="bg-transparent text-sm font-bold w-full outline-none dark:text-white"
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter') {
+                                const val = parseInt((e.target as HTMLInputElement).value);
+                                if (isNaN(val)) return;
+                                const reason = prompt("Motivo da penalidade/abono:");
+                                if (reason) {
+                                  await addExtraXP(s.id, val, reason);
+                                  (e.target as HTMLInputElement).value = '';
+                                }
+                              }
+                            }}
+                          />
+                          <p className="text-[8px] text-gray-400 font-bold uppercase whitespace-nowrap">Enter para aplicar</p>
+                        </div>
+
+                        {/* Achievements Display and Toggle */}
+                        <div className="flex flex-wrap gap-2">
+                           {/* System Achievements Display (View Only) */}
+                           {getStudentAchievements(s).filter(a => !customAchievements.some(ca => ca.id === a.id)).map(a => (
+                             <div key={a.id} className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 opacity-60 flex items-center gap-1" title={`${a.name}: ${a.desc} (Auto)`}>
+                               <Trophy size={14} />
+                             </div>
+                           ))}
+
+                           {/* Custom Achievements (Toggleable) */}
+                           {customAchievements.map(ach => {
+                             const IconComp = iconOptions[ach.iconName] || Trophy;
+                             const hasAch = (s.achievements || []).includes(ach.id);
+                             return (
+                               <button
+                                 key={ach.id}
+                                 onClick={() => toggleAchievementForStudent(s, ach.id)}
+                                 className={`p-1.5 rounded-lg border transition flex items-center gap-2 ${hasAch ? 'bg-brand-red border-brand-red text-white shadow-lg shadow-red-500/20' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 shadow-sm'}`}
+                                 title={`${ach.name}: ${ach.description || ach.desc}`}
+                               >
+                                 <IconComp size={14} />
+                                 {hasAch && <Check size={10} />}
+                               </button>
+                             );
+                           })}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1778,16 +1741,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     value={editFormData.nickname}
                     onChange={e => setEditFormData({...editFormData, nickname: e.target.value})}
                     className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data de Nascimento (DD/MM/AAAA)</label>
-                  <input 
-                    type="text" 
-                    value={editFormData.birthDate}
-                    onChange={e => setEditFormData({...editFormData, birthDate: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
-                    placeholder="Ex: 19/06/1993"
                   />
                 </div>
                 <div>
@@ -1934,13 +1887,28 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       history.push({ date, amount: 50, reason: 'Treino Realizado', type: 'attendance' });
                     });
                   }
+
+                  // Achievements
+                  if (Array.isArray(student.achievements)) {
+                    student.achievements.forEach((achId: string) => {
+                      const ach = [...adminAchievements, ...achievements].find(a => a.id === achId);
+                      if (ach) {
+                        history.push({
+                          date: student.updatedAt || new Date().toISOString(),
+                          amount: ach.xpBonus || 100,
+                          reason: `${ach.name} (Conquista)`,
+                          type: 'achievement'
+                        });
+                      }
+                    });
+                  }
                   
                   // Manual Logs
                   if (Array.isArray(student.xpLog)) {
                     student.xpLog.forEach((log: any) => history.push(log));
                   }
                   
-                  // Sort
+                  // Sort and limit to 10
                   history.sort((a, b) => {
                     const parseDate = (d: any) => {
                        if (!d || typeof d !== 'string') return 0;
@@ -1953,11 +1921,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     return parseDate(b.date) - parseDate(a.date);
                   });
 
-                  if (history.length === 0) {
+                  const recentHistory = history.slice(0, 10);
+
+                  if (recentHistory.length === 0) {
                     return <div className="py-20 text-center text-gray-400 italic">Nenhuma atividade registrada.</div>;
                   }
 
-                  return history.map((item, idx) => (
+                  return recentHistory.map((item, idx) => (
                     <div key={idx} className="py-3 flex items-center justify-between">
                        <div className="flex items-center gap-3">
                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -1976,8 +1946,19 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                             </p>
                          </div>
                        </div>
-                       <div className="text-right">
-                         <span className="text-xs font-black text-green-600">+{item.amount} XP</span>
+                       <div className="text-right flex items-center gap-2">
+                         <span className={`text-xs font-black ${Number(item.amount) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                           {Number(item.amount) >= 0 ? `+${item.amount}` : item.amount} XP
+                         </span>
+                         {(item.type === 'extra' || item.type === 'achievement') && (
+                           <button 
+                             onClick={() => removeManualXP(student, item)}
+                             className="p-1 text-gray-300 hover:text-red-500 transition"
+                             title="Remover XP"
+                           >
+                             <Trash2 size={12} />
+                           </button>
+                         )}
                        </div>
                     </div>
                   ));
@@ -1990,133 +1971,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   className="w-full py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 rounded-xl font-bold text-sm"
                 >
                   Fechar
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL ADICIONAR ALUNO */}
-      <AnimatePresence>
-        {isAddingStudent && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                <h3 className="text-xl font-bold dark:text-white">Adicionar Novo Aluno</h3>
-                <button onClick={() => setIsAddingStudent(false)} className="text-gray-400 hover:text-red-500"><X size={20} /></button>
-              </div>
-              
-              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-2">Importante: O aluno iniciará com 0 XP e sem conquistas.</p>
-                
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo *</label>
-                  <input 
-                    type="text" 
-                    value={newStudentData.name}
-                    onChange={e => setNewStudentData({...newStudentData, name: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white font-medium"
-                    placeholder="Nome completo do aluno"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Apelido (Opcional)</label>
-                  <input 
-                    type="text" 
-                    value={newStudentData.nickname}
-                    onChange={e => setNewStudentData({...newStudentData, nickname: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white font-medium"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Login *</label>
-                    <input 
-                      type="text" 
-                      value={newStudentData.studentLogin}
-                      onChange={e => setNewStudentData({...newStudentData, studentLogin: e.target.value})}
-                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
-                      placeholder="Login de acesso"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Senha *</label>
-                    <input 
-                      type="text" 
-                      value={newStudentData.studentPassword}
-                      onChange={e => setNewStudentData({...newStudentData, studentPassword: e.target.value})}
-                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
-                      placeholder="Senha inicial"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data Nasc.</label>
-                    <input 
-                      type="text" 
-                      value={newStudentData.birthDate}
-                      onChange={e => setNewStudentData({...newStudentData, birthDate: e.target.value})}
-                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
-                      placeholder="DD/MM/AAAA"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp</label>
-                    <input 
-                      type="text" 
-                      value={newStudentData.phone}
-                      onChange={e => setNewStudentData({...newStudentData, phone: e.target.value})}
-                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
-                      placeholder="11999998888"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plano</label>
-                  <input 
-                    type="text" 
-                    value={newStudentData.plan}
-                    onChange={e => setNewStudentData({...newStudentData, plan: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Faixa / Graduação</label>
-                  <input 
-                    type="text" 
-                    value={newStudentData.belt}
-                    onChange={e => setNewStudentData({...newStudentData, belt: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white text-sm font-medium"
-                  />
-                </div>
-              </div>
-              
-              <div className="p-6 bg-gray-50 dark:bg-gray-800/50 flex gap-3">
-                <button 
-                  onClick={() => setIsAddingStudent(false)}
-                  className="flex-1 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 rounded-xl font-bold text-sm"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={handleAddStudent}
-                  disabled={loading}
-                  className="flex-[2] py-3 bg-brand-red text-white rounded-xl font-bold text-sm shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
-                >
-                  {loading ? <Loader2 size={18} className="animate-spin" /> : <><Plus size={18} /> Adicionar Aluno</>}
                 </button>
               </div>
             </motion.div>

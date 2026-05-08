@@ -176,10 +176,10 @@ export default function Finance({ currentUserData, planInfo }: any) {
           {/* Plan Details Card */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
             <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-display font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight flex items-center gap-2">
+              <h3 className="font-display font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight flex items-center gap-2 shrink-0">
                 <FileText className="w-4 h-4" /> Detalhes do Contrato
               </h3>
-              <span className="bg-brand-red/10 text-brand-red text-[10px] font-black px-3 py-1 rounded-full uppercase italic">{planName}</span>
+              <span className="bg-brand-red/10 text-brand-red text-[10px] font-black px-3 py-1 rounded-full uppercase italic truncate max-w-[150px] sm:max-w-[250px]" title={planName}>{planName}</span>
             </div>
             
             <div className="p-6">

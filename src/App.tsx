@@ -500,7 +500,6 @@ export default function Dashboard() {
             
             // Side effects safely
             try {
-              checkBirthday(data);
               checkMissing(data);
               
               if (data.plan && data.plan.includes('combo')) {
@@ -513,7 +512,6 @@ export default function Dashboard() {
               loadUserBookings(data.id);
               loadAdminAchievements();
               loadFamilyMembers(data);
-              checkTodayBirthdays(appId);
             } catch (sideError) {
               console.error("Erro em efeitos colaterais:", sideError);
             }
@@ -935,7 +933,6 @@ export default function Dashboard() {
       { id: 'weekend_warrior', earned: isWeekendWarrior, xpBonus: 150 },
       { id: 'voice_tatame', earned: hasPosted, xpBonus: 100 },
       { id: 'degree', earned: earnedDegree, xpBonus: 250 },
-      { id: 'graduated', earned: earnedNewBelt, xpBonus: 500 },
       { id: 'warrior', earned: totalAttCount >= 50, xpBonus: 500 },
       { id: 'centurion', earned: totalAttCount >= 100, xpBonus: 1000 },
       { id: 'casca_grossa', earned: totalAttCount >= 200, xpBonus: 2000 },
@@ -1043,47 +1040,6 @@ export default function Dashboard() {
     setViewingDependentId(depId);
     await loadStudentData(depId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const checkBirthday = async (userData: Record<string, any>) => {
-    if (!userData || !userData.birthDate) return;
-    const today = new Date();
-    // birthDate is likely YYYY-MM-DD or DD/MM/YYYY
-    const birthStr = userData.birthDate || userData.birthdate;
-    const parts = birthStr.split(/[-/]/);
-    if (parts.length === 3) {
-      // Determine if format is YYYY-MM-DD (part 0 is > 31) or DD/MM/YYYY
-      const p0 = parseInt(parts[0]);
-      const bMonth = p0 > 31 ? parseInt(parts[1]) - 1 : parseInt(parts[1]) - 1;
-      const bDay = p0 > 31 ? parseInt(parts[2]) : p0;
-      if (today.getMonth() === bMonth && today.getDate() === bDay) {
-        // It's their birthday! Check if we already celebrated this year
-        const lastCelebration = localStorage.getItem(`birthday_celebrated_${userData.id}`);
-        const currentYearStr = today.getFullYear().toString();
-        if (lastCelebration !== currentYearStr) {
-          localStorage.setItem(`birthday_celebrated_${userData.id}`, currentYearStr);
-          const firstName = (userData.nickname || userData.name || "Aluno").split(' ')[0];
-          showAlert("🎉 Feliz Aniversário! 🎉", `Parabéns, ${firstName}! Obrigado por fazer parte da nossa equipe. O tatame é melhor com você!`, 'success');
-
-          // Share to Feed automatically
-          try {
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), {
-              timestamp: new Date().toISOString(),
-              studentId: userData.id,
-              studentName: userData.nickname || userData.name,
-              studentFullName: userData.name,
-              message: "Hoje é meu aniversário! 🎉 Parabéns para mim!",
-              badgeName: "Medalha de Aniversário",
-              badgeDesc: "Completou mais um ano de vida e dedicação!",
-              badgeIcon: "Crown",
-              likes: 0,
-              likedBy: [],
-              comments: []
-            });
-          } catch { console.error("Error sharing birthday to feed:"); }
-        }
-      }
-    }
   };
 
   const checkMissing = (userData: any) => {
@@ -1263,14 +1219,21 @@ export default function Dashboard() {
     
     let graduatedToBlackBelt = false;
     
+    // Achievement temporal lock: only grad records strictly after this date will count
+    const LOCK_DATE = '2026-05-06';
+    
     for (const log of progressLog) {
       if (log.type === 'graduation' && !log.isInitialRank) {
-        if (log.text && log.text.match(/[1-9]º Grau/)) {
-          earnedDegree = true;
-        } else {
-          earnedNewBelt = true;
-          if (log.text && log.text.toLowerCase().includes("preta")) {
-            graduatedToBlackBelt = true;
+        // Only count if it's a NEW graduation record (date > LOCK_DATE)
+        const logDateStr = log.date || '';
+        if (logDateStr > LOCK_DATE) {
+          if (log.text && log.text.match(/[1-9]º Grau/)) {
+            earnedDegree = true;
+          } else {
+            earnedNewBelt = true;
+            if (log.text && log.text.toLowerCase().includes("preta")) {
+              graduatedToBlackBelt = true;
+            }
           }
         }
       }
@@ -1293,16 +1256,16 @@ export default function Dashboard() {
       { id: 'first_class', name: "Primeiro Treino", desc: "Suor e dedicação no primeiro dia.", icon: <Star className="w-5 h-5 text-yellow-500" />, iconName: 'Star', earned: attCount >= 1, xpBonus: 100 },
       { id: 'beginner', name: "Iniciante", desc: "Frequência inicial: 12 treinos concluídos.", icon: <Medal className="w-5 h-5 text-gray-400" />, iconName: 'Medal', earned: attCount >= 12, xpBonus: 200 },
       { id: 'monthly_focus', name: "Foco Mensal", desc: "Frequência de elite: 20 treinos no mês.", icon: <Target className="w-5 h-5 text-red-500" />, iconName: 'Target', earned: monthCount >= 20, xpBonus: 300 },
-      { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, iconName: 'Flame', earned: maxConsecutive >= 5, xpBonus: 150 },
+      { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, iconName: 'Flame', earned: maxConsecutive >= 5, xpBonus: 250 },
       { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, iconName: 'Sun', earned: isWeekendWarrior, xpBonus: 150 },
       { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, iconName: 'MessageSquare', earned: hasPosted, xpBonus: 100 },
       { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <ArrowUpCircle className="w-5 h-5 text-yellow-600" />, iconName: 'ArrowUpCircle', earned: earnedDegree, xpBonus: 250 },
-      { id: 'graduated', name: "Nova Faixa", desc: "Respeito no tatame (Nova Faixa).", icon: <Award className="w-5 h-5 text-purple-500" />, iconName: 'Award', earned: earnedNewBelt, xpBonus: 500 },
+      { id: 'new_belt', name: "Nova Faixa", desc: "Avançou para uma nova graduação.", icon: <Medal className="w-5 h-5 text-brand-red" />, iconName: 'Medal', earned: earnedNewBelt, xpBonus: 500 },
       { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, iconName: 'Medal', earned: attCount >= 50, xpBonus: 500 },
       { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, iconName: 'Flame', earned: attCount >= 100, xpBonus: 1000 },
       { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, iconName: 'Shield', earned: attCount >= 200, xpBonus: 2000 },
       { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, iconName: 'Crown', earned: attCount >= 500, xpBonus: 5000 },
-      { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthCount >= 25, xpBonus: 500 },
+      { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthCount >= 25, xpBonus: 400 },
       { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: graduatedToBlackBelt, xpBonus: 10000 },
       // Ranking Achievements
       { id: 'rank_1', name: "O Campeão", desc: "Ficou em 1º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-yellow-400" />, iconName: 'Trophy', earned: lastMonthPos === 0, xpBonus: 1000 },
@@ -1313,27 +1276,36 @@ export default function Dashboard() {
     ];
 
     const ICON_MAP_LOCAL: Record<string, any> = {
-      'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
+      'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 'Target-Red': Target,
       'Flame': Flame, 'Sun': Sun, 'MessageSquare': MessageSquare, 'Award': Award, 
-      'Shield': Shield, 'Crown': Crown, 'Zap': Zap, 'ArrowUpCircle': ArrowUpCircle
+      'Shield': Shield, 'Crown': Crown, 'Zap': Zap, 'ArrowUpCircle': ArrowUpCircle,
+      'CheckCircle': CheckCircle, 'Users': Users, 'Calendar': Calendar, 'Heart': Target
     };
 
     const studentAchievements = Array.isArray(userData.achievements) ? userData.achievements : [];
-    const earnedManual = adminAchievements.filter(ach => 
-      studentAchievements.includes(ach.id)
-    ).map(ach => {
-      const IconBase = (ach.iconName && ICON_MAP_LOCAL[ach.iconName]) || Trophy;
-      return {
-        id: ach.id,
-        name: ach.name,
-        desc: ach.description,
-        icon: <IconBase className="w-5 h-5 text-brand-red" />,
-        earned: true,
-        xpBonus: ach.xpBonus || 200
-      };
-    });
+    
+    // Manual achievements - filter out those that are already in possibleBadges to avoid duplicates
+    const earnedManual = adminAchievements
+      .filter(ach => studentAchievements.includes(ach.id) && !possibleBadges.some(pb => pb.id === ach.id))
+      .map(ach => {
+        const IconBase = (ach.iconName && ICON_MAP_LOCAL[ach.iconName]) || Trophy;
+        return {
+          id: ach.id,
+          name: ach.name,
+          desc: ach.desc || ach.description, // Support both field names for safety
+          icon: <IconBase className="w-5 h-5 text-brand-red" />,
+          earned: true,
+          xpBonus: ach.xpBonus || 200
+        };
+      });
 
-    return [...possibleBadges, ...earnedManual];
+    const allBadges = [...possibleBadges, ...earnedManual];
+    // Sort badges: earned ones first, then by xpBonus descending
+    return allBadges.sort((a, b) => {
+      if (a.earned && !b.earned) return -1;
+      if (!a.earned && b.earned) return 1;
+      return (b.xpBonus || 0) - (a.xpBonus || 0);
+    });
   };
 
   const earnedBadgesCalculated = computeAchievementsList(activeUserData, totalAtt, currentMonthAttCount);
@@ -1837,9 +1809,9 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Belt Status */}
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-brand-red relative overflow-hidden flex flex-col justify-between">
-                      {recentGrad && (
+                      {recentGrad && !recentGrad.isNewBelt && (
                         <div className="absolute top-0 left-0 w-full bg-yellow-400 text-yellow-900 text-center text-xs font-bold py-1 z-10">
-                          <span>{recentGrad.isNewBelt ? `🎉 PARABÉNS PELA NOVA FAIXA! (${currentUserData.belt}) 🎉` : `⭐ PARABÉNS PELO NOVO GRAU! (${currentUserData.belt}) ⭐`}</span>
+                          <span>{`⭐ PARABÉNS PELO NOVO GRAU! (${currentUserData.belt}) ⭐`}</span>
                         </div>
                       )}
                       <div>
@@ -1855,14 +1827,14 @@ export default function Dashboard() {
                         <div className="w-full h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 shadow-inner overflow-hidden relative">
                           {renderBeltSVG(currentUserData.belt || "Faixa Branca - 0º Grau")}
                         </div>
-                        {recentGrad && (
+                        {recentGrad && !recentGrad.isNewBelt && (
                           <button 
                             onClick={() => handleShareBadge({
-                              name: recentGrad.isNewBelt ? "Nova Faixa" : "Novo Grau",
+                              name: "Novo Grau",
                               desc: `Avançou para ${currentUserData.belt}`,
-                              icon: recentGrad.isNewBelt ? <Medal className="w-5 h-5" /> : <Star className="w-5 h-5" />,
-                              iconName: recentGrad.isNewBelt ? 'Medal' : 'Star',
-                              color: recentGrad.isNewBelt ? "text-brand-red" : "text-yellow-600"
+                              icon: <Star className="w-5 h-5" />,
+                              iconName: 'Star',
+                              color: "text-yellow-600"
                             })}
                             className="mt-4 w-full bg-brand-red text-white text-sm font-bold py-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2 shadow-md"
                           >
@@ -1886,8 +1858,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <div className="mt-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-300">Plano: <span className="font-bold text-brand-dark dark:text-white uppercase">{planInfo.short}</span></p>
-                        <div className="flex flex-col gap-2 mt-3">
+                        <div className="flex flex-col gap-2 mt-1">
                           <button onClick={() => setIsHistoryModalOpen(true)} className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold flex items-center transition justify-center mt-1">
                             <Clock className="w-3 h-3 mr-1" /> Ver Histórico de Pagamentos
                           </button>
@@ -2057,7 +2028,7 @@ export default function Dashboard() {
                     <h3 className="font-display text-xl font-bold text-brand-dark dark:text-white flex items-center gap-2"><Trophy className="text-yellow-500 w-5 h-5" /> Suas Conquistas</h3>
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-1">Medalhas Desbloqueadas</p>
                   </div>
-                  <div className="p-4 flex-1 overflow-y-auto max-h-[300px]">
+                  <div className="p-4 flex-1 overflow-y-auto max-h-[450px]">
                     <div className="grid grid-cols-2 gap-3">
                       {earnedBadges.map((b, i) => (
                         <div 
@@ -2239,14 +2210,6 @@ export default function Dashboard() {
                     <div>
                       <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Apelido (Exibição)</label>
                       <div className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-medium shadow-sm overflow-x-auto">{currentUserData.nickname || '--'}</div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-brand-red dark:text-red-400 uppercase mb-1 flex items-center gap-1">
-                        <Cake size={12} /> Data de Nascimento
-                      </label>
-                      <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded border border-red-100 dark:border-red-900/30 text-brand-red dark:text-red-300 font-bold shadow-sm overflow-x-auto">
-                        {currentUserData.birthDate || currentUserData.birthdate || '--'}
-                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase mb-1">Utilizador de Acesso (Login)</label>

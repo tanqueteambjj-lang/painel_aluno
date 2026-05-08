@@ -227,6 +227,7 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm, i
         text: commentText.trim(),
         authorId: currentUserData.id,
         authorName: (currentUserData.nickname || currentUserData.name).split(' ')[0],
+        authorPhoto: currentUserData.photoBase64 || null,
         timestamp: new Date().toISOString()
       };
       await updateDoc(feedRef, {
@@ -482,8 +483,12 @@ export default function Feed({ currentUserData, appId, showAlert, showConfirm, i
                     >
                       {post.comments?.map((comment: any) => (
                         <div key={comment.id} className="flex gap-2">
-                          <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 mt-0.5 border border-gray-200 dark:border-gray-600">
-                            {comment.authorName.charAt(0).toUpperCase()}
+                           <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 text-[10px] shrink-0 mt-0.5 border border-gray-200 dark:border-gray-600 overflow-hidden">
+                            {comment.authorPhoto ? (
+                              <img src={comment.authorPhoto} className="w-full h-full object-cover" />
+                            ) : (
+                              comment.authorName.charAt(0).toUpperCase()
+                            )}
                           </div>
                           <div className="bg-white dark:bg-gray-700/50 rounded-2xl rounded-tl-none px-3 py-2 flex-1 shadow-sm border border-gray-100 dark:border-gray-800">
                             <h5 className="text-[10px] font-bold text-gray-900 dark:text-white leading-none mb-1">{comment.authorName}</h5>
