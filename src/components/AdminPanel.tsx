@@ -168,6 +168,12 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   };
 
   const [allStudents, setAllStudents] = useState<any[]>([]);
+  // Students Filters
+  const [filterBelt, setFilterBelt] = useState('Todas');
+  const [filterLevelOrder, setFilterLevelOrder] = useState<'none' | 'desc' | 'asc'>('none');
+  const [filterStatus, setFilterStatus] = useState('Todos');
+  const [filterRecent, setFilterRecent] = useState(false);
+  const [familySearch, setFamilySearch] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<any | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -325,18 +331,48 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   }, [activeTab, appId]);
 
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setStudents(allStudents);
-    } else {
+    let filtered = [...allStudents];
+
+    // Search Query
+    if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
-      const filtered = allStudents.filter(s => 
+      filtered = filtered.filter(s => 
         (s.name && s.name.toLowerCase().includes(q)) || 
         (s.nickname && s.nickname.toLowerCase().includes(q)) ||
         (s.studentLogin && s.studentLogin.toLowerCase().includes(q))
       );
-      setStudents(filtered);
     }
-  }, [searchQuery, allStudents]);
+
+    // Belt Filter
+    if (filterBelt !== 'Todas') {
+      filtered = filtered.filter(s => s.belt && s.belt.includes(filterBelt));
+    }
+
+    // Status Filter
+    if (filterStatus !== 'Todos') {
+      filtered = filtered.filter(s => s.paymentStatus === filterStatus);
+    }
+
+    // Sort by Level
+    if (filterLevelOrder !== 'none') {
+      filtered.sort((a, b) => {
+        const lvlA = calculateStudentLevel(a);
+        const lvlB = calculateStudentLevel(b);
+        return filterLevelOrder === 'desc' ? lvlB - lvlA : lvlA - lvlB;
+      });
+    }
+
+    // Sort by Recent
+    if (filterRecent) {
+      filtered.sort((a, b) => {
+        const dateA = a.registrationDate || '';
+        const dateB = b.registrationDate || '';
+        return dateB.localeCompare(dateA);
+      });
+    }
+
+    setStudents(filtered);
+  }, [searchQuery, allStudents, filterBelt, filterLevelOrder, filterStatus, filterRecent]);
 
   const weekDays = [
     { id: 0, name: 'Domingo' },
@@ -542,7 +578,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
           type: 'extra',
           id: `extra_${Date.now()}`
         };
-        const newLog = [...(student.xpLog || []), xpUpdate];
+        const newLog = [...(student.xpLog || []), xpUpdate].slice(-10);
 
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
           extraXP: currentExtraXP + amount,
@@ -642,7 +678,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
           type: 'achievement',
           id: `${achId}_${Date.now()}` // Added ID for easier tracking
         };
-        updates.xpLog = [...(student.xpLog || []), xpUpdate];
+        updates.xpLog = [...(student.xpLog || []), xpUpdate].slice(-10);
         updates.extraXP = currentExtraXP + achXP;
       } else {
         updates.achievements = currentAchs.filter((id: string) => id !== achId);
@@ -665,6 +701,38 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       console.error(e);
       showAlert("Erro", "Falha ao atualizar conquistas do aluno.", "error");
     }
+  };
+
+  const handleResetSeason = async () => {
+    showConfirm("REINICIAR TEMPORADA", 
+      "ATENÇÃO: Isso irá zerar o XP bônus, XP social e as conquistas manuais de TODOS os alunos. O XP de treino (presença) será mantido. Deseja continuar?", 
+      async () => {
+        try {
+          setLoading(true);
+          const batchPromises = allStudents.map(student => {
+            const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id);
+            return updateDoc(ref, {
+              extraXP: 0,
+              socialXP: 0,
+              achievements: [],
+              xpLog: [],
+              feedPosts: 0
+            });
+          });
+          
+          await Promise.all(batchPromises);
+          
+          // Re-fetch all students to sync state
+          await fetchStudents();
+          showAlert("Temporada Reiniciada!", "XP e Conquistas foram limpos. Boa temporada!", "success");
+        } catch (e) {
+          console.error("Erro ao resetar temporada:", e);
+          showAlert("Erro", "Falha ao resetar temporada.", "error");
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
   };
 
   const addClass = async () => {
@@ -1138,24 +1206,114 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-4 items-center">
-                <div className="relative flex-1 w-full">
-                  <Search className="absolute left-4 top-3 text-gray-400 w-5 h-5" />
-                  <input 
-                    type="text" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar aluno por nome ou login..."
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
-                  />
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
+                <div className="flex flex-col md:flex-row gap-4 items-center">
+                  <div className="relative flex-1 w-full">
+                    <Search className="absolute left-4 top-3 text-gray-400 w-5 h-5" />
+                    <input 
+                      type="text" 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Buscar aluno por nome ou login..."
+                      className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                    />
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button 
+                      onClick={fetchStudents}
+                      className="bg-brand-red px-4 py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all"
+                    >
+                      Recarregar
+                    </button>
+                    <button 
+                      onClick={() => setIsAddingStudent(true)}
+                      className="bg-green-600 px-4 py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2"
+                    >
+                      <Plus size={18} /> Novo Aluno
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <button 
-                    onClick={fetchStudents}
-                    className="bg-brand-red px-4 py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all"
-                  >
-                    Recarregar
-                  </button>
+
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-50 dark:border-gray-700/50">
+                  {/* Belt Filter */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase px-1">Faixa</span>
+                    <select 
+                      value={filterBelt}
+                      onChange={(e) => setFilterBelt(e.target.value)}
+                      className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                    >
+                      <option value="Todas">Todas</option>
+                      <option value="Faixa Branca">Branca</option>
+                      <option value="Faixa Cinza">Cinza</option>
+                      <option value="Faixa Amarela">Amarela</option>
+                      <option value="Faixa Laranja">Laranja</option>
+                      <option value="Faixa Verde">Verde</option>
+                      <option value="Faixa Azul">Azul</option>
+                      <option value="Faixa Roxa">Roxa</option>
+                      <option value="Faixa Marrom">Marrom</option>
+                      <option value="Faixa Preta">Preta</option>
+                    </select>
+                  </div>
+
+                  {/* Level Sort */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase px-1">Nível</span>
+                    <select 
+                      value={filterLevelOrder}
+                      onChange={(e) => setFilterLevelOrder(e.target.value as any)}
+                      className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                    >
+                      <option value="none">Padrão</option>
+                      <option value="desc">Maior p/ Menor</option>
+                      <option value="asc">Menor p/ Maior</option>
+                    </select>
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase px-1">Status</span>
+                    <select 
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                    >
+                      <option value="Todos">Todos</option>
+                      <option value="Em dia">Em dia</option>
+                      <option value="Pendente">Pendente</option>
+                    </select>
+                  </div>
+
+                  {/* Recent Sort */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase px-1">Ordem</span>
+                    <button 
+                      onClick={() => setFilterRecent(!filterRecent)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                        filterRecent 
+                        ? 'bg-brand-red text-white border-brand-red' 
+                        : 'bg-white dark:bg-gray-900 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-brand-red hover:text-brand-red'
+                      }`}
+                    >
+                      {filterRecent ? 'Mais Recentes' : 'Data Registro'}
+                    </button>
+                  </div>
+
+                  {/* Reset Filters */}
+                  {(filterBelt !== 'Todas' || filterLevelOrder !== 'none' || filterStatus !== 'Todos' || filterRecent) && (
+                    <button 
+                      onClick={() => {
+                        setFilterBelt('Todas');
+                        setFilterLevelOrder('none');
+                        setFilterStatus('Todos');
+                        setFilterRecent(false);
+                        setSearchQuery('');
+                      }}
+                      className="mt-auto px-3 py-1.5 text-[10px] font-bold text-brand-red hover:underline"
+                    >
+                      Limpar Filtros
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1560,128 +1718,24 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 </div>
               </div>
 
-              {/* Assignment Section (Simplified) */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <h3 className="font-bold text-lg mb-4 dark:text-white">Atribuir Conquistas</h3>
-                <p className="text-sm text-gray-400 mb-6">Busque um aluno e clique no ícone da conquista para atribuir ou remover.</p>
-                
-                <div className="relative mb-6">
-                  <Search className="absolute left-4 top-3 text-gray-400 w-5 h-5" />
-                  <input 
-                    type="text" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Filtrar alunos..."
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl pl-12 pr-4 py-3 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
-                  />
+              {/* Reset Season Section */}
+              <div className="bg-red-50 dark:bg-red-900/10 p-8 rounded-2xl border-2 border-dashed border-red-200 dark:border-red-900/50 text-center space-y-6">
+                <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                  <RotateCcw className="text-red-600 w-8 h-8" />
                 </div>
-
-                <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                  {allStudents.filter(s => (s.name || '').toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 10).map(s => (
-                    <div key={s.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center shrink-0">
-                           {s.photoBase64 ? (
-                             <img 
-                               src={s.photoBase64} 
-                               className="w-full h-full object-cover cursor-pointer" 
-                               onClick={() => setSelectedPhoto(s.photoBase64)}
-                             />
-                           ) : <User size={16} />}
-                         </div>
-                         <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-bold text-sm dark:text-white truncate">{s.name}</p>
-                              <span className="text-[9px] font-bold text-brand-red bg-brand-red/5 px-1 rounded border border-brand-red/10">Lvl {calculateStudentLevel(s)}</span>
-                            </div>
-                            <p className="text-[10px] text-gray-400 truncate">{s.belt}</p>
-                         </div>
-                      </div>
-                      <div className="flex flex-col gap-2 w-full max-w-md">
-                        {/* XP Penalty/Bonus Section */}
-                        <div className="flex items-center gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                          <div className="flex flex-col gap-1 items-center px-1 border-r border-gray-200 dark:border-gray-700 pr-2">
-                             <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg">
-                               <button 
-                                 id={`bonus-${s.id}`}
-                                 onClick={() => {
-                                   document.getElementById(`bonus-${s.id}`)?.classList.add('bg-white', 'text-green-600');
-                                   document.getElementById(`bonus-${s.id}`)?.classList.remove('text-gray-400');
-                                   document.getElementById(`penalty-${s.id}`)?.classList.remove('bg-white', 'text-red-500');
-                                   document.getElementById(`penalty-${s.id}`)?.classList.add('text-gray-400');
-                                 }}
-                                 className="px-2 py-0.5 rounded-md text-[8px] font-bold bg-white text-green-600 shadow-sm transition-all"
-                               >Bônus</button>
-                               <button 
-                                 id={`penalty-${s.id}`}
-                                 onClick={() => {
-                                   document.getElementById(`penalty-${s.id}`)?.classList.add('bg-white', 'text-red-500');
-                                   document.getElementById(`penalty-${s.id}`)?.classList.remove('text-gray-400');
-                                   document.getElementById(`bonus-${s.id}`)?.classList.remove('bg-white', 'text-green-600');
-                                   document.getElementById(`bonus-${s.id}`)?.classList.add('text-gray-400');
-                                 }}
-                                 className="px-2 py-0.5 rounded-md text-[8px] font-bold text-gray-400 hover:text-red-500 transition-all"
-                               >Penalidade</button>
-                             </div>
-                          </div>
-                          <input 
-                            type="number" 
-                            placeholder="Valor" 
-                            className="bg-transparent text-sm font-bold w-full outline-none dark:text-white"
-                            onKeyDown={async (e) => {
-                              if (e.key === 'Enter') {
-                                let val = Math.abs(parseInt((e.target as HTMLInputElement).value));
-                                if (isNaN(val)) return;
-                                
-                                const isPenalty = document.getElementById(`penalty-${s.id}`)?.classList.contains('bg-white');
-                                if (isPenalty) val = -val;
-
-                                const reason = prompt(val < 0 ? "Motivo da penalidade:" : "Motivo do bônus:");
-                                if (reason) {
-                                  await addExtraXP(s.id, val, reason);
-                                  (e.target as HTMLInputElement).value = '';
-                                }
-                              }
-                            }}
-                          />
-                          <p className="text-[8px] text-gray-400 font-bold uppercase whitespace-nowrap">Enter</p>
-                        </div>
-
-                        {/* Achievements Display and Toggle */}
-                        <div className="flex flex-wrap gap-2">
-                           {/* System Achievements Display (View Only) */}
-                           {getStudentAchievements(s).filter(a => !customAchievements.some(ca => ca.id === a.id)).map(a => (
-                             <div key={a.id} className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-400 opacity-60 flex items-center gap-1" title={`${a.name}: ${a.desc} (Auto)`}>
-                               <Trophy size={14} />
-                             </div>
-                           ))}
-
-                           {/* Custom Achievements (Toggleable) */}
-                           {customAchievements.map(ach => {
-                             const IconComp = iconOptions[ach.iconName] || Trophy;
-                             const hasAch = (s.achievements || []).includes(ach.id);
-                             return (
-                               <button
-                                 key={ach.id}
-                                 onClick={() => toggleAchievementForStudent(s, ach.id)}
-                                 className={`p-1.5 rounded-lg border transition flex items-center gap-2 ${hasAch ? 'bg-brand-red border-brand-red text-white shadow-lg shadow-red-500/20' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 shadow-sm'}`}
-                                 title={`${ach.name}: ${ach.description || ach.desc}`}
-                               >
-                                 <IconComp size={14} />
-                                 {hasAch && <Check size={10} />}
-                               </button>
-                             );
-                           })}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {allStudents.length === 0 && (
-                     <div className="py-10 text-center text-gray-400 italic">
-                        Carregando alunos...
-                     </div>
-                  )}
+                <div className="max-w-md mx-auto">
+                  <h3 className="font-display font-bold text-2xl text-red-700 dark:text-red-400 uppercase tracking-tight">Reiniciar Temporada</h3>
+                  <p className="text-sm text-red-600/80 dark:text-red-400/60 mt-2 font-medium">
+                    Isso irá limpar o XP bônus, social e conquistas manuais de todos os alunos simultaneamente. 
+                    <span className="block font-bold mt-1 underline">O histórico de treino (presença) não será afetado.</span>
+                  </p>
                 </div>
+                <button 
+                  onClick={handleResetSeason}
+                  className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-sm shadow-xl shadow-red-500/20 hover:bg-red-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
+                >
+                  <Flame className="w-4 h-4" /> Resetar Agora
+                </button>
               </div>
             </motion.div>
           )}
@@ -1861,11 +1915,29 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               <h3 className="text-xl font-bold mb-4 dark:text-white">Vincular Família</h3>
               <p className="text-sm text-gray-500 mb-6">Selecione o Titular da Família para <strong>{isLinkingFamily.name}</strong>.</p>
               
-              <div className="max-h-60 overflow-y-auto space-y-2 mb-6">
-                {allStudents.filter(os => os.id !== isLinkingFamily.studentId && !os.parentId).map(os => (
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+                <input 
+                  type="text" 
+                  value={familySearch}
+                  onChange={(e) => setFamilySearch(e.target.value)}
+                  placeholder="Pesquisar responsável pelo nome..."
+                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                />
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-2 mb-6 pr-2">
+                {allStudents.filter(os => 
+                  os.id !== isLinkingFamily.studentId && 
+                  !os.parentId && 
+                  (os.name || '').toLowerCase().includes(familySearch.toLowerCase())
+                ).map(os => (
                   <button
                     key={os.id}
-                    onClick={() => linkAccount(isLinkingFamily.studentId, os.id)}
+                    onClick={() => {
+                      linkAccount(isLinkingFamily.studentId, os.id);
+                      setFamilySearch('');
+                    }}
                     className="w-full text-left p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border-2 border-transparent hover:border-brand-red transition flex items-center gap-3"
                   >
                     <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">

@@ -849,7 +849,7 @@ export default function Dashboard() {
 
     // 2. Extra XP & Manual Achievement Logs
     if (Array.isArray(student.xpLog)) {
-      student.xpLog.forEach((log: any) => {
+      student.xpLog.slice(-10).forEach((log: any) => {
         if (log && typeof log === 'object') history.push(log);
       });
     }
@@ -1137,9 +1137,12 @@ export default function Dashboard() {
         type: 'social'
       };
 
+      const currentXpLog = activeUserData?.xpLog || [];
+      const newXpLog = [...currentXpLog, xpLogEntry].slice(-10);
+
       await updateDoc(ref, {
         socialXP: increment(amount),
-        xpLog: arrayUnion(xpLogEntry)
+        xpLog: newXpLog
       });
       
       localStorage.setItem(dailyKey, (dailyEarned + amount).toString());
@@ -1149,13 +1152,13 @@ export default function Dashboard() {
         setDependents(prev => prev.map(d => d.id === viewingDependentId ? { 
           ...d, 
           socialXP: (d.socialXP || 0) + amount,
-          xpLog: [...(d.xpLog || []), xpLogEntry]
+          xpLog: newXpLog
         } : d));
       } else {
         setCurrentUserData((prev: any) => ({ 
           ...prev, 
           socialXP: (prev.socialXP || 0) + amount,
-          xpLog: [...(prev.xpLog || []), xpLogEntry]
+          xpLog: newXpLog
         }));
       }
       
@@ -1189,6 +1192,9 @@ export default function Dashboard() {
       const questsToComplete = WEEKLY_QUESTS.filter(q => q.type === type && newProgress >= q.goal && (questData[type] || 0) < q.goal);
       
       if (questsToComplete.length > 0) {
+        const currentXpLog = activeUserData?.xpLog || [];
+        let newXpLog = [...currentXpLog];
+        
         questsToComplete.forEach(q => {
           const xpEntry = {
             date: new Date().toISOString(),
@@ -1197,14 +1203,16 @@ export default function Dashboard() {
             type: 'quest'
           };
           
-          if (!updates.xpLog) updates.xpLog = arrayUnion(xpEntry);
-          else updates.xpLog = [...updates.xpLog, xpEntry];
-          
+          newXpLog.push(xpEntry);
+          newXpLog = newXpLog.slice(-10);
           updates.extraXP = increment(q.xp);
+          updates.xpLog = newXpLog;
           
           // Show alert for quest completion
           showAlert("Missão Concluída!", `Você completou '${q.title}' e ganhou ${q.xp} XP!`, "success");
         });
+
+        updates.xpLog = newXpLog.slice(-10);
       }
 
       await updateDoc(ref, updates);
