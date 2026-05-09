@@ -36,7 +36,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     plan: 'Mensal',
     belt: 'Faixa Branca - 0º Grau',
     phone: '',
-    paymentStatus: 'Em dia'
+    paymentStatus: 'Em dia',
+    parentId: '',
+    parentName: ''
   });
   
   // Schedule Management
@@ -154,7 +156,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         plan: 'Mensal',
         belt: 'Faixa Branca - 0º Grau',
         phone: '',
-        paymentStatus: 'Em dia'
+        paymentStatus: 'Em dia',
+        parentId: '',
+        parentName: ''
       });
       
       await fetchStudents();
@@ -1552,6 +1556,25 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                           <Users size={12} />
                           {s.parentId ? 'Vínculo ok' : 'Vincular'}
                         </button>
+                        
+                        {/* Add Dependent Button */}
+                        {!s.parentId && (
+                          <button 
+                            onClick={() => {
+                              setNewStudentData(prev => ({ 
+                                ...prev, 
+                                parentId: s.id, 
+                                parentName: s.name, 
+                                plan: 'Dependente',
+                                belt: 'Faixa Branca - 0º Grau'
+                              }));
+                              setIsAddingStudent(true);
+                            }}
+                            className="flex-1 p-1.5 rounded flex items-center justify-center gap-1 text-[9px] font-bold uppercase transition bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 hover:scale-105 active:scale-95"
+                          >
+                            <Plus size={12} /> +Membro
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex-1 flex gap-1 items-center">
@@ -1965,6 +1988,167 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               >
                 Cancelar
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL ADICIONAR ALUNO (NOVO) */}
+      <AnimatePresence>
+        {isAddingStudent && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 30 }}
+              className="bg-white dark:bg-gray-900 rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800"
+            >
+              <div className="p-8 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900">
+                <div>
+                  <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter italic">
+                    {newStudentData.parentId ? 'ADICIONAR DEPENDENTE' : 'NOVO ALUNO'}
+                  </h3>
+                  {newStudentData.parentId && (
+                    <p className="text-xs text-brand-red font-bold uppercase tracking-widest mt-1">
+                      Responsável: {newStudentData.parentName}
+                    </p>
+                  )}
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsAddingStudent(false);
+                    setNewStudentData(prev => ({ ...prev, parentId: '', parentName: '' }));
+                  }} 
+                  className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-red-500 transition-all hover:rotate-90"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-5 max-h-[60vh] overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 px-1">Nome Completo</label>
+                    <div className="relative group">
+                      <User className="absolute left-4 top-3.5 text-gray-400 w-5 h-5 group-focus-within:text-brand-red transition-colors" />
+                      <input 
+                        type="text" 
+                        value={newStudentData.name}
+                        onChange={e => setNewStudentData({...newStudentData, name: e.target.value})}
+                        placeholder="Nome do aluno..."
+                        className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red focus:bg-white dark:focus:bg-gray-800 p-3.5 pl-12 rounded-2xl outline-none transition-all dark:text-white font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 px-1">Apelido (Opcional)</label>
+                    <input 
+                      type="text" 
+                      value={newStudentData.nickname}
+                      onChange={e => setNewStudentData({...newStudentData, nickname: e.target.value})}
+                      placeholder="Como ele é chamado?"
+                      className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red p-3.5 rounded-2xl outline-none transition-all dark:text-white font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 px-1">WhatsApp</label>
+                    <input 
+                      type="text" 
+                      value={newStudentData.phone}
+                      onChange={e => setNewStudentData({...newStudentData, phone: e.target.value})}
+                      placeholder="(00) 00000-0000"
+                      className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red p-3.5 rounded-2xl outline-none transition-all dark:text-white font-medium font-mono"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2 p-4 bg-brand-red/5 rounded-2xl border border-brand-red/10 space-y-4 shadow-inner">
+                    <p className="text-[10px] font-black text-brand-red uppercase tracking-widest text-center">Acesso ao Aplicativo</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 px-1">Login</label>
+                        <input 
+                          type="text" 
+                          value={newStudentData.studentLogin}
+                          onChange={e => setNewStudentData({...newStudentData, studentLogin: e.target.value.toLowerCase()})}
+                          placeholder="usuario.tanque"
+                          className="w-full bg-white dark:bg-gray-900 border-2 border-transparent focus:border-brand-red p-3.5 rounded-2xl outline-none transition-all dark:text-white font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 px-1">Senha</label>
+                        <input 
+                          type="text" 
+                          value={newStudentData.studentPassword}
+                          onChange={e => setNewStudentData({...newStudentData, studentPassword: e.target.value})}
+                          placeholder="Senha forte"
+                          className="w-full bg-white dark:bg-gray-900 border-2 border-transparent focus:border-brand-red p-3.5 rounded-2xl outline-none transition-all dark:text-white font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 px-1">Plano</label>
+                    <select 
+                      value={newStudentData.plan}
+                      onChange={e => setNewStudentData({...newStudentData, plan: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red p-3.5 rounded-2xl outline-none transition-all dark:text-white font-bold"
+                    >
+                      <option value="Mensal">Mensal</option>
+                      <option value="Trimestral">Trimestral</option>
+                      <option value="Semestral">Semestral</option>
+                      <option value="Anual">Anual</option>
+                      <option value="Dependente">Dependente</option>
+                      <option value="Isento">Isento</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 px-1">Graduação</label>
+                    <select 
+                      value={newStudentData.belt}
+                      onChange={e => setNewStudentData({...newStudentData, belt: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red p-3.5 rounded-2xl outline-none transition-all dark:text-white font-bold"
+                    >
+                      <option value="Faixa Branca - 0º Grau">Branca</option>
+                      <option value="Faixa Cinza - 0º Grau">Cinza</option>
+                      <option value="Faixa Amarela - 0º Grau">Amarela</option>
+                      <option value="Faixa Laranja - 0º Grau">Laranja</option>
+                      <option value="Faixa Verde - 0º Grau">Verde</option>
+                      <option value="Faixa Azul - 0º Grau">Azul</option>
+                      <option value="Faixa Roxa - 0º Grau">Roxa</option>
+                      <option value="Faixa Marrom - 0º Grau">Marrom</option>
+                      <option value="Faixa Preta - 0º Grau">Preta</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 bg-gray-50 dark:bg-gray-800/50 flex gap-4">
+                <button 
+                  onClick={() => {
+                    setIsAddingStudent(false);
+                    setNewStudentData(prev => ({ ...prev, parentId: '', parentName: '' }));
+                  }}
+                  className="flex-1 py-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-500 rounded-2xl font-bold text-sm hover:bg-gray-100 transition-all uppercase tracking-widest"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleAddStudent}
+                  disabled={loading}
+                  className="flex-[2] py-4 bg-brand-red text-white rounded-2xl font-black text-sm shadow-xl shadow-red-500/30 hover:bg-red-700 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+                >
+                  {loading ? <Loader2 className="animate-spin" /> : <><Check size={18} /> Cadastrar</>}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
