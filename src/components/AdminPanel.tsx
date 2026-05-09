@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, deleteField } from 'firebase/firestore';
 import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, Cake, ZoomIn, ZoomOut, RotateCcw, ThumbsUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
@@ -11,7 +11,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [activeTab, setActiveTab] = useState('bookings');
   const [loading, setLoading] = useState(true);
   const [extraXPValue, setExtraXPValue] = useState(100);
-  const [isLinkingFamily, setIsLinkingFamily] = useState<{ studentId: string, name: string } | null>(null);
+  const [isLinkingFamily, setIsLinkingFamily] = useState<{ studentId: string, name: string, parentId?: string } | null>(null);
   
   // Custom Achievements Management
   const [customAchievements, setCustomAchievements] = useState<any[]>([]);
@@ -597,14 +597,14 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     });
   };
 
-  const linkAccount = async (studentId: string, parentId: string) => {
+  const linkAccount = async (studentId: string, parentId: string | null) => {
     try {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
-        parentId: parentId
+        parentId: parentId || deleteField()
       });
-      setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, parentId } : s));
+      setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, parentId: parentId || undefined } : s));
       setIsLinkingFamily(null);
-      showAlert("Sucesso", "Conta vinculada com sucesso!", "success");
+      showAlert("Sucesso", parentId ? "Conta vinculada com sucesso!" : "Vínculo removido com sucesso!", "success");
     } catch (e) {
       console.error(e);
       showAlert("Erro", "Falha ao vincular conta.", "error");
@@ -1550,31 +1550,12 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       <div className="flex gap-2 w-full mb-2">
                         {/* Family Connection */}
                         <button 
-                          onClick={() => setIsLinkingFamily({ studentId: s.id, name: s.name })}
+                          onClick={() => setIsLinkingFamily({ studentId: s.id, name: s.name, parentId: s.parentId })}
                           className={`flex-1 p-1.5 rounded flex items-center justify-center gap-1 text-[9px] font-bold uppercase transition ${s.parentId ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}
                         >
                           <Users size={12} />
-                          {s.parentId ? 'Vínculo ok' : 'Vincular'}
+                          {s.parentId ? 'Vincular' : 'Vincular'}
                         </button>
-                        
-                        {/* Add Dependent Button */}
-                        {!s.parentId && (
-                          <button 
-                            onClick={() => {
-                              setNewStudentData(prev => ({ 
-                                ...prev, 
-                                parentId: s.id, 
-                                parentName: s.name, 
-                                plan: 'Dependente',
-                                belt: 'Faixa Branca - 0º Grau'
-                              }));
-                              setIsAddingStudent(true);
-                            }}
-                            className="flex-1 p-1.5 rounded flex items-center justify-center gap-1 text-[9px] font-bold uppercase transition bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 hover:scale-105 active:scale-95"
-                          >
-                            <Plus size={12} /> +Membro
-                          </button>
-                        )}
                       </div>
 
                       <div className="flex-1 flex gap-1 items-center">
@@ -1940,53 +1921,85 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md overflow-hidden p-6"
+              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-md overflow-hidden p-8 shadow-2xl border border-gray-100 dark:border-gray-800"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-xl font-bold mb-4 dark:text-white">Vincular Família</h3>
-              <p className="text-sm text-gray-500 mb-6">Selecione o Titular da Família para <strong>{isLinkingFamily.name}</strong>.</p>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter italic">Vincular Família</h3>
+                  <p className="text-sm text-gray-500 mt-1">Selecione o titular para <strong>{isLinkingFamily.name}</strong></p>
+                </div>
+                <button onClick={() => setIsLinkingFamily(null)} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              {isLinkingFamily.parentId && (
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                        {allStudents.find(s => s.id === isLinkingFamily.parentId)?.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Titular Atual</p>
+                        <p className="text-sm font-bold dark:text-white">{allStudents.find(s => s.id === isLinkingFamily.parentId)?.name}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        if (confirm(`Deseja remover o vínculo de ${isLinkingFamily.name}?`)) {
+                          linkAccount(isLinkingFamily.studentId, null);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-white dark:bg-gray-800 text-red-500 rounded-lg text-[10px] font-black uppercase border border-red-100 dark:border-red-900/30 hover:bg-red-50 transition-colors shadow-sm"
+                    >
+                      Remover Vínculo
+                    </button>
+                  </div>
+                </div>
+              )}
               
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+              <div className="relative mb-6">
+                <Search className="absolute left-4 top-3.5 text-gray-400 w-5 h-5" />
                 <input 
                   type="text" 
                   value={familySearch}
                   onChange={(e) => setFamilySearch(e.target.value)}
-                  placeholder="Pesquisar responsável pelo nome..."
-                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                  placeholder="Pesquisar por nome..."
+                  className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red dark:focus:bg-gray-800 p-3.5 pl-12 rounded-2xl outline-none transition-all dark:text-white font-medium"
                 />
               </div>
 
-              <div className="max-h-60 overflow-y-auto space-y-2 mb-6 pr-2">
+              <div className="max-h-64 overflow-y-auto space-y-2 mb-8 pr-2 custom-scrollbar">
                 {allStudents.filter(os => 
                   os.id !== isLinkingFamily.studentId && 
                   !os.parentId && 
+                  os.id !== isLinkingFamily.parentId &&
                   (os.name || '').toLowerCase().includes(familySearch.toLowerCase())
-                ).map(os => (
+                ).slice(0, 50).map(os => (
                   <button
                     key={os.id}
-                    onClick={() => {
-                      linkAccount(isLinkingFamily.studentId, os.id);
-                      setFamilySearch('');
-                    }}
-                    className="w-full text-left p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border-2 border-transparent hover:border-brand-red transition flex items-center gap-3"
+                    onClick={() => linkAccount(isLinkingFamily.studentId, os.id)}
+                    className="w-full text-left p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent hover:border-brand-red transition-all flex items-center gap-4 group"
                   >
-                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                       {os.photoBase64 ? <img src={os.photoBase64} className="w-full h-full object-cover" /> : <User size={16} className="m-2" />}
+                    <div className="w-12 h-12 rounded-full bg-white dark:bg-gray-700 overflow-hidden shadow-sm border border-gray-100 dark:border-gray-600 shrink-0">
+                       {os.photoBase64 ? <img src={os.photoBase64} className="w-full h-full object-cover" /> : <User size={20} className="m-3 text-gray-400" />}
                     </div>
-                    <div>
-                      <p className="font-bold text-sm dark:text-white">{os.name}</p>
-                      <p className="text-[10px] text-gray-500">{os.id.slice(-6).toUpperCase()}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-base dark:text-white truncate uppercase italic">{os.name}</p>
+                      <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">{os.belt}</p>
                     </div>
+                    <Plus className="text-gray-300 group-hover:text-brand-red transition-colors" size={20} />
                   </button>
                 ))}
               </div>
               
               <button 
                 onClick={() => setIsLinkingFamily(null)}
-                className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl font-bold text-sm"
+                className="w-full py-4 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
               >
-                Cancelar
+                Fechar
               </button>
             </motion.div>
           </motion.div>
