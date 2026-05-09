@@ -1593,8 +1593,36 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
+              className="space-y-8"
             >
+              {/* SEASON RESET CALLOUT - BIG & BOLD */}
+              <div className="p-1 bg-gradient-to-r from-red-600 via-orange-500 to-red-600 rounded-2xl shadow-2xl shadow-red-500/30">
+                <div className="bg-white dark:bg-gray-900 border-2 border-white/5 p-8 rounded-2xl text-center space-y-6">
+                  <div className="mx-auto w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center border-4 border-red-50 dark:border-red-800">
+                    <RotateCcw className="text-red-600 w-10 h-10 animate-spin-slow" />
+                  </div>
+                  <div className="max-w-xl mx-auto">
+                    <h3 className="font-display font-black text-4xl text-red-600 dark:text-red-400 uppercase tracking-tighter italic">REINICIAR TEMPORADA</h3>
+                    <p className="text-lg text-gray-700 dark:text-gray-300 mt-2 font-bold">
+                       Prepare-se para o novo ciclo!
+                    </p>
+                    <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
+                      <p className="text-sm text-red-700 dark:text-red-400 flex flex-col gap-1">
+                        <span>• Zera o XP Social e XP Bônus de todos os alunos.</span>
+                        <span>• Remove as conquistas manuais antigas.</span>
+                        <span className="font-black text-base uppercase mt-2">✓ O XP DE TREINO (PRESENÇA) É MANTIDO INTEGRALMENTE!</span>
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleResetSeason}
+                    className="bg-red-600 text-white px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-xl shadow-2xl shadow-red-600/40 hover:bg-red-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-4 mx-auto group"
+                  >
+                    <Flame className="w-8 h-8 group-hover:text-yellow-400 transition-colors" /> LIMPAR XP E COMEÇAR
+                  </button>
+                </div>
+              </div>
+
               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -1716,26 +1744,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     })
                   )}
                 </div>
-              </div>
-
-              {/* Reset Season Section */}
-              <div className="bg-red-50 dark:bg-red-900/10 p-8 rounded-2xl border-2 border-dashed border-red-200 dark:border-red-900/50 text-center space-y-6">
-                <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                  <RotateCcw className="text-red-600 w-8 h-8" />
-                </div>
-                <div className="max-w-md mx-auto">
-                  <h3 className="font-display font-bold text-2xl text-red-700 dark:text-red-400 uppercase tracking-tight">Reiniciar Temporada</h3>
-                  <p className="text-sm text-red-600/80 dark:text-red-400/60 mt-2 font-medium">
-                    Isso irá limpar o XP bônus, social e conquistas manuais de todos os alunos simultaneamente. 
-                    <span className="block font-bold mt-1 underline">O histórico de treino (presença) não será afetado.</span>
-                  </p>
-                </div>
-                <button 
-                  onClick={handleResetSeason}
-                  className="bg-red-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-sm shadow-xl shadow-red-500/20 hover:bg-red-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 mx-auto"
-                >
-                  <Flame className="w-4 h-4" /> Resetar Agora
-                </button>
               </div>
             </motion.div>
           )}

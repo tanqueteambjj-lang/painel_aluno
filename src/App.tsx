@@ -993,9 +993,8 @@ export default function Dashboard() {
       { id: 'first_class', earned: totalAttCount >= 1, xpBonus: 100 },
       { id: 'beginner', earned: totalAttCount >= 12, xpBonus: 200 },
       { id: 'monthly_focus', earned: monthCount >= 20, xpBonus: 300 },
-      { id: 'streak_5', earned: totalAttCount >= 5, xpBonus: 150 }, // Simplified streak to 5+ classes
+      { id: 'streak_5', earned: totalAttCount >= 5, xpBonus: 150 }, 
       { id: 'weekend_warrior', earned: isWeekendWarrior, xpBonus: 150 },
-      { id: 'voice_tatame', earned: hasPosted, xpBonus: 100 },
       { id: 'warrior', earned: totalAttCount >= 50, xpBonus: 500 },
       { id: 'centurion', earned: totalAttCount >= 100, xpBonus: 1000 },
       { id: 'casca_grossa', earned: totalAttCount >= 200, xpBonus: 2000 },
@@ -1438,21 +1437,11 @@ export default function Dashboard() {
       { id: 'monthly_focus', name: "Foco Mensal", desc: "Frequência de elite: 20 treinos no mês.", icon: <Target className="w-5 h-5 text-red-500" />, iconName: 'Target', earned: monthCount >= 20, xpBonus: 300 },
       { id: 'streak_5', name: "Sequência Quente", desc: "5 dias consecutivos treinando.", icon: <Flame className="w-5 h-5 text-red-500" />, iconName: 'Flame', earned: maxConsecutive >= 5, xpBonus: 250 },
       { id: 'weekend_warrior', name: "Fim de Semana", desc: "Mostrou que sábado/domingo também é dia.", icon: <Sun className="w-5 h-5 text-yellow-400" />, iconName: 'Sun', earned: isWeekendWarrior, xpBonus: 150 },
-      { id: 'voice_tatame', name: "Voz do Tatame", desc: "Compartilhou uma conquista no Feed.", icon: <MessageSquare className="w-5 h-5 text-indigo-400" />, iconName: 'MessageSquare', earned: hasPosted, xpBonus: 100 },
-      { id: 'degree', name: "Evolução", desc: "Ganhou um novo grau na faixa.", icon: <ArrowUpCircle className="w-5 h-5 text-yellow-600" />, iconName: 'ArrowUpCircle', earned: earnedDegree, xpBonus: 250 },
-      { id: 'new_belt', name: "Nova Faixa", desc: "Avançou para uma nova graduação.", icon: <Medal className="w-5 h-5 text-brand-red" />, iconName: 'Medal', earned: earnedNewBelt, xpBonus: 500 },
       { id: 'warrior', name: "Guerreiro", desc: "50 treinos concluídos.", icon: <Medal className="w-5 h-5 text-yellow-600" />, iconName: 'Medal', earned: attCount >= 50, xpBonus: 500 },
       { id: 'centurion', name: "Centurião", desc: "100 treinos absolutos!", icon: <Flame className="w-5 h-5 text-orange-500" />, iconName: 'Flame', earned: attCount >= 100, xpBonus: 1000 },
       { id: 'casca_grossa', name: "Casca Grossa", desc: "Marca histórica de 200 treinos.", icon: <Shield className="w-5 h-5 text-stone-500" />, iconName: 'Shield', earned: attCount >= 200, xpBonus: 2000 },
       { id: 'mestre', name: "Mestre dos Tatames", desc: "Meio milhar! 500 treinos concluídos.", icon: <Crown className="w-5 h-5 text-amber-500" />, iconName: 'Crown', earned: attCount >= 500, xpBonus: 5000 },
       { id: 'rato_tatame', name: "Rato de Tatame", desc: "Consistência incrível: 25+ treinos no mês.", icon: <Zap className="w-5 h-5 text-sky-400" />, iconName: 'Zap', earned: monthCount >= 25, xpBonus: 400 },
-      { id: 'black_belt', name: "A Lenda", desc: "Atingiu a faixa preta.", icon: <Crown className="w-5 h-5 text-gray-900 dark:text-gray-200" />, iconName: 'Crown', earned: graduatedToBlackBelt, xpBonus: 10000 },
-      // Ranking Achievements
-      { id: 'rank_1', name: "O Campeão", desc: "Ficou em 1º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-yellow-400" />, iconName: 'Trophy', earned: lastMonthPos === 0, xpBonus: 1000 },
-      { id: 'rank_2', name: "Vice-Campeão", desc: "Ficou em 2º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-gray-300" />, iconName: 'Trophy', earned: lastMonthPos === 1, xpBonus: 800 },
-      { id: 'rank_3', name: "Pódio de Bronze", desc: "Ficou em 3º lugar no ranking mensal!", icon: <Trophy className="w-5 h-5 text-amber-600" />, iconName: 'Trophy', earned: lastMonthPos === 2, xpBonus: 600 },
-      { id: 'rank_4', name: "Elite do Mês", desc: "Ficou em 4º lugar no ranking mensal!", icon: <Medal className="w-5 h-5 text-blue-400" />, iconName: 'Medal', earned: lastMonthPos === 3, xpBonus: 400 },
-      { id: 'rank_5', name: "Top 5", desc: "Garantido no Top 5 mensal!", icon: <Medal className="w-5 h-5 text-green-400" />, iconName: 'Medal', earned: lastMonthPos === 4, xpBonus: 200 },
     ];
 
     const ICON_MAP_LOCAL: Record<string, any> = {
