@@ -2469,6 +2469,26 @@ export default function Dashboard() {
               </motion.div>
             )}
 
+            {/* FINANCE VIEW */}
+            {view === 'finance' && currentUserData && (
+              <motion.div
+                key="finance"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+              >
+                <div className="mb-10 text-left">
+                  <h1 className="text-4xl font-black text-gray-900 dark:text-white uppercase leading-none tracking-tighter italic">
+                    Financeiro
+                  </h1>
+                  <p className="text-sm font-bold text-brand-red uppercase tracking-[0.3em] mt-2">Gestão de Pagamentos</p>
+                </div>
+                <Finance currentUserData={currentUserData} planInfo={planInfo} showAlert={showAlert} />
+              </motion.div>
+            )}
+
             {/* PROFILE VIEW */}
             {view === 'profile' && (
               <motion.div 
@@ -2541,17 +2561,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="mt-12 max-w-4xl mx-auto mb-10 overflow-hidden px-4 sm:px-0">
-                  <div className="mb-6 flex flex-col md:flex-row items-center gap-3 border-b border-gray-200 dark:border-gray-700 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-brand-red/10 rounded-xl">
-                        <CreditCard className="w-6 h-6 text-brand-red" />
-                      </div>
-                      <h2 className="font-display text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight italic">Financeiro & Pagamentos</h2>
-                    </div>
-                  </div>
-                  <Finance currentUserData={currentUserData} planInfo={planInfo} showAlert={showAlert} />
-                </div>
               </div>
               </motion.div>
             )}

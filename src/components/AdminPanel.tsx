@@ -328,8 +328,64 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
   };
 
+  const [dbPlans, setDbPlans] = useState<any[]>([]);
+  const [isAddingPlan, setIsAddingPlan] = useState(false);
+  const [newPlanData, setNewPlanData] = useState({
+    name: '',
+    price: 0,
+    basePrice: 0,
+    stripePriceId: '',
+  });
+
+  const fetchPlans = async () => {
+    try {
+      const plansRef = collection(db, 'artifacts', appId, 'public', 'data', 'plans');
+      const snapshot = await getDocs(plansRef);
+      const plansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setDbPlans(plansData);
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+    }
+  };
+
+  const handleAddPlan = async () => {
+    if (!newPlanData.name) {
+      showAlert("Erro", "O nome do plano é obrigatório.", "error");
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'plans'), newPlanData);
+      setIsAddingPlan(false);
+      setNewPlanData({ name: '', price: 0, basePrice: 0, stripePriceId: '' });
+      await fetchPlans();
+      showAlert("Sucesso", "Plano criado com sucesso!", "success");
+    } catch (error) {
+      console.error("Error adding plan:", error);
+      showAlert("Erro", "Falha ao criar plano.", "error");
+    }
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    showConfirm("Excluir Plano", "Tem certeza que deseja excluir este plano? Alunos vinculados a este nome podem perder a referência de valor.", async () => {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plans', planId));
+        await fetchPlans();
+        showAlert("Sucesso", "Plano excluído.", "success");
+      } catch (error) {
+        console.error("Error deleting plan:", error);
+        showAlert("Erro", "Falha ao excluir plano.", "error");
+      }
+    });
+  };
+
   useEffect(() => {
-    if ((activeTab === 'students' || activeTab === 'achievements') && allStudents.length === 0) {
+    if (activeTab === 'plans') {
+      fetchPlans();
+    }
+  }, [activeTab, appId]);
+
+  useEffect(() => {
+    if ((activeTab === 'students' || activeTab === 'achievements' || activeTab === 'plans') && allStudents.length === 0) {
       fetchStudents();
     }
   }, [activeTab, appId]);
@@ -880,6 +936,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             { id: 'schedule', label: 'Grade Horária', icon: Clock },
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
+            { id: 'plans', label: 'Planos', icon: CreditCard },
             { id: 'achievements', label: 'Conquistas', icon: Trophy },
             { id: 'churn', label: 'Evasão', icon: TrendingDown },
           ].map((tab) => (
@@ -1583,6 +1640,107 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                            Restaurar
                         </button>
                       )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* PLANS VIEW */}
+          {activeTab === 'plans' && (
+            <motion.div
+              key="plans"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="font-bold text-lg dark:text-white">Gerenciar Planos</h3>
+                  <p className="text-sm text-gray-500">Configure os valores e IDs do Stripe para cada plano.</p>
+                </div>
+                <button 
+                  onClick={() => setIsAddingPlan(true)}
+                  className="bg-brand-red text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
+                >
+                  <Plus size={18} /> Novo Plano
+                </button>
+              </div>
+
+              {isAddingPlan && (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nome do Plano</label>
+                      <input 
+                        type="text" 
+                        value={newPlanData.name}
+                        onChange={(e) => setNewPlanData({...newPlanData, name: e.target.value})}
+                        placeholder="Ex: Plano Infantil"
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Preço (Pontualidade)</label>
+                      <input 
+                        type="number" 
+                        value={newPlanData.price}
+                        onChange={(e) => setNewPlanData({...newPlanData, price: parseFloat(e.target.value)})}
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Preço Base (Integral)</label>
+                      <input 
+                        type="number" 
+                        value={newPlanData.basePrice}
+                        onChange={(e) => setNewPlanData({...newPlanData, basePrice: parseFloat(e.target.value)})}
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Stripe Price ID (Recorrência)</label>
+                      <input 
+                        type="text" 
+                        value={newPlanData.stripePriceId}
+                        onChange={(e) => setNewPlanData({...newPlanData, stripePriceId: e.target.value})}
+                        placeholder="price_..."
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleAddPlan} className="bg-green-600 text-white px-6 py-2 rounded-xl font-bold text-sm">Salvar Plano</button>
+                    <button onClick={() => setIsAddingPlan(false)} className="bg-gray-100 text-gray-600 px-6 py-2 rounded-xl font-bold text-sm">Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {dbPlans.map(plan => (
+                  <div key={plan.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
+                    <button 
+                      onClick={() => handleDeletePlan(plan.id)}
+                      className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{plan.name}</h4>
+                    <div className="space-y-2 mb-6">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
+                        <span className="font-black text-green-600">R$ {plan.price?.toFixed(2).replace('.', ',')}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
+                        <span className="font-bold text-gray-500">R$ {plan.basePrice?.toFixed(2).replace('.', ',')}</span>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
+                        <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID:</p>
+                        <p className="font-mono text-xs truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">{plan.stripePriceId || 'Não vinculado'}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
