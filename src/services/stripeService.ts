@@ -11,7 +11,7 @@ export const createCheckoutSession = async (params: {
   priceId?: string;
 }) => {
   try {
-    const response = await fetch('/api/stripe/create-checkout-session', {
+    const response = await fetch('/api/checkout/stripe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

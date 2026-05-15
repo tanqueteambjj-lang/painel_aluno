@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, deleteField } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -309,6 +309,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   };
 
   const [dbPlans, setDbPlans] = useState<any[]>([]);
+  const [editingPlan, setEditingPlan] = useState<any>(null);
   const [isAddingPlan, setIsAddingPlan] = useState(false);
   const [newPlanData, setNewPlanData] = useState({
     name: '',
@@ -316,6 +317,25 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     basePrice: 0,
     stripePriceId: '',
   });
+
+  const handleUpdatePlan = async () => {
+    if (!editingPlan) return;
+    try {
+      const planRef = doc(db, 'artifacts', appId, 'public', 'data', 'plans', editingPlan.id);
+      await updateDoc(planRef, {
+        name: editingPlan.name,
+        price: Number(editingPlan.price),
+        basePrice: Number(editingPlan.basePrice),
+        stripePriceId: editingPlan.stripePriceId || ''
+      });
+      setEditingPlan(null);
+      fetchPlans();
+      alert("Plano atualizado com sucesso!");
+    } catch (error) {
+      console.error("Error updating plan:", error);
+      alert("Erro ao atualizar plano.");
+    }
+  };
 
   const fetchPlans = async () => {
     try {
@@ -1717,27 +1737,88 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {(Array.isArray(dbPlans) ? dbPlans : []).map(plan => (
                   <div key={plan.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
-                    <button 
-                      onClick={() => handleDeletePlan(plan.id)}
-                      className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{plan.name}</h4>
-                    <div className="space-y-2 mb-6">
-                      <div className="flex justify-between text-lg mb-2">
-                        <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
-                        <span className="font-black text-green-600">R$ {typeof plan.price === 'number' ? plan.price.toFixed(2).replace('.', ',') : (plan.price || 0)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
-                        <span className="font-bold text-gray-500">R$ {typeof plan.basePrice === 'number' ? plan.basePrice.toFixed(2).replace('.', ',') : (plan.basePrice || 0)}</span>
-                      </div>
-                      <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
-                        <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID:</p>
-                        <p className="font-mono text-xs truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">{plan.stripePriceId || 'Não vinculado'}</p>
-                      </div>
+                    <div className="absolute top-4 right-4 flex gap-2 transition opacity-0 group-hover:opacity-100">
+                      <button 
+                        onClick={() => setEditingPlan(plan)}
+                        className="text-gray-300 hover:text-brand-red"
+                        title="Editar Plano"
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeletePlan(plan.id)}
+                        className="text-gray-300 hover:text-red-500"
+                        title="Excluir Plano"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
+                    
+                    {editingPlan?.id === plan.id ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nome</label>
+                          <input 
+                            type="text" 
+                            value={editingPlan.name}
+                            onChange={(e) => setEditingPlan({...editingPlan, name: e.target.value})}
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Pontual</label>
+                            <input 
+                              type="number" 
+                              value={editingPlan.price}
+                              onChange={(e) => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})}
+                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Integral</label>
+                            <input 
+                              type="number" 
+                              value={editingPlan.basePrice}
+                              onChange={(e) => setEditingPlan({...editingPlan, basePrice: parseFloat(e.target.value)})}
+                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Stripe Price ID</label>
+                          <input 
+                            type="text" 
+                            value={editingPlan.stripePriceId}
+                            onChange={(e) => setEditingPlan({...editingPlan, stripePriceId: e.target.value})}
+                            placeholder="price_..."
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button onClick={handleUpdatePlan} className="bg-brand-red text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Salvar</button>
+                          <button onClick={() => setEditingPlan(null)} className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Canc</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{plan.name}</h4>
+                        <div className="space-y-2 mb-6">
+                          <div className="flex justify-between text-lg mb-2">
+                            <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
+                            <span className="font-black text-green-600">R$ {typeof plan.price === 'number' ? plan.price.toFixed(2).replace('.', ',') : (plan.price || 0)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
+                            <span className="font-bold text-gray-500">R$ {typeof plan.basePrice === 'number' ? plan.basePrice.toFixed(2).replace('.', ',') : (plan.basePrice || 0)}</span>
+                          </div>
+                          <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
+                            <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID:</p>
+                            <p className="font-mono text-[10px] truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">{plan.stripePriceId || 'Não vinculado'}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
