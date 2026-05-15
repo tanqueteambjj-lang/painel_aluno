@@ -20,12 +20,29 @@ export const createCheckoutSession = async (params: {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Erro ao criar sessão de pagamento');
+      let errorMessage = 'Erro ao criar sessão de pagamento';
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } else {
+          const text = await response.text();
+          errorMessage = text || `Erro do servidor (${response.status})`;
+        }
+      } catch (e) {
+        errorMessage = `Erro de comunicação (${response.status})`;
+      }
+      throw new Error(errorMessage);
     }
 
-    const { url } = await response.json();
-    return url;
+    try {
+      const data = await response.json();
+      return data.url;
+    } catch (e) {
+      console.error('Failed to parse successful Stripe response:', e);
+      throw new Error('O servidor retornou uma resposta inválida. Tente novamente.');
+    }
   } catch (error: any) {
     console.error('Stripe Service Error:', error);
     throw error;

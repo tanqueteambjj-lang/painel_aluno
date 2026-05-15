@@ -32,7 +32,19 @@ app.use(express.json());
 app.post("/api/stripe/create-checkout-session", async (req, res) => {
   try {
     const { planName, price, studentId, studentEmail, recurring = false, priceId } = req.body;
+    
+    if (!studentId) {
+      console.error("Missing studentId in request body");
+      return res.status(400).json({ error: "O ID do aluno é obrigatório." });
+    }
+
     const stripeClient = getStripe();
+    const unitAmount = Math.round(Number(price || 0) * 100);
+
+    if (!priceId && unitAmount <= 0) {
+      console.error("Invalid price/amount:", price);
+      return res.status(400).json({ error: "O valor do plano deve ser maior que zero." });
+    }
 
     const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = priceId ? {
       price: priceId,
@@ -43,7 +55,7 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
         product_data: {
           name: planName || "Mensalidade Jiu-Jitsu",
         },
-        unit_amount: Math.round(Number(price) * 100),
+        unit_amount: unitAmount,
         ...(recurring ? { 
             recurring: { 
                 interval: 'month' 
@@ -53,28 +65,37 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
       quantity: 1,
     };
 
+    const origin = req.headers.origin || "http://localhost:3000";
+    const appUrl = (process.env.APP_URL && process.env.APP_URL.startsWith('http')) ? process.env.APP_URL : origin;
+
     const sessionParam: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ["card"],
       line_items: [lineItem],
-      mode: recurring ? "subscription" : "payment",
-      success_url: `${process.env.APP_URL || (req.headers.origin || "http://localhost:3000")}/financeiro?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.APP_URL || (req.headers.origin || "http://localhost:3000")}/financeiro`,
+      mode: (recurring || priceId) ? "subscription" : "payment",
+      success_url: `${appUrl}/financeiro?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/financeiro`,
       client_reference_id: studentId,
       metadata: {
         studentId,
-        planName,
+        planName: planName || "",
       },
     };
 
-    if (studentEmail && studentEmail.trim() !== "") {
+    if (studentEmail && studentEmail.trim() !== "" && studentEmail.includes('@')) {
       sessionParam.customer_email = studentEmail;
     }
 
+    console.log("Creating session for student:", studentId, "Plan:", planName);
     const session = await stripeClient.checkout.sessions.create(sessionParam);
-    res.json({ id: session.id, url: session.url });
+    console.log("Session created successfully:", session.id);
+    
+    return res.json({ id: session.id, url: session.url });
   } catch (error: any) {
     console.error("Stripe Checkout Error:", error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ 
+      error: error.message || "Ocorreu um erro interno ao processar seu pagamento. Tente novamente mais tarde.",
+      type: error.type || "StripeError"
+    });
   }
 });
 

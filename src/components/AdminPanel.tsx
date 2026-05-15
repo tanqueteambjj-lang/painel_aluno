@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, deleteField } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -72,6 +72,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     belt: '',
     isGraduationInitial: false
   });
+
+  const [penaltyMode, setPenaltyMode] = useState<Record<string, boolean>>({});
 
   // Photo Cropper States
   const [croppingStudent, setCroppingStudent] = useState<{ id: string, name: string } | null>(null);
@@ -894,6 +896,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     });
   };
 
+  const inactiveStudents = hasStartedLoading ? getInactiveStudents() : [];
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8">
       <div className="mb-10">
@@ -954,16 +958,18 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             </div>
           </motion.div>
         ) : (
-          <>
-            {/* BOOKINGS VIEW */}
-            {activeTab === 'bookings' && (
-              <motion.div
-                key="bookings"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-6"
-              >
+          null
+        )}
+
+        {/* BOOKINGS VIEW */}
+        {!loading && activeTab === 'bookings' && (
+          <motion.div
+            key="bookings"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h3 className="font-bold text-lg dark:text-white">Agendamentos do Dia</h3>
@@ -1023,16 +1029,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 })}
               </div>
             </motion.div>
-          )}
+        )}
 
-          {/* SCHEDULE VIEW */}
-          {activeTab === 'schedule' && (
-            <motion.div
-              key="schedule"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-            >
+        {/* SCHEDULE VIEW */}
+        {!loading && activeTab === 'schedule' && (
+          <motion.div
+            key="schedule"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Add New Class Form */}
                 <div className="lg:col-span-1">
@@ -1194,17 +1200,17 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 </div>
               </div>
             </motion.div>
-          )}
+        )}
 
-          {/* FEED VIEW */}
-          {activeTab === 'feed' && (
-            <motion.div
-              key="feed"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-4"
-            >
+        {/* FEED VIEW */}
+        {!loading && activeTab === 'feed' && (
+          <motion.div
+            key="feed"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
+          >
               <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="text-brand-red w-5 h-5" />
@@ -1259,17 +1265,17 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 )}
               </div>
             </motion.div>
-          )}
+        )}
 
-          {/* STUDENTS VIEW */}
-          {activeTab === 'students' && (
-            <motion.div
-              key="students"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
+        {/* STUDENTS VIEW */}
+        {!loading && activeTab === 'students' && (
+          <motion.div
+            key="students"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-4">
                 <div className="flex flex-col md:flex-row gap-4 items-center">
                   <div className="relative flex-1 w-full">
@@ -1524,19 +1530,24 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       {/* XP Penalty/Bonus Section */}
                       <div className="flex items-center gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl w-full">
                         <div className="flex flex-col gap-1 items-center px-1 border-r border-gray-200 dark:border-gray-700 pr-2">
-                           <p className="text-[8px] font-black uppercase text-gray-400">Tipo</p>
+                           <button 
+                             onClick={() => setPenaltyMode(prev => ({...prev, [s.id]: !prev[s.id]}))}
+                             className={`text-[9px] font-black uppercase px-2 py-0.5 rounded transition ${penaltyMode[s.id] ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}
+                           >
+                             {penaltyMode[s.id] ? 'MULTA' : 'BÔNUS'}
+                           </button>
                         </div>
                         <input 
                           type="number" 
                           placeholder="Valor XP" 
+                          name={`xp-input-${s.id}`}
                           className="bg-transparent text-sm font-bold w-full outline-none dark:text-white"
                           onKeyDown={async (e) => {
                             if (e.key === 'Enter') {
                               let val = Math.abs(parseInt((e.target as HTMLInputElement).value));
                               if (isNaN(val)) return;
                               
-                              const isPenalty = document.getElementById(`penalty-card-${s.id}`)?.classList.contains('bg-white');
-                              if (isPenalty) val = -val;
+                              if (penaltyMode[s.id]) val = -val;
 
                               const reason = prompt(val < 0 ? "Motivo da penalidade:" : "Motivo do bônus:");
                               if (reason) {
@@ -1548,11 +1559,10 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         />
                         <button 
                           onClick={() => {
-                            const input = (document.activeElement as HTMLInputElement);
+                            const input = document.querySelector(`input[name="xp-input-${s.id}"]`) as HTMLInputElement;
                             let val = Math.abs(parseInt(input?.value || '0'));
                             if (isNaN(val) || val === 0) return;
-                            const isPenalty = document.getElementById(`penalty-card-${s.id}`)?.classList.contains('bg-white');
-                            if (isPenalty) val = -val;
+                            if (penaltyMode[s.id]) val = -val;
                             const reason = prompt(val < 0 ? "Motivo da penalidade:" : "Motivo do bônus:");
                             if (reason) addExtraXP(s.id, val, reason);
                           }}
@@ -1625,22 +1635,23 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                            Restaurar
                         </button>
                       )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
             </motion.div>
-          )}
+        )}
 
-          {/* PLANS VIEW */}
-          {activeTab === 'plans' && (
-            <motion.div
-              key="plans"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
+        {/* PLANS VIEW */}
+        {!loading && activeTab === 'plans' && (
+          <motion.div
+            key="plans"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="font-bold text-lg dark:text-white">Gerenciar Planos</h3>
@@ -1731,17 +1742,17 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 ))}
               </div>
             </motion.div>
-          )}
+        )}
 
-          {/* ACHIEVEMENTS VIEW */}
-          {activeTab === 'achievements' && (
-            <motion.div
-              key="achievements"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-8"
-            >
+        {/* ACHIEVEMENTS VIEW */}
+        {!loading && activeTab === 'achievements' && (
+          <motion.div
+            key="achievements"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-8"
+          >
               {/* SEASON RESET CALLOUT - BIG & BOLD */}
               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-6">
@@ -1866,16 +1877,17 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 </div>
               </div>
             </motion.div>
-          )}
-          {/* CHURN VIEW */}
-          {activeTab === 'churn' && (
-            <motion.div
-              key="churn"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
+        )}
+        
+        {/* CHURN VIEW */}
+        {!loading && activeTab === 'churn' && (
+          <motion.div
+            key="churn"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex items-center gap-3 mb-6">
                   <AlertTriangle className="text-red-500 w-8 h-8" />
@@ -1886,13 +1898,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getInactiveStudents().length === 0 ? (
+                  {inactiveStudents.length === 0 ? (
                     <div className="col-span-full py-20 text-center bg-gray-50 dark:bg-gray-900/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                       <TrendingUp className="mx-auto w-12 h-12 text-green-500 mb-4" />
                       <p className="text-gray-500 font-bold">Excelente! Todos os alunos estão ativos.</p>
                     </div>
                   ) : (
-                    getInactiveStudents().map(s => (
+                    inactiveStudents.map((s: any) => (
                       <div key={s.id} className="bg-red-50/50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30 flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden shrink-0 border-2 border-red-200 dark:border-red-800">
                           {s.photoBase64 ? <img src={s.photoBase64} className="w-full h-full object-cover" /> : <User size={20} />}
@@ -1923,9 +1935,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 </div>
               </div>
             </motion.div>
-          )}
-
-          </>
         )}
       </AnimatePresence>
 
