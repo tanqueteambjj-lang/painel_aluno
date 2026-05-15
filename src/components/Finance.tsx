@@ -191,10 +191,15 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
               </div>
               
               <div className="relative z-10">
-                <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-2 mb-4">
+                <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-2 mb-2">
                   <span className="w-1.5 h-6 bg-brand-red rounded-full"></span>
                   Pagamento via Stripe
                 </h3>
+                
+                <div className="mb-4">
+                  <span className="bg-brand-red text-white text-[10px] font-black px-2 py-0.5 rounded uppercase italic mr-2">Plano Atual</span>
+                  <span className="text-white font-bold text-sm uppercase italic">{planName}</span>
+                </div>
                 
                 <p className="text-gray-400 text-sm mb-6 max-w-md">
                   Realize o pagamento da sua mensalidade de forma segura via cartão de crédito. Você pode optar por um pagamento avulso ou ativar a recorrência automática.
@@ -363,7 +368,10 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{dateObj.toLocaleDateString('pt-BR')}</p>
-                          <p className="font-black text-gray-900 dark:text-white text-sm uppercase italic">{dateObj.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}</p>
+                          <p className="font-black text-gray-900 dark:text-white text-sm uppercase italic leading-tight">{dateObj.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}</p>
+                          {p.plan && (
+                            <p className="text-[9px] font-bold text-brand-red uppercase italic mt-0.5">{p.plan}</p>
+                          )}
                         </div>
                         <p className="font-black text-green-500 text-base">
                           R${Number(p.amount).toFixed(2).replace('.', ',')}
