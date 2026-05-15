@@ -11,7 +11,8 @@ export const createCheckoutSession = async (params: {
   priceId?: string;
 }) => {
   try {
-    const response = await fetch('/api/checkout/stripe', {
+    console.log(`[StripeService] Calling checkout API... Path: /api/pay/stripe`);
+    const response = await fetch('/api/pay/stripe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -19,19 +20,23 @@ export const createCheckoutSession = async (params: {
       body: JSON.stringify(params),
     });
 
+    console.log(`[StripeService] API Response Status: ${response.status} ${response.statusText}`);
+
     if (!response.ok) {
       let errorMessage = 'Erro ao criar sessão de pagamento';
+      const text = await response.text();
+      console.warn(`Stripe error: ${response.status} ${response.statusText} at ${response.url}. Response: ${text}`);
+      
       try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
+        const errorData = JSON.parse(text);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If 405, it might be an HTML error page from the proxy
+        if (response.status === 405) {
+          errorMessage = `Método Não Permitido (405). O servidor recusou a requisição POST. (URL: ${response.url}) Conteúdo: ${text.substring(0, 50)}...`;
         } else {
-          const text = await response.text();
           errorMessage = text || `Erro do servidor (${response.status})`;
         }
-      } catch (e) {
-        errorMessage = `Erro de comunicação (${response.status})`;
       }
       throw new Error(errorMessage);
     }

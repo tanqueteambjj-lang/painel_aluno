@@ -4,7 +4,7 @@ import ReceiptModal from './ReceiptModal';
 import { collection, getDocs, updateDoc, doc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { createCheckoutSession, redirectToCheckout } from '../services/stripeService';
+import { createMPCheckout } from '../services/mercadoPagoService';
 
 const parseDateString = (dateStr: any) => {
   if (!dateStr) return new Date();
@@ -30,15 +30,21 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
-    // Process successful payment redirect
+    // Process successful payment redirect from Mercado Pago
     const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session_id');
+    const status = urlParams.get('status');
+    const collectionStatus = urlParams.get('collection_status');
+    const isSuccess = status === 'approved' || collectionStatus === 'approved';
     
-    if (sessionId && currentUserData?.id) {
-       // Typically you'd verify the session on the backend or via webhook.
-       // Here we'll show a message and maybe refresh.
-       showAlert("Pagamento em Processamento", "Seu pagamento via Stripe foi realizado e está sendo processado. Em breve seu status será atualizado.", "success");
-       // Clear the session_id from URL
+    if (isSuccess && currentUserData?.id) {
+       showAlert("Pagamento Recebido!", "Seu pagamento via Mercado Pago foi processado com sucesso. Em breve seu acesso será validado.", "success");
+       // Clear params from URL
+       window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (status === 'pending' || status === 'in_process') {
+       showAlert("Pagamento em Processamento", "Seu pagamento está sendo analisado pelo Mercado Pago. Assim que aprovado, seu status será atualizado.", "info");
+       window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (status === 'rejected') {
+       showAlert("Pagamento Recusado", "O Mercado Pago não pôde processar seu pagamento. Por favor, tente novamente ou use outro cartão.", "error");
        window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [currentUserData, showAlert]);
@@ -51,20 +57,26 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
 
     setIsPaying(true);
     try {
-      if (!currentUserData.email) {
-        console.warn("Aluno sem e-mail cadastrado. Usando e-mail da academia para o Stripe.");
+      if (recurring) {
+        if (matchedPlan?.mercadopagoLink) {
+          window.location.href = matchedPlan.mercadopagoLink;
+          return;
+        } else {
+          throw new Error("Link de recorrência não configurado para este plano.");
+        }
       }
 
-      const url = await createCheckoutSession({
-        planName: planName,
+      if (!currentUserData.email) {
+        console.warn("Aluno sem e-mail cadastrado. Usando e-mail da academia para o Mercado Pago.");
+      }
+
+      await createMPCheckout({
+        title: `Pagamento Avulso - ${planName} - Tanque Team BJJ`,
         price: planPrice,
         studentId: currentUserData.id,
         studentEmail: currentUserData.email || 'administrativo@tanqueteambjj.com.br',
-        recurring,
-        priceId: matchedPlan?.stripePriceId
+        action: 'payment'
       });
-      
-      await redirectToCheckout(url);
     } catch (error: any) {
       console.error("Payment error:", error);
       showAlert("Erro no Pagamento", error.message || "Não foi possível iniciar o pagamento.", "error");
@@ -193,7 +205,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
               <div className="relative z-10">
                 <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-2 mb-2">
                   <span className="w-1.5 h-6 bg-brand-red rounded-full"></span>
-                  Pagamento via Stripe
+                  Pagamento Automático
                 </h3>
                 
                 <div className="mb-4">
@@ -202,7 +214,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                 </div>
                 
                 <p className="text-gray-400 text-sm mb-6 max-w-md">
-                  Realize o pagamento da sua mensalidade de forma segura via cartão de crédito. Você pode optar por um pagamento avulso ou ativar a recorrência automática.
+                  Realize o pagamento da sua mensalidade de forma segura via Mercado Pago. Você pode optar por um pagamento avulso ou ativar a recorrência automática.
                 </p>
                 
                 <div className="flex flex-wrap gap-4">
@@ -216,17 +228,90 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                   </button>
                   
                   <button
-                    disabled={isPaying}
+                    disabled={isPaying || !matchedPlan?.mercadopagoLink}
                     onClick={() => handlePayment(true)}
                     className="flex-1 min-w-[200px] border-2 border-brand-red text-brand-red px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-brand-red hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!matchedPlan?.mercadopagoLink ? "Plano de assinatura não configurado pelo administrador." : ""}
                   >
                     {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Clock className="w-5 h-5" />}
                     Ativar Recorrência
                   </button>
+                  {!matchedPlan?.mercadopagoLink && (
+                    <p className="w-full text-center text-[10px] text-red-500 font-bold uppercase italic mt-2 animate-pulse">
+                      Atenção: A recorrência automática ainda não foi configurada para este plano. Por favor, pague o avulso ou fale com o professor.
+                    </p>
+                  )}
                 </div>
                 
                 <div className="mt-4 flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
                   <Shield className="w-3 h-3" /> Transação Criptografada & Segura
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* PIX Payment Option (New) */}
+          {!isFreePlan && dynamicPaymentStatus !== 'Isento' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 mt-6"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-black text-xl italic shadow-lg">
+                  PIX
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-zinc-900 dark:text-white uppercase italic leading-none">Pagamento via PIX</h3>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest leading-none mt-1">Liberação Manual via WhatsApp</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <div className="bg-white dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mb-4">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Chave CNPJ:</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-zinc-900 dark:text-white font-black text-lg select-all">65.678.191/0001-90</p>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText("65678191000190");
+                          showAlert("Copiado!", "Chave PIX copiada para a área de transferência.", "success");
+                        }}
+                        className="text-[10px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-lg font-black uppercase hover:bg-emerald-100 transition-colors"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/20">
+                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-1">Valor do seu Plano:</p>
+                    <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 italic">R$ {planPrice.toFixed(2).replace('.', ',')}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center text-emerald-600 shrink-0 mt-0.5 font-black text-xs">1</div>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      Efetue a transferência PIX no valor de <span className="font-bold text-zinc-900 dark:text-white">R$ {planPrice.toFixed(2).replace('.', ',')}</span>.
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center text-emerald-600 shrink-0 mt-0.5 font-black text-xs">2</div>
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      <p className="font-bold text-zinc-900 dark:text-white mb-1 uppercase text-[10px]">Obrigatório:</p>
+                      Envie o comprovante para o nosso WhatsApp para validarmos seu acesso:
+                      <button 
+                        onClick={() => window.open('https://wa.me/5591984533817', '_blank')}
+                        className="mt-2 w-full bg-emerald-500 text-white font-black uppercase italic py-2 rounded-lg text-[10px] flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" /> Enviar Comprovante (91 98453-3817)
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </motion.div>

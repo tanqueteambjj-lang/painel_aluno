@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, deleteField } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -316,6 +316,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     price: 0,
     basePrice: 0,
     stripePriceId: '',
+    mercadopagoLink: '',
+    durationMonths: 12
   });
 
   const handleUpdatePlan = async () => {
@@ -326,7 +328,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         name: editingPlan.name,
         price: Number(editingPlan.price),
         basePrice: Number(editingPlan.basePrice),
-        stripePriceId: editingPlan.stripePriceId || ''
+        stripePriceId: editingPlan.stripePriceId || '',
+        mercadopagoLink: editingPlan.mercadopagoLink || '',
+        durationMonths: Number(editingPlan.durationMonths || 12)
       });
       setEditingPlan(null);
       fetchPlans();
@@ -348,15 +352,22 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
   };
 
+  const setNewPlanDataReset = () => setNewPlanData({ name: '', price: 0, basePrice: 0, stripePriceId: '', mercadopagoLink: '', durationMonths: 12 });
+
   const handleAddPlan = async () => {
     if (!newPlanData.name) {
       showAlert("Erro", "O nome do plano é obrigatório.", "error");
       return;
     }
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'plans'), newPlanData);
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'plans'), {
+        ...newPlanData,
+        price: Number(newPlanData.price),
+        basePrice: Number(newPlanData.basePrice),
+        durationMonths: Number(newPlanData.durationMonths || 12)
+      });
       setIsAddingPlan(false);
-      setNewPlanData({ name: '', price: 0, basePrice: 0, stripePriceId: '' });
+      setNewPlanDataReset();
       await fetchPlans();
       showAlert("Sucesso", "Plano criado com sucesso!", "success");
     } catch (error) {
@@ -1674,8 +1685,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
           >
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h3 className="font-bold text-lg dark:text-white">Gerenciar Planos</h3>
-                  <p className="text-sm text-gray-500">Configure os valores e IDs do Stripe para cada plano.</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-lg dark:text-white">Gerenciar Planos</h3>
+                    <span className="bg-blue-600 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full italic animate-pulse">
+                      Mercado Pago Ativo
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500 italic">Configure valores e integre com Stripe ou Mercado Pago.</p>
                 </div>
                 <button 
                   onClick={() => setIsAddingPlan(true)}
@@ -1683,6 +1699,21 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 >
                   <Plus size={18} /> Novo Plano
                 </button>
+              </div>
+
+              {/* Alert de ajuda para o usuário */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-2xl mb-6">
+                <div className="flex gap-3">
+                  <ExternalLink className="text-blue-600 dark:text-blue-400 shrink-0 mt-1" size={20} />
+                  <div>
+                    <h4 className="font-black uppercase italic text-xs text-blue-800 dark:text-blue-300">Configuração de Recorrência (Mercado Pago)</h4>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                      Para ativar a recorrência automática, crie o plano no seu painel do Mercado Pago, copie o <b>Link de Assinatura</b> e cole no campo correspondente ao editar ou criar um plano abaixo. 
+                      <br/>
+                      <span className="font-bold">Dica:</span> O botão &quot;Ativar Recorrência&quot; só aparecerá para o aluno se este link estiver configurado.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {isAddingPlan && (
@@ -1717,14 +1748,41 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Stripe Price ID (Recorrência)</label>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Stripe Price ID (Legado)</label>
                       <input 
                         type="text" 
                         value={newPlanData.stripePriceId}
                         onChange={(e) => setNewPlanData({...newPlanData, stripePriceId: e.target.value})}
                         placeholder="price_..."
+                        className={`w-full bg-gray-50 dark:bg-gray-900 border ${newPlanData.stripePriceId.startsWith('prod_') ? 'border-red-500' : 'border-gray-200'} dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white opacity-60`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Duração (Meses)</label>
+                      <select 
+                        value={newPlanData.durationMonths}
+                        onChange={(e) => setNewPlanData({...newPlanData, durationMonths: parseInt(e.target.value)})}
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      >
+                        <option value={1}>Mensal (1 Mês)</option>
+                        <option value={3}>Trimestral (3 Meses)</option>
+                        <option value={6}>Semestral (6 Meses)</option>
+                        <option value={12}>Anual (12 Meses)</option>
+                        <option value={24}>24 Meses</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Link de Recorrência (Mercado Pago)</label>
+                      <input 
+                        type="text" 
+                        value={newPlanData.mercadopagoLink}
+                        onChange={(e) => setNewPlanData({...newPlanData, mercadopagoLink: e.target.value})}
+                        placeholder="https://www.mercadopago.com.br/subscriptions/checkout?..."
                         className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
                       />
+                      <p className="text-[10px] text-blue-500 mt-1 font-bold italic flex items-center gap-1">
+                        <Link size={10} /> Cole o link gerado no seu painel do Mercado Pago
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -1785,13 +1843,36 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                             />
                           </div>
                         </div>
-                        <div>
+                        <div className="opacity-60">
                           <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Stripe Price ID</label>
                           <input 
                             type="text" 
                             value={editingPlan.stripePriceId}
                             onChange={(e) => setEditingPlan({...editingPlan, stripePriceId: e.target.value})}
-                            placeholder="price_..."
+                            className={`w-full bg-gray-50 dark:bg-gray-900 border ${editingPlan.stripePriceId?.startsWith('prod_') ? 'border-red-500' : 'border-gray-200'} dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Duração (Meses)</label>
+                          <select 
+                            value={editingPlan.durationMonths || 12}
+                            onChange={(e) => setEditingPlan({...editingPlan, durationMonths: parseInt(e.target.value)})}
+                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                          >
+                            <option value={1}>1 Mês</option>
+                            <option value={3}>3 Meses</option>
+                            <option value={6}>6 Meses</option>
+                            <option value={12}>12 Meses</option>
+                            <option value={24}>24 Meses</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Link de Assinatura (Mercado Pago)</label>
+                          <input 
+                            type="text" 
+                            value={editingPlan.mercadopagoLink}
+                            onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLink: e.target.value})}
+                            placeholder="https://..."
                             className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
                           />
                         </div>
@@ -1812,9 +1893,20 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                             <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
                             <span className="font-bold text-gray-500">R$ {typeof plan.basePrice === 'number' ? plan.basePrice.toFixed(2).replace('.', ',') : (plan.basePrice || 0)}</span>
                           </div>
-                          <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
-                            <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID:</p>
-                            <p className="font-mono text-[10px] truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">{plan.stripePriceId || 'Não vinculado'}</p>
+          <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700 space-y-3">
+                            <div>
+                              <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Link de Recorrência (MP):</p>
+                              <p className={`font-mono text-[10px] truncate ${plan.mercadopagoLink ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50 font-bold'} dark:bg-gray-900 p-2 rounded flex items-center justify-between`}>
+                                <span>{plan.mercadopagoLink ? "Link Configurado" : 'Pendente - Clique em Editar e cole o link'}</span>
+                                {plan.mercadopagoLink ? <Link size={12} className="text-green-500" /> : <AlertTriangle size={12} className="animate-pulse" />}
+                              </p>
+                            </div>
+                            <div className="opacity-40">
+                              <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID (Opcional):</p>
+                              <p className="font-mono text-[10px] truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">
+                                {plan.stripePriceId || 'Não vinculado'}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </>
