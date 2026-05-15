@@ -1,9 +1,10 @@
-import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer, Shield } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer, Shield, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ReceiptModal from './ReceiptModal';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { createCheckoutSession, redirectToCheckout } from '../services/stripeService';
 
 const parseDateString = (dateStr: any) => {
   if (!dateStr) return new Date();
@@ -23,9 +24,54 @@ const parseDateString = (dateStr: any) => {
   return new Date(dateStr);
 };
 
-export default function Finance({ currentUserData, planInfo }: any) {
+export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [dbPlans, setDbPlans] = useState<any[]>([]);
+  const [isPaying, setIsPaying] = useState(false);
+
+  useEffect(() => {
+    // Process successful payment redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    
+    if (sessionId && currentUserData?.id) {
+       // Typically you'd verify the session on the backend or via webhook.
+       // Here we'll show a message and maybe refresh.
+       showAlert("Pagamento em Processamento", "Seu pagamento via Stripe foi realizado e está sendo processado. Em breve seu status será atualizado.", "success");
+       // Clear the session_id from URL
+       window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [currentUserData, showAlert]);
+
+  const handlePayment = async (recurring: boolean = false) => {
+    if (!currentUserData?.id) {
+      showAlert("Erro", "Desenvolvedor: ID do aluno não encontrado.", "error");
+      return;
+    }
+
+    setIsPaying(true);
+    try {
+      if (!currentUserData.email) {
+        console.warn("Aluno sem e-mail cadastrado. Usando e-mail da academia para o Stripe.");
+      }
+
+      const url = await createCheckoutSession({
+        planName: planName,
+        price: planPrice,
+        studentId: currentUserData.id,
+        studentEmail: currentUserData.email || 'administrativo@tanqueteambjj.com.br',
+        recurring,
+        priceId: matchedPlan?.stripePriceId
+      });
+      
+      await redirectToCheckout(url);
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      showAlert("Erro no Pagamento", error.message || "Não foi possível iniciar o pagamento.", "error");
+    } finally {
+      setIsPaying(false);
+    }
+  };
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -133,6 +179,54 @@ export default function Finance({ currentUserData, planInfo }: any) {
         {/* Left Column: Plan Details & Contract */}
         <div className="lg:col-span-8 space-y-6">
           
+          {/* Payment Card (New) */}
+          {!isFreePlan && dynamicPaymentStatus !== 'Isento' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 rounded-2xl border border-white/10 shadow-2xl overflow-hidden relative group"
+            >
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <CreditCard className="w-24 h-24 text-white" />
+              </div>
+              
+              <div className="relative z-10">
+                <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-2 mb-4">
+                  <span className="w-1.5 h-6 bg-brand-red rounded-full"></span>
+                  Pagamento via Stripe
+                </h3>
+                
+                <p className="text-gray-400 text-sm mb-6 max-w-md">
+                  Realize o pagamento da sua mensalidade de forma segura via cartão de crédito. Você pode optar por um pagamento avulso ou ativar a recorrência automática.
+                </p>
+                
+                <div className="flex flex-wrap gap-4">
+                  <button
+                    disabled={isPaying}
+                    onClick={() => handlePayment(false)}
+                    className="flex-1 min-w-[200px] bg-white text-zinc-950 px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn"
+                  >
+                    {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />}
+                    Pagar Avulso (R$ {planPrice.toFixed(2).replace('.', ',')})
+                  </button>
+                  
+                  <button
+                    disabled={isPaying}
+                    onClick={() => handlePayment(true)}
+                    className="flex-1 min-w-[200px] border-2 border-brand-red text-brand-red px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-brand-red hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Clock className="w-5 h-5" />}
+                    Ativar Recorrência
+                  </button>
+                </div>
+                
+                <div className="mt-4 flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
+                  <Shield className="w-3 h-3" /> Transação Criptografada & Segura
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {/* Status Row */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">

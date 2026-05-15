@@ -152,8 +152,6 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
             
             {/* ID Card */}
             <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black rounded-[2.5rem] overflow-hidden relative shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] flex flex-col w-full max-w-[380px] mx-auto group/card border border-white/5">
-              {/* Dynamic Shine Effect */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover/card:translate-x-[100%] transition-transform duration-1000 ease-in-out pointer-events-none"></div>
               
               {/* Background Pattern */}
               <div className="absolute inset-0 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] mix-blend-overlay pointer-events-none"></div>
@@ -169,14 +167,14 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
               {/* Header */}
               <div className="p-4 sm:p-6 flex items-center justify-between shrink-0 relative z-10 border-b border-white/5 bg-black/20 backdrop-blur-sm">
                 <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="relative h-12 w-12 sm:h-14 sm:w-14 bg-white rounded-2xl p-1.5 shadow-2xl transform -rotate-3 transition-transform group-hover/card:rotate-0">
+                  <div className="relative h-12 w-12 sm:h-14 sm:w-14 bg-white rounded-2xl p-1.5 shadow-2xl transform">
                     <img src="https://iili.io/qC543c7.png" loading="lazy" className="w-full h-full object-contain drop-shadow-md" alt="Logo" />
                     <div className="absolute -inset-0.5 rounded-2xl border border-black/10"></div>
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="font-display font-black text-base sm:text-lg tracking-[0.2em] sm:tracking-[0.25em] uppercase text-white drop-shadow-md leading-none italic">TANQUE TEAM</span>
                     <span className="text-[10px] sm:text-[11px] text-brand-red font-black uppercase tracking-[0.4em] mt-2 flex items-center gap-2">
-                       EST. 2012 <div className="w-1 h-1 rounded-full bg-red-900"></div> JIU-JITSU
+                       JIU-JITSU
                     </span>
                   </div>
                 </div>
@@ -232,7 +230,7 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
                     {planShort}
                   </span>
                   <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 rounded-full">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                     <span className="text-[10px] font-black text-green-700 uppercase tracking-widest">{isBlocked ? 'BLOQUEADO' : 'ATIVO'}</span>
                   </div>
                 </div>

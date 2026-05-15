@@ -129,7 +129,12 @@ export default function Dashboard() {
   
   // Real Admin status (always based on the logged-in user)
   const { planKey: realUserPlanKey } = getPlanInfoFromData(currentUserData);
-  const isRealAdmin = currentUserData?.role === 'admin' || realUserPlanKey === 'administracao';
+  const isRealAdmin = (currentUserData?.role === 'admin') || 
+                      (currentUserData?.role === 'financeiro') || 
+                      (currentUserData?.role === 'juridico') || 
+                      (realUserPlanKey === 'administracao') ||
+                      (currentUserData?.email === 'administrativo@tanqueteambjj.com.br') ||
+                      (currentUserData?.email === 'tanqueteambjj@gmail.com');
   const isAdmin = isRealAdmin;
 
   const totalAtt = activeUserData?.attendance ? activeUserData.attendance.length : 0;
@@ -404,14 +409,20 @@ export default function Dashboard() {
       }
 
       const user = JSON.parse(sessionData);
-      if (user.role !== 'student' && process.env.NODE_ENV !== 'development') {
-        setAuthError("Acesso negado. Apenas alunos podem acessar este painel.");
+      const allowedRoles = ['student', 'admin', 'financeiro', 'juridico'];
+      if (!allowedRoles.includes(user.role) && process.env.NODE_ENV !== 'development') {
+        setAuthError("Acesso negado. Perfil não autorizado.");
         setLoading(false);
         return;
       }
 
       try {
-        await loadStudentData(user.id);
+        if (user.id) {
+          await loadStudentData(user.id);
+        } else {
+          // Hardcoded users (admin/staff) without specific Firestore document ID
+          setCurrentUserData(user);
+        }
 
         // Check for Mercado Pago return
         const paymentId = urlParams.get('payment_id');
@@ -549,6 +560,7 @@ export default function Dashboard() {
   };
 
   const loadStudentData = async (studentId: string) => {
+    if (!studentId) return;
     try {
       if (!primaryStudentId) setPrimaryStudentId(studentId);
       
@@ -832,7 +844,7 @@ export default function Dashboard() {
 
   const getUnifiedHistory = (student: any, customAchievements: any[]) => {
     if (!student) return [];
-    const history: any[] = [];
+    let history: any[] = [];
     
     // 1. Attendance (50 XP each)
     if (Array.isArray(student.attendance)) {
@@ -849,7 +861,7 @@ export default function Dashboard() {
 
     // 2. Extra XP & Manual Achievement Logs
     if (Array.isArray(student.xpLog)) {
-      student.xpLog.slice(-10).forEach((log: any) => {
+      student.xpLog.forEach((log: any) => {
         if (log && typeof log === 'object') history.push(log);
       });
     }
@@ -931,12 +943,13 @@ export default function Dashboard() {
         if (!d || typeof d !== 'string') return 0;
         if (d.includes('/')) {
           const p = d.split('/');
-          return new Date(`${p[2]}-${p[1]}-${p[0]}T12:00:00`).getTime();
+          return new Date(`${p[2]}-${p[0] === '0' ? p[1] : p[1]}-${p[0]}T12:00:00`).getTime();
         }
         return new Date(d.includes('T') ? d : `${d}T12:00:00`).getTime();
       };
-      return parseDate(b.date) - parseDate(a.date);
-    });
+      const res = parseDate(b.date) - parseDate(a.date);
+      return res;
+    }).slice(0, 10);
   };
 
   const calculateStudentXP = useCallback((student: any, rankingBonus: number = 0) => {
@@ -1718,7 +1731,7 @@ export default function Dashboard() {
         hasUnreadNotices={hasUnreadNotices}
         hasUnreadNotifications={hasUnreadNotifications}
         onOpenNotifications={() => setIsNotificationCenterOpen(true)}
-        isAdmin={planKey === 'administracao'}
+        isAdmin={isAdmin}
       />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
@@ -2271,7 +2284,7 @@ export default function Dashboard() {
                       if (history.length === 0) {
                         return <div className="p-10 text-center text-gray-400 text-sm">Nenhuma atividade registrada ainda.</div>;
                       }
-                      return history.slice(0, 30).map((item, idx) => (
+                      return history.map((item, idx) => (
                         <div key={idx} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors">
                           <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -2305,9 +2318,9 @@ export default function Dashboard() {
                       ));
                     })()}
                   </div>
-                  {activeUserData?.attendance?.length > 30 && (
+                  {activeUserData?.attendance?.length > 10 && (
                     <div className="p-3 bg-gray-50 dark:bg-gray-700/30 text-center border-t border-gray-100 dark:border-gray-700">
-                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Exibindo as últimas 30 atividades</p>
+                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Exibindo as últimas 10 atividades</p>
                     </div>
                   )}
                 </div>
@@ -2446,7 +2459,7 @@ export default function Dashboard() {
             )}
 
             {/* ADMIN VIEW */}
-            {view === 'admin' && planKey === 'administracao' && (
+            {view === 'admin' && isAdmin && (
               <motion.div
                 key="admin"
                 initial={{ opacity: 0, y: 20 }}
@@ -2466,6 +2479,26 @@ export default function Dashboard() {
                   lastMonthRankingAdulto={lastMonthRankingAdulto}
                   lastMonthRankingInfantil={lastMonthRankingInfantil}
                 />
+              </motion.div>
+            )}
+
+            {/* FINANCE VIEW */}
+            {view === 'finance' && currentUserData && (
+              <motion.div
+                key="finance"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+              >
+                <div className="mb-10 text-left">
+                  <h1 className="text-4xl font-black text-gray-900 dark:text-white uppercase leading-none tracking-tighter italic">
+                    Financeiro
+                  </h1>
+                  <p className="text-sm font-bold text-brand-red uppercase tracking-[0.3em] mt-2">Gestão de Pagamentos</p>
+                </div>
+                <Finance currentUserData={currentUserData} planInfo={planInfo} showAlert={showAlert} />
               </motion.div>
             )}
 
@@ -2541,17 +2574,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="mt-12 max-w-4xl mx-auto mb-10 overflow-hidden px-4 sm:px-0">
-                  <div className="mb-6 flex flex-col md:flex-row items-center gap-3 border-b border-gray-200 dark:border-gray-700 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-brand-red/10 rounded-xl">
-                        <CreditCard className="w-6 h-6 text-brand-red" />
-                      </div>
-                      <h2 className="font-display text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight italic">Financeiro & Pagamentos</h2>
-                    </div>
-                  </div>
-                  <Finance currentUserData={currentUserData} planInfo={planInfo} showAlert={showAlert} />
-                </div>
               </div>
               </motion.div>
             )}

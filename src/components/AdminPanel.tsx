@@ -1,45 +1,34 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, deleteField } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Ban, CheckSquare, Square, Trash, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, AlertTriangle, TrendingDown, TrendingUp, Cake, ZoomIn, ZoomOut, RotateCcw, ThumbsUp } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 
 export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonate, lastMonthRankingAdulto = [], lastMonthRankingInfantil = [] }: any) {
+  // 1. STATE DECLARATIONS AT THE TOP
   const [activeTab, setActiveTab] = useState('bookings');
   const [loading, setLoading] = useState(true);
+  const [hasStartedLoading, setHasStartedLoading] = useState(false);
   const [extraXPValue, setExtraXPValue] = useState(100);
   const [isLinkingFamily, setIsLinkingFamily] = useState<{ studentId: string, name: string, parentId?: string } | null>(null);
+  
+  // Students and Search
+  const [students, setStudents] = useState<any[]>([]);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [viewingXPHistoryStudent, setViewingXPHistoryStudent] = useState<any | null>(null);
+  const [familySearch, setFamilySearch] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [editingStudent, setEditingStudent] = useState<any | null>(null);
   
   // Custom Achievements Management
   const [customAchievements, setCustomAchievements] = useState<any[]>([]);
   const [newAchievement, setNewAchievement] = useState({ name: '', desc: '', iconName: 'Trophy', xpBonus: 200 });
   const [isAddingAchievement, setIsAddingAchievement] = useState(false);
-  
-  // Icons helper for custom achievements
-  const iconOptions: Record<string, any> = {
-    'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
-    'Flame': Flame, 'Sun': Sun, 'Zap': Zap, 'Shield': Shield, 
-    'Crown': Crown, 'Award': Award, 'Target-Red': Target,
-    'Clock': Clock, 'Users': Users, 'Camera': Camera, 'MessageSquare': MessageSquare
-  };
-
-  const [isAddingStudent, setIsAddingStudent] = useState(false);
-  const [viewingXPHistoryStudent, setViewingXPHistoryStudent] = useState<any | null>(null);
-  const [newStudentData, setNewStudentData] = useState({
-    name: '',
-    nickname: '',
-    studentLogin: '',
-    studentPassword: '',
-    plan: 'Mensal',
-    belt: 'Faixa Branca - 0º Grau',
-    phone: '',
-    paymentStatus: 'Em dia',
-    parentId: '',
-    parentName: ''
-  });
   
   // Schedule Management
   const [gymSchedule, setGymSchedule] = useState<any[]>([]);
@@ -55,9 +44,49 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [selectedPosts, setSelectedPosts] = useState<string[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<string[]>([]);
   
-  // Student Search
-  const [students, setStudents] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  // Filters
+  const [filterBelt, setFilterBelt] = useState('Todas');
+  const [filterLevelOrder, setFilterLevelOrder] = useState<'none' | 'desc' | 'asc'>('none');
+  const [filterStatus, setFilterStatus] = useState('Todos');
+  const [filterRecent, setFilterRecent] = useState(false);
+
+  // Form States
+  const [newStudentData, setNewStudentData] = useState({
+    name: '',
+    nickname: '',
+    studentLogin: '',
+    studentPassword: '',
+    plan: 'Mensal',
+    belt: 'Faixa Branca - 0º Grau',
+    phone: '',
+    paymentStatus: 'Em dia',
+    parentId: '',
+    parentName: ''
+  });
+  
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    nickname: '',
+    studentLogin: '',
+    plan: '',
+    belt: '',
+    isGraduationInitial: false
+  });
+
+  // Photo Cropper States
+  const [croppingStudent, setCroppingStudent] = useState<{ id: string, name: string } | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+
+  // Icons helper for custom achievements
+  const iconOptions: Record<string, any> = {
+    'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Target': Target, 
+    'Flame': Flame, 'Sun': Sun, 'Zap': Zap, 'Shield': Shield, 
+    'Crown': Crown, 'Award': Award, 'Target-Red': Target,
+    'Clock': Clock, 'Users': Users, 'Camera': Camera, 'MessageSquare': MessageSquare
+  };
 
   const removeStudentPhoto = async (studentId: string, name: string) => {
     showConfirm("Remover Foto", `Tem certeza que deseja remover a foto de ${name}?`, async () => {
@@ -161,7 +190,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         parentName: ''
       });
       
-      await fetchStudents();
       showAlert("Sucesso", "Aluno adicionado com sucesso!", "success");
     } catch (e) {
       console.error(e);
@@ -171,24 +199,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
   };
 
-  const [allStudents, setAllStudents] = useState<any[]>([]);
-  // Students Filters
-  const [filterBelt, setFilterBelt] = useState('Todas');
-  const [filterLevelOrder, setFilterLevelOrder] = useState<'none' | 'desc' | 'asc'>('none');
-  const [filterStatus, setFilterStatus] = useState('Todos');
-  const [filterRecent, setFilterRecent] = useState(false);
-  const [familySearch, setFamilySearch] = useState('');
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
-  const [editingStudent, setEditingStudent] = useState<any | null>(null);
-  const [editFormData, setEditFormData] = useState({
-    name: '',
-    nickname: '',
-    studentLogin: '',
-    plan: '',
-    belt: '',
-    isGraduationInitial: false
-  });
-
+  // Students Helpers
   const handleEditStudent = (student: any) => {
     setEditingStudent(student);
     setEditFormData({
@@ -204,6 +215,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const handleSaveStudentInfo = async () => {
     if (!editingStudent) return;
     try {
+      setLoading(true);
       const updates: any = {
         name: editFormData.name,
         nickname: editFormData.nickname,
@@ -212,7 +224,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         belt: editFormData.belt
       };
 
-      // If belt changed and it's not the same, we might want to log it
       if (editFormData.belt !== editingStudent.belt) {
         const newLog = {
           type: 'graduation',
@@ -224,48 +235,15 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       }
 
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', editingStudent.id), updates);
-      
-      setAllStudents(prev => prev.map(s => s.id === editingStudent.id ? { 
-        ...s, 
-        name: editFormData.name,
-        nickname: editFormData.nickname,
-        studentLogin: editFormData.studentLogin,
-        plan: editFormData.plan
-      } : s));
-      
-      setStudents(prev => prev.map(s => s.id === editingStudent.id ? { 
-        ...s, 
-        name: editFormData.name,
-        nickname: editFormData.nickname,
-        studentLogin: editFormData.studentLogin,
-        plan: editFormData.plan
-      } : s));
-
       setEditingStudent(null);
       showAlert("Sucesso", "Informações do aluno atualizadas!", "success");
     } catch (e) {
       console.error(e);
       showAlert("Erro", "Falha ao salvar informações.", "error");
+    } finally {
+      setLoading(false);
     }
   };
-
-  const fetchStudents = async () => {
-    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'students'), orderBy('name'));
-    const snap = await getDocs(q);
-    const list: any[] = [];
-    snap.forEach(docSnap => {
-      list.push({ id: docSnap.id, ...docSnap.data() });
-    });
-    setAllStudents(list);
-    setStudents(list);
-  };
-
-  // Cropper state for Admin
-  const [croppingStudent, setCroppingStudent] = useState<{ id: string, name: string } | null>(null);
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
@@ -328,11 +306,67 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
   };
 
+  const [dbPlans, setDbPlans] = useState<any[]>([]);
+  const [isAddingPlan, setIsAddingPlan] = useState(false);
+  const [newPlanData, setNewPlanData] = useState({
+    name: '',
+    price: 0,
+    basePrice: 0,
+    stripePriceId: '',
+  });
+
+  const fetchPlans = async () => {
+    try {
+      const plansRef = collection(db, 'artifacts', appId, 'public', 'data', 'plans');
+      const snapshot = await getDocs(plansRef);
+      const plansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setDbPlans(plansData);
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+    }
+  };
+
+  const handleAddPlan = async () => {
+    if (!newPlanData.name) {
+      showAlert("Erro", "O nome do plano é obrigatório.", "error");
+      return;
+    }
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'plans'), newPlanData);
+      setIsAddingPlan(false);
+      setNewPlanData({ name: '', price: 0, basePrice: 0, stripePriceId: '' });
+      await fetchPlans();
+      showAlert("Sucesso", "Plano criado com sucesso!", "success");
+    } catch (error) {
+      console.error("Error adding plan:", error);
+      showAlert("Erro", "Falha ao criar plano.", "error");
+    }
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    showConfirm("Excluir Plano", "Tem certeza que deseja excluir este plano? Alunos vinculados a este nome podem perder a referência de valor.", async () => {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plans', planId));
+        await fetchPlans();
+        showAlert("Sucesso", "Plano excluído.", "success");
+      } catch (error) {
+        console.error("Error deleting plan:", error);
+        showAlert("Erro", "Falha ao excluir plano.", "error");
+      }
+    });
+  };
+
   useEffect(() => {
-    if ((activeTab === 'students' || activeTab === 'achievements') && allStudents.length === 0) {
-      fetchStudents();
+    if (activeTab === 'plans') {
+      fetchPlans();
     }
   }, [activeTab, appId]);
+
+  useEffect(() => {
+    if (!hasStartedLoading) {
+      setHasStartedLoading(true);
+    }
+  }, [appId, hasStartedLoading]);
 
   useEffect(() => {
     let filtered = [...allStudents];
@@ -391,11 +425,22 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   useEffect(() => {
     setLoading(true);
     
+    // Safety timeout to prevent infinite loading state
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
     // Gym Schedule Listener
     const unsubSchedule = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'gymSchedule'), (snap) => {
       const schedule: any[] = [];
-      snap.forEach(doc => schedule.push({ id: doc.id, ...doc.data() }));
-      setGymSchedule(schedule.sort((a,b) => a.day - b.day || a.time.localeCompare(b.time)));
+      snap.forEach(docSnap => {
+        if (docSnap.exists()) {
+          schedule.push({ id: docSnap.id, ...docSnap.data() });
+        }
+      });
+      setGymSchedule(schedule.sort((a,b) => (a.day || 0) - (b.day || 0) || (a.time || '').localeCompare(b.time || '')));
+    }, (err) => {
+      console.error("Schedule listener error:", err);
     });
 
     // Bookings Listener (for selected date)
@@ -403,48 +448,70 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       query(collection(db, 'artifacts', appId, 'public', 'data', 'bookings'), where('date', '==', selectedBookingDate)),
       (snap) => {
         const booked: any[] = [];
-        snap.forEach(doc => booked.push({ id: doc.id, ...doc.data() }));
+        snap.forEach(docSnap => {
+          if (docSnap.exists()) {
+            booked.push({ id: docSnap.id, ...docSnap.data() });
+          }
+        });
         setBookings(booked);
+      }, (err) => {
+        console.error("Bookings listener error:", err);
       }
     );
 
     // Feed Listener
     const unsubFeed = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), (snap) => {
       const posts: any[] = [];
-      const now = new Date().toISOString();
-      let hasExpired = false;
-
       snap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.expiresAt && data.expiresAt < now) {
-          hasExpired = true;
-          // Delete expired post
-          deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'feed', docSnap.id)).catch(console.error);
-        } else {
-          posts.push({ id: docSnap.id, ...data });
+        if (docSnap.exists()) {
+          posts.push({ id: docSnap.id, ...docSnap.data() });
         }
       });
-      
-      if (!hasExpired) {
-        setFeedPosts(posts.sort((a,b) => b.timestamp.localeCompare(a.timestamp)));
-      }
+      setFeedPosts(posts.sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || '')));
+    }, (err) => {
+      console.error("Feed listener error:", err);
+    });
+
+    // Students Real-time Listener
+    const unsubStudents = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'students'), orderBy('name')), (snap) => {
+      const list: any[] = [];
+      snap.forEach(docSnap => {
+        if (docSnap.exists()) {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        }
+      });
+      setAllStudents(list);
+      setHasStartedLoading(true);
+      setLoading(false); // Students are usually the largest part, once they load we can show the UI
+    }, (err) => {
+      console.error("Students listener error:", err);
+      setLoading(false);
     });
 
     // Custom Achievements Listener
     const unsubAchievements = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'adminAchievements'), (snap) => {
       const achs: any[] = [];
-      snap.forEach(doc => achs.push({ id: doc.id, ...doc.data() }));
+      snap.forEach(docSnap => {
+        if (docSnap.exists()) {
+          achs.push({ id: docSnap.id, ...docSnap.data() });
+        }
+      });
       setCustomAchievements(achs);
-      setLoading(false);
+    }, (err) => {
+      console.error("Achievements listener error:", err);
     });
 
     return () => {
       unsubSchedule();
       unsubBookings();
       unsubFeed();
+      unsubStudents();
       unsubAchievements();
+      clearTimeout(safetyTimeout);
     };
   }, [appId, selectedBookingDate]);
+
+  // Removed unified loading handler as we are using a more robust per-listener one above
 
   const addAchievement = async () => {
     if (!newAchievement.name) return;
@@ -468,6 +535,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   };
 
   const calculateStudentLevel = (student: any) => {
+    if (!student) return 1;
     const xpPerClass = 50;
     const badgeXPBonusMap: Record<string, number> = {
       'first_class': 100, 'beginner': 200, 'monthly_focus': 300, 'streak_5': 250,
@@ -475,54 +543,46 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       'warrior': 500, 'centurion': 1000, 'casca_grossa': 2000, 'mestre': 5000, 'rato_tatame': 400
     };
 
-    const totalAtt = student.attendance ? student.attendance.length : 0;
+    const attendance = Array.isArray(student.attendance) ? student.attendance : [];
+    const totalAtt = attendance.length;
     
     // Auto badges XP
     let earnedBadgesXP = 0;
-    if (totalAtt >= 1) earnedBadgesXP += badgeXPBonusMap['first_class'];
-    if (totalAtt >= 12) earnedBadgesXP += badgeXPBonusMap['beginner'];
-    if (totalAtt >= 50) earnedBadgesXP += badgeXPBonusMap['warrior'];
-    if (totalAtt >= 100) earnedBadgesXP += badgeXPBonusMap['centurion'];
-    if (totalAtt >= 200) earnedBadgesXP += badgeXPBonusMap['casca_grossa'];
-    if (totalAtt >= 500) earnedBadgesXP += badgeXPBonusMap['mestre'];
+    if (totalAtt >= 1) earnedBadgesXP += badgeXPBonusMap['first_class'] || 0;
+    if (totalAtt >= 12) earnedBadgesXP += badgeXPBonusMap['beginner'] || 0;
+    if (totalAtt >= 50) earnedBadgesXP += badgeXPBonusMap['warrior'] || 0;
+    if (totalAtt >= 100) earnedBadgesXP += badgeXPBonusMap['centurion'] || 0;
+    if (totalAtt >= 200) earnedBadgesXP += badgeXPBonusMap['casca_grossa'] || 0;
+    if (totalAtt >= 500) earnedBadgesXP += badgeXPBonusMap['mestre'] || 0;
     
-    // Progress Log (Graduations) - Removed XP per user request
-    /*
-    if (student.progressLog) {
-      student.progressLog.forEach((log: any) => {
-        if (log.type === 'graduation' && !log.isInitialRank) {
-          if (log.text && log.text.match(/[1-9]º Grau/)) earnedBadgesXP += 250;
-          else earnedBadgesXP += 500;
-        }
-      });
-    }
-    */
-
     // Ranking Special Badges & Custom Admin Achievements
     const rankingBadgeValues: Record<string, number> = {
       'rank_1': 1000, 'rank_2': 800, 'rank_3': 600, 'rank_4': 400, 'rank_5': 200
     };
-    if (student.achievements) {
-      student.achievements.forEach((id: string) => {
-        if (rankingBadgeValues[id]) {
-          earnedBadgesXP += rankingBadgeValues[id];
-        } else {
-          // Check for custom achievements
-          const custom = customAchievements.find(ca => ca.id === id);
-          if (custom) {
-            earnedBadgesXP += Number(custom.xpBonus) || 200;
-          }
+    
+    const achievements = Array.isArray(student.achievements) ? student.achievements : [];
+    const safeCustomAchievements = Array.isArray(customAchievements) ? customAchievements : [];
+
+    achievements.forEach((id: string) => {
+      if (rankingBadgeValues[id]) {
+        earnedBadgesXP += rankingBadgeValues[id];
+      } else {
+        const custom = safeCustomAchievements.find(ca => ca && ca.id === id);
+        if (custom) {
+          earnedBadgesXP += Number(custom.xpBonus) || 200;
         }
-      });
-    }
+      }
+    });
 
     const userXP = (Number(student.extraXP) || 0) + (totalAtt * xpPerClass) + earnedBadgesXP;
-    return Math.floor(Math.sqrt(userXP / 100)) + 1;
+    return Math.max(1, Math.floor(Math.sqrt(userXP / 100)) + 1);
   };
 
   const getStudentAchievements = (student: any) => {
+    if (!student) return [];
     const badges: any[] = [];
-    const totalAtt = student.attendance ? student.attendance.length : 0;
+    const attendance = Array.isArray(student.attendance) ? student.attendance : [];
+    const totalAtt = attendance.length;
     
     // Dynamic badges logic
     if (totalAtt >= 1) badges.push({ id: 'first_class', icon: <Star className="w-3 h-3 text-yellow-500" />, name: "Primeiro Treino" });
@@ -540,6 +600,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     let hasBlackBelt = false;
 
     progressLog.forEach((log: any) => {
+      if (!log) return;
       if (log.type === 'graduation' && !log.isInitialRank && (log.date || '') > LOCK_DATE) {
         if (log.text && log.text.match(/[1-9]º Grau/)) hasNewDegree = true;
         else {
@@ -554,15 +615,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     if (hasBlackBelt) badges.push({ id: 'black_belt', icon: <Crown className="w-3 h-3 text-black dark:text-gray-100" />, name: "A Lenda" });
 
     // Manual achievements from admin
-    if (student.achievements) {
-      student.achievements.forEach((achId: string) => {
-        const custom = customAchievements.find(ca => ca.id === achId);
-        if (custom) {
-          const Icon = iconOptions[custom.iconName] || Trophy;
-          badges.push({ id: custom.id, icon: <Icon className="w-3 h-3 text-brand-red" />, name: custom.name, isManual: true });
-        }
-      });
-    }
+    const achievements = Array.isArray(student.achievements) ? student.achievements : [];
+    const safeCustomAchievements = Array.isArray(customAchievements) ? customAchievements : [];
+
+    achievements.forEach((achId: string) => {
+      const custom = safeCustomAchievements.find(ca => ca && ca.id === achId);
+      if (custom) {
+        const Icon = iconOptions[custom.iconName] || Trophy;
+        badges.push({ id: custom.id, icon: <Icon className="w-3 h-3 text-brand-red" />, name: custom.name, isManual: true });
+      }
+    });
 
     return badges;
   };
@@ -614,11 +676,20 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const getInactiveStudents = () => {
     const now = new Date();
     return allStudents.map(s => {
+      if (!s) return null;
       if (!Array.isArray(s.attendance) || s.attendance.length === 0) return { ...s, daysInactive: 999 };
-      const lastAtt = new Date([...s.attendance].sort().pop() + 'T12:00:00');
-      const diffDays = Math.floor((now.getTime() - lastAtt.getTime()) / (1000 * 60 * 60 * 24));
-      return { ...s, daysInactive: diffDays };
-    }).filter(s => s.daysInactive >= 10).sort((a,b) => b.daysInactive - a.daysInactive);
+      try {
+        const sortedAtt = [...s.attendance].filter(d => typeof d === 'string').sort();
+        if (sortedAtt.length === 0) return { ...s, daysInactive: 999 };
+        const lastAttStr = sortedAtt.pop();
+        const lastAtt = new Date(lastAttStr + 'T12:00:00');
+        if (isNaN(lastAtt.getTime())) return { ...s, daysInactive: 999 };
+        const diffDays = Math.floor((now.getTime() - lastAtt.getTime()) / (1000 * 60 * 60 * 24));
+        return { ...s, daysInactive: Math.max(0, diffDays) };
+      } catch (e) {
+        return { ...s, daysInactive: 999 };
+      }
+    }).filter((s: any) => s && s.daysInactive >= 10).sort((a: any, b: any) => b.daysInactive - a.daysInactive);
   };
 
   const assignAchievement = async (studentId: string, currentAchs: string[] = []) => {
@@ -705,38 +776,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       console.error(e);
       showAlert("Erro", "Falha ao atualizar conquistas do aluno.", "error");
     }
-  };
-
-  const handleResetSeason = async () => {
-    showConfirm("REINICIAR TEMPORADA", 
-      "ATENÇÃO: Isso irá zerar o XP bônus, XP social e as conquistas manuais de TODOS os alunos. O XP de treino (presença) será mantido. Deseja continuar?", 
-      async () => {
-        try {
-          setLoading(true);
-          const batchPromises = allStudents.map(student => {
-            const ref = doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id);
-            return updateDoc(ref, {
-              extraXP: 0,
-              socialXP: 0,
-              achievements: [],
-              xpLog: [],
-              feedPosts: 0
-            });
-          });
-          
-          await Promise.all(batchPromises);
-          
-          // Re-fetch all students to sync state
-          await fetchStudents();
-          showAlert("Temporada Reiniciada!", "XP e Conquistas foram limpos. Boa temporada!", "success");
-        } catch (e) {
-          console.error("Erro ao resetar temporada:", e);
-          showAlert("Erro", "Falha ao resetar temporada.", "error");
-        } finally {
-          setLoading(false);
-        }
-      }
-    );
   };
 
   const addClass = async () => {
@@ -880,6 +919,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             { id: 'schedule', label: 'Grade Horária', icon: Clock },
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
+            { id: 'plans', label: 'Planos', icon: CreditCard },
             { id: 'achievements', label: 'Conquistas', icon: Trophy },
             { id: 'churn', label: 'Evasão', icon: TrendingDown },
           ].map((tab) => (
@@ -899,21 +939,31 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-10 h-10 animate-spin text-brand-red" />
-        </div>
-      ) : (
-        <AnimatePresence mode="wait">
-          {/* BOOKINGS VIEW */}
-          {activeTab === 'bookings' && (
-            <motion.div
-              key="bookings"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
+      <AnimatePresence mode="wait">
+        {loading ? (
+          <motion.div 
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center justify-center py-20"
+          >
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="w-12 h-12 animate-spin text-brand-red" />
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">Carregando dados...</p>
+            </div>
+          </motion.div>
+        ) : (
+          <>
+            {/* BOOKINGS VIEW */}
+            {activeTab === 'bookings' && (
+              <motion.div
+                key="bookings"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h3 className="font-bold text-lg dark:text-white">Agendamentos do Dia</h3>
@@ -928,8 +978,15 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {gymSchedule.filter(c => c.day === new Date(selectedBookingDate + 'T12:00:00').getDay()).map(c => {
-                  const classBookings = bookings.filter(b => b.classId === c.id);
+                {(Array.isArray(gymSchedule) ? gymSchedule : []).filter(c => {
+                  try {
+                    const dateObj = new Date(selectedBookingDate + 'T12:00:00');
+                    return c && c.day === dateObj.getDay();
+                  } catch (e) {
+                    return false;
+                  }
+                }).map(c => {
+                  const classBookings = (Array.isArray(bookings) ? bookings : []).filter(b => b && b.classId === c.id);
                   return (
                     <div key={c.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                       <div className="bg-gray-50 dark:bg-gray-700/50 p-4 border-b border-gray-100 dark:border-gray-600">
@@ -1053,8 +1110,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       </button>
                     </div>
                   )}
-                  {weekDays.map(day => {
-                    const dayClasses = gymSchedule.filter(c => c.day === day.id);
+                {weekDays.map(day => {
+                    const safeSchedule = Array.isArray(gymSchedule) ? gymSchedule : [];
+                    const dayClasses = safeSchedule.filter(c => c && c.day === day.id);
                     if (dayClasses.length === 0) return null;
                     return (
                       <div key={day.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -1184,7 +1242,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                            <h5 className="font-bold text-xs truncate dark:text-white">{post.studentFullName || post.studentName}</h5>
-                           <span className="text-[9px] text-gray-400">Exp: {format(new Date(post.expiresAt), 'dd/MM')}</span>
+                           <span className="text-[9px] text-gray-400">
+                             Exp: {post.expiresAt ? format(new Date(post.expiresAt), 'dd/MM') : '--/--'}
+                           </span>
                         </div>
                         <p className="text-[10px] text-gray-500 truncate">{post.badgeName} - {post.message || 'Sem mensagem'}</p>
                       </div>
@@ -1224,10 +1284,10 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <button 
-                      onClick={fetchStudents}
-                      className="bg-brand-red px-4 py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all"
+                      onClick={() => showAlert("Info", "Os dados são atualizados automaticamente.", "info")}
+                      className="bg-gray-200 dark:bg-gray-700 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300 font-bold text-sm shadow-sm transition-all"
                     >
-                      Recarregar
+                      Sincronizado
                     </button>
                     <button 
                       onClick={() => setIsAddingStudent(true)}
@@ -1399,9 +1459,12 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                           <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{s.belt}</span>
                         </div>
                         {(() => {
-                           const isAdult = !(s.plan || '').toLowerCase().includes('infantil');
-                           const targetRank = isAdult ? lastMonthRankingAdulto : lastMonthRankingInfantil;
-                           const pos = targetRank.findIndex(rs => rs.id === s.id);
+                           const sPlan = (s.plan || '').toLowerCase();
+                           const isAdult = !sPlan.includes('infantil');
+                           const rankingAdult = Array.isArray(lastMonthRankingAdulto) ? lastMonthRankingAdulto : [];
+                           const rankingInfant = Array.isArray(lastMonthRankingInfantil) ? lastMonthRankingInfantil : [];
+                           const targetRank = isAdult ? rankingAdult : rankingInfant;
+                           const pos = targetRank.findIndex(rs => rs && rs.id === s.id);
                            if (pos >= 0 && pos < 5) {
                              return (
                                <div className="mt-2 flex items-center gap-1.5 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/50 rounded-lg w-fit">
@@ -1461,28 +1524,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       {/* XP Penalty/Bonus Section */}
                       <div className="flex items-center gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl w-full">
                         <div className="flex flex-col gap-1 items-center px-1 border-r border-gray-200 dark:border-gray-700 pr-2">
-                           <div className="flex bg-gray-200 dark:bg-gray-700 p-0.5 rounded-lg">
-                             <button 
-                               id={`bonus-card-${s.id}`}
-                               onClick={() => {
-                                 document.getElementById(`bonus-card-${s.id}`)?.classList.add('bg-white', 'text-green-600');
-                                 document.getElementById(`bonus-card-${s.id}`)?.classList.remove('text-gray-400');
-                                 document.getElementById(`penalty-card-${s.id}`)?.classList.remove('bg-white', 'text-red-500');
-                                 document.getElementById(`penalty-card-${s.id}`)?.classList.add('text-gray-400');
-                               }}
-                               className="px-2 py-0.5 rounded-md text-[8px] font-bold bg-white text-green-600 shadow-sm transition-all"
-                             >Bônus</button>
-                             <button 
-                               id={`penalty-card-${s.id}`}
-                               onClick={() => {
-                                 document.getElementById(`penalty-card-${s.id}`)?.classList.add('bg-white', 'text-red-500');
-                                 document.getElementById(`penalty-card-${s.id}`)?.classList.remove('text-gray-400');
-                                 document.getElementById(`bonus-card-${s.id}`)?.classList.remove('bg-white', 'text-green-600');
-                                 document.getElementById(`bonus-card-${s.id}`)?.classList.add('text-gray-400');
-                               }}
-                               className="px-2 py-0.5 rounded-md text-[8px] font-bold text-gray-400 hover:text-red-500 transition-all"
-                             >Penalidade</button>
-                           </div>
+                           <p className="text-[8px] font-black uppercase text-gray-400">Tipo</p>
                         </div>
                         <input 
                           type="number" 
@@ -1590,6 +1632,107 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             </motion.div>
           )}
 
+          {/* PLANS VIEW */}
+          {activeTab === 'plans' && (
+            <motion.div
+              key="plans"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="font-bold text-lg dark:text-white">Gerenciar Planos</h3>
+                  <p className="text-sm text-gray-500">Configure os valores e IDs do Stripe para cada plano.</p>
+                </div>
+                <button 
+                  onClick={() => setIsAddingPlan(true)}
+                  className="bg-brand-red text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
+                >
+                  <Plus size={18} /> Novo Plano
+                </button>
+              </div>
+
+              {isAddingPlan && (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Nome do Plano</label>
+                      <input 
+                        type="text" 
+                        value={newPlanData.name}
+                        onChange={(e) => setNewPlanData({...newPlanData, name: e.target.value})}
+                        placeholder="Ex: Plano Infantil"
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Preço (Pontualidade)</label>
+                      <input 
+                        type="number" 
+                        value={newPlanData.price}
+                        onChange={(e) => setNewPlanData({...newPlanData, price: parseFloat(e.target.value)})}
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Preço Base (Integral)</label>
+                      <input 
+                        type="number" 
+                        value={newPlanData.basePrice}
+                        onChange={(e) => setNewPlanData({...newPlanData, basePrice: parseFloat(e.target.value)})}
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Stripe Price ID (Recorrência)</label>
+                      <input 
+                        type="text" 
+                        value={newPlanData.stripePriceId}
+                        onChange={(e) => setNewPlanData({...newPlanData, stripePriceId: e.target.value})}
+                        placeholder="price_..."
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={handleAddPlan} className="bg-green-600 text-white px-6 py-2 rounded-xl font-bold text-sm">Salvar Plano</button>
+                    <button onClick={() => setIsAddingPlan(false)} className="bg-gray-100 text-gray-600 px-6 py-2 rounded-xl font-bold text-sm">Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {(Array.isArray(dbPlans) ? dbPlans : []).map(plan => (
+                  <div key={plan.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
+                    <button 
+                      onClick={() => handleDeletePlan(plan.id)}
+                      className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{plan.name}</h4>
+                    <div className="space-y-2 mb-6">
+                      <div className="flex justify-between text-lg mb-2">
+                        <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
+                        <span className="font-black text-green-600">R$ {typeof plan.price === 'number' ? plan.price.toFixed(2).replace('.', ',') : (plan.price || 0)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
+                        <span className="font-bold text-gray-500">R$ {typeof plan.basePrice === 'number' ? plan.basePrice.toFixed(2).replace('.', ',') : (plan.basePrice || 0)}</span>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700">
+                        <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID:</p>
+                        <p className="font-mono text-xs truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">{plan.stripePriceId || 'Não vinculado'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
           {/* ACHIEVEMENTS VIEW */}
           {activeTab === 'achievements' && (
             <motion.div
@@ -1600,33 +1743,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               className="space-y-8"
             >
               {/* SEASON RESET CALLOUT - BIG & BOLD */}
-              <div className="p-1 bg-gradient-to-r from-red-600 via-orange-500 to-red-600 rounded-2xl shadow-2xl shadow-red-500/30">
-                <div className="bg-white dark:bg-gray-900 border-2 border-white/5 p-8 rounded-2xl text-center space-y-6">
-                  <div className="mx-auto w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center border-4 border-red-50 dark:border-red-800">
-                    <RotateCcw className="text-red-600 w-10 h-10 animate-spin-slow" />
-                  </div>
-                  <div className="max-w-xl mx-auto">
-                    <h3 className="font-display font-black text-4xl text-red-600 dark:text-red-400 uppercase tracking-tighter italic">REINICIAR TEMPORADA</h3>
-                    <p className="text-lg text-gray-700 dark:text-gray-300 mt-2 font-bold">
-                       Prepare-se para o novo ciclo!
-                    </p>
-                    <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30">
-                      <p className="text-sm text-red-700 dark:text-red-400 flex flex-col gap-1">
-                        <span>• Zera o XP Social e XP Bônus de todos os alunos.</span>
-                        <span>• Remove as conquistas manuais antigas.</span>
-                        <span className="font-black text-base uppercase mt-2">✓ O XP DE TREINO (PRESENÇA) É MANTIDO INTEGRALMENTE!</span>
-                      </p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={handleResetSeason}
-                    className="bg-red-600 text-white px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-xl shadow-2xl shadow-red-600/40 hover:bg-red-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-4 mx-auto group"
-                  >
-                    <Flame className="w-8 h-8 group-hover:text-yellow-400 transition-colors" /> LIMPAR XP E COMEÇAR
-                  </button>
-                </div>
-              </div>
-
               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -1791,7 +1907,11 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                           </p>
                         </div>
                         <button 
-                          onClick={() => window.open(`https://wa.me/${(s.phone || '').replace(/\D/g,'')}?text=Olá ${s.nickname || s.name}! Sentimos sua falta no tatame! Bora treinar? 🥋🔥`, '_blank')}
+                          onClick={() => {
+                            const whatsappNumber = (s.phone || '').replace(/\D/g,'');
+                            const message = encodeURIComponent(`Olá ${s.nickname || s.name}! Sentimos sua falta no tatame! Bora treinar? 🥋🔥`);
+                            window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
+                          }}
                           className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600 transition shadow-lg"
                           title="Chamar no WhatsApp"
                         >
@@ -1805,8 +1925,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             </motion.div>
           )}
 
-        </AnimatePresence>
-      )}
+          </>
+        )}
+      </AnimatePresence>
 
       {/* FAMILY LINKING MODAL */}
       <AnimatePresence>
@@ -1939,11 +2060,11 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                        {allStudents.find(s => s.id === isLinkingFamily.parentId)?.name.charAt(0)}
+                        {allStudents.find(s => s && s.id === isLinkingFamily.parentId)?.name?.charAt(0) || '?'}
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Titular Atual</p>
-                        <p className="text-sm font-bold dark:text-white">{allStudents.find(s => s.id === isLinkingFamily.parentId)?.name}</p>
+                        <p className="text-sm font-bold dark:text-white">{allStudents.find(s => s && s.id === isLinkingFamily.parentId)?.name || 'Não encontrado'}</p>
                       </div>
                     </div>
                     <button 
@@ -2207,7 +2328,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   // Achievements
                   if (Array.isArray(student.achievements)) {
                     student.achievements.forEach((achId: string) => {
-                      const ach = [...adminAchievements, ...achievements].find(a => a.id === achId);
+                      const ach = (Array.isArray(customAchievements) ? customAchievements : []).find(a => a && a.id === achId);
                       if (ach) {
                         history.push({
                           date: student.updatedAt || new Date().toISOString(),
@@ -2276,10 +2397,12 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   // Re-sort after adding system badges
                   history.sort((a, b) => {
                     const parseDate = (d: any) => {
-                       if (!d || typeof d !== 'string') return 0;
+                       if (!d) return 0;
+                       if (typeof d === 'object' && d.toDate) return d.toDate().getTime();
+                       if (typeof d !== 'string') return 0;
                        if (d.includes('/')) {
                          const p = d.split('/');
-                         return new Date(`${p[2]}-${p[1]}-${p[0]}T12:00:00`).getTime();
+                         if (p.length === 3) return new Date(`${p[2]}-${p[1]}-${p[0]}T12:00:00`).getTime();
                        }
                        return new Date(d.includes('T') ? d : `${d}T12:00:00`).getTime();
                     };

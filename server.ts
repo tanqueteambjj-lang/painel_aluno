@@ -59,13 +59,16 @@ app.post("/api/stripe/create-checkout-session", async (req, res) => {
       mode: recurring ? "subscription" : "payment",
       success_url: `${process.env.APP_URL || (req.headers.origin || "http://localhost:3000")}/financeiro?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.APP_URL || (req.headers.origin || "http://localhost:3000")}/financeiro`,
-      customer_email: studentEmail,
       client_reference_id: studentId,
       metadata: {
         studentId,
         planName,
       },
     };
+
+    if (studentEmail && studentEmail.trim() !== "") {
+      sessionParam.customer_email = studentEmail;
+    }
 
     const session = await stripeClient.checkout.sessions.create(sessionParam);
     res.json({ id: session.id, url: session.url });
