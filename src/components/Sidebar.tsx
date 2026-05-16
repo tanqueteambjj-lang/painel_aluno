@@ -87,11 +87,14 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
           whileHover={{ scale: 1.02, x: 4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => { setView('finance'); setIsMobileMenuOpen(false); }} 
-          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left relative ${view === 'finance' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
+          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left relative ${view === 'finance' ? 'bg-brand-red text-white shadow-xl scale-105' : 'text-gray-400 hover:bg-gray-800 hover:text-white border border-brand-red/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'}`}
           aria-current={view === 'finance' ? 'page' : undefined}
         >
-          <CreditCard className="w-6 h-6" aria-hidden="true" />
-          <span className="ml-2">Financeiro</span>
+          <CreditCard className={`w-6 h-6 ${view === 'finance' ? 'text-white' : 'text-brand-red animate-pulse'}`} aria-hidden="true" />
+          <span className={`ml-2 font-bold ${view === 'finance' ? 'text-white' : 'text-white/90 underline decoration-brand-red/30 underline-offset-4'}`}>Financeiro</span>
+          {view !== 'finance' && (
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-brand-red rounded-full" />
+          )}
         </motion.button>
         <motion.button 
           whileHover={{ scale: 1.02, x: 4 }}

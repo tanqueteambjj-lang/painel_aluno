@@ -191,7 +191,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         {/* Left Column: Plan Details & Contract */}
         <div className="lg:col-span-8 space-y-6">
           
-          {/* Payment Card (New) */}
+          {/* Payment Card (Updated) */}
           {!isFreePlan && dynamicPaymentStatus !== 'Isento' && (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
@@ -205,7 +205,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
               <div className="relative z-10">
                 <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-2 mb-2">
                   <span className="w-1.5 h-6 bg-brand-red rounded-full"></span>
-                  Pagamento Automático
+                  Pagamento Online
                 </h3>
                 
                 <div className="mb-4">
@@ -214,104 +214,56 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                 </div>
                 
                 <p className="text-gray-400 text-sm mb-6 max-w-md">
-                  Realize o pagamento da sua mensalidade de forma segura via Mercado Pago. Você pode optar por um pagamento avulso ou ativar a recorrência automática.
+                  Realize o pagamento da sua mensalidade de forma segura via Mercado Pago. 
+                  <span className="block mt-2 font-bold text-gray-300 italic">Dê preferência ao pagamento recorrente para não se preocupar com vencimentos!</span>
                 </p>
                 
                 <div className="flex flex-wrap gap-4">
                   <button
-                    disabled={isPaying}
-                    onClick={() => handlePayment(false)}
-                    className="flex-1 min-w-[200px] bg-white text-zinc-950 px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-gray-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn"
-                  >
-                    {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />}
-                    Pagar Avulso (R$ {planPrice.toFixed(2).replace('.', ',')})
-                  </button>
-                  
-                  <button
                     disabled={isPaying || !matchedPlan?.mercadopagoLink}
                     onClick={() => handlePayment(true)}
-                    className="flex-1 min-w-[200px] border-2 border-brand-red text-brand-red px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-brand-red hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 min-w-[200px] bg-brand-red text-white px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse hover:animate-none"
                     title={!matchedPlan?.mercadopagoLink ? "Plano de assinatura não configurado pelo administrador." : ""}
                   >
                     {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Clock className="w-5 h-5" />}
-                    Ativar Recorrência
+                    Ativar Recorrência Automática
                   </button>
+
+                  {(planName.toLowerCase().includes('mensal') || planName.toLowerCase() === 'plano mensal') && (
+                    <button
+                      disabled={isPaying}
+                      onClick={() => handlePayment(false)}
+                      className="flex-1 min-w-[200px] bg-white/10 border border-white/20 text-white px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn"
+                    >
+                      {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 opacity-50 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />}
+                      Pagar Avulso (R$ {planPrice.toFixed(2).replace('.', ',')})
+                    </button>
+                  )}
+                  
+                  {(!planName.toLowerCase().includes('mensal') && planName.toLowerCase() !== 'plano mensal') && (
+                    <div className="w-full bg-blue-900/20 border border-blue-500/30 p-3 rounded-xl">
+                      <p className="text-[10px] text-blue-400 font-bold uppercase italic text-center">
+                        Planos Trimestrais, Semestrais e Anuais devem ser pagos via Recorrência Automática (Cartão) para garantir os descontos progressivos e a manutenção do contrato.
+                      </p>
+                    </div>
+                  )}
+
                   {!matchedPlan?.mercadopagoLink && (
                     <p className="w-full text-center text-[10px] text-red-500 font-bold uppercase italic mt-2 animate-pulse">
-                      Atenção: A recorrência automática ainda não foi configurada para este plano. Por favor, pague o avulso ou fale com o professor.
+                      Atenção: O link de ativação da recorrência ainda não foi configurado. Por favor, fale com o suporte ou professor.
                     </p>
                   )}
                 </div>
                 
+                <div className="mt-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <p className="text-xs text-emerald-400 font-bold leading-relaxed">
+                    <CheckCircle className="w-4 h-4 inline-block mr-2" />
+                    O pagamento via PIX agora é processado dentro da plataforma do Mercado Pago ao selecionar "Pagar Avulso" ou na própria interface de Recorrência se o MP permitir, garantindo baixa automática no sistema! Não há mais necessidade de enviar comprovante manualmente.
+                  </p>
+                </div>
+                
                 <div className="mt-4 flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
-                  <Shield className="w-3 h-3" /> Transação Criptografada & Segura
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* PIX Payment Option (New) */}
-          {!isFreePlan && dynamicPaymentStatus !== 'Isento' && (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 mt-6"
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white font-black text-xl italic shadow-lg">
-                  PIX
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-zinc-900 dark:text-white uppercase italic leading-none">Pagamento via PIX</h3>
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest leading-none mt-1">Liberação Manual via WhatsApp</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="bg-white dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mb-4">
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Chave CNPJ:</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-zinc-900 dark:text-white font-black text-lg select-all">65.678.191/0001-90</p>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText("65678191000190");
-                          showAlert("Copiado!", "Chave PIX copiada para a área de transferência.", "success");
-                        }}
-                        className="text-[10px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-lg font-black uppercase hover:bg-emerald-100 transition-colors"
-                      >
-                        Copiar
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-emerald-50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/20">
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase mb-1">Valor do seu Plano:</p>
-                    <p className="text-2xl font-black text-emerald-700 dark:text-emerald-300 italic">R$ {planPrice.toFixed(2).replace('.', ',')}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center text-emerald-600 shrink-0 mt-0.5 font-black text-xs">1</div>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      Efetue a transferência PIX no valor de <span className="font-bold text-zinc-900 dark:text-white">R$ {planPrice.toFixed(2).replace('.', ',')}</span>.
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center text-emerald-600 shrink-0 mt-0.5 font-black text-xs">2</div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                      <p className="font-bold text-zinc-900 dark:text-white mb-1 uppercase text-[10px]">Obrigatório:</p>
-                      Envie o comprovante para o nosso WhatsApp para validarmos seu acesso:
-                      <button 
-                        onClick={() => window.open('https://wa.me/5591984533817', '_blank')}
-                        className="mt-2 w-full bg-emerald-500 text-white font-black uppercase italic py-2 rounded-lg text-[10px] flex items-center justify-center gap-2 hover:bg-emerald-600 transition-colors"
-                      >
-                        <ExternalLink className="w-3 h-3" /> Enviar Comprovante (91 98453-3817)
-                      </button>
-                    </div>
-                  </div>
+                  <Shield className="w-3 h-3" /> Transação Criptografada & Segura via Mercado Pago
                 </div>
               </div>
             </motion.div>

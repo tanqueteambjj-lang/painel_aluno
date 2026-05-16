@@ -787,26 +787,35 @@ export default function Dashboard() {
 
   const loadFamilyMembers = async (userData: any) => {
     try {
-      // Procura por alunos vinculados pelo mesmo email ou por campo parentId
-      const q = query(
-        collection(db, 'artifacts', appId, 'public', 'data', 'students'),
-        where('parentId', '==', userData.id)
-      );
-      const snap = await getDocs(q);
+      if (!userData?.id) return;
+      const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
       const members: any[] = [];
-      snap.forEach(doc => members.push({ id: doc.id, ...doc.data() }));
+
+      // 1. Procura por dependentes explícitos (parentId)
+      const qDeps = query(studentsRef, where('parentId', '==', userData.id));
+      const snapDeps = await getDocs(qDeps);
+      snapDeps.forEach(doc => members.push({ id: doc.id, ...doc.data() }));
+
+      // 2. Procura por perfis com o mesmo e-mail (para gerenciamento múltiplo)
+      if (userData.email) {
+        const qEmail = query(studentsRef, where('email', '==', userData.email));
+        const snapEmail = await getDocs(qEmail);
+        snapEmail.forEach(doc => {
+          const d = { id: doc.id, ...doc.data() };
+          if (d.id !== userData.id && !members.find(m => m.id === d.id)) {
+            members.push(d);
+          }
+        });
+      }
       
-      // Se este usuário tiver um pai, busca o pai e irmãos
+      // 3. Se este usuário tiver um pai, busca o pai e irmãos
       if (userData.parentId && typeof userData.parentId === 'string') {
         const parentDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', userData.parentId));
         if (parentDoc.exists()) {
           const parentData = { id: parentDoc.id, ...parentDoc.data() };
           if (!members.find(m => m.id === parentData.id)) members.push(parentData);
           
-          const qSiblings = query(
-            collection(db, 'artifacts', appId, 'public', 'data', 'students'),
-            where('parentId', '==', userData.parentId)
-          );
+          const qSiblings = query(studentsRef, where('parentId', '==', userData.parentId));
           const snapSiblings = await getDocs(qSiblings);
           snapSiblings.forEach(doc => {
             const d = { id: doc.id, ...doc.data() };

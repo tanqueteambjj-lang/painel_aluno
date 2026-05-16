@@ -5,6 +5,18 @@ import cors from "cors";
 import dotenv from "dotenv";
 import Stripe from "stripe";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
+import * as admin from 'firebase-admin';
+
+// Initialize Firebase Admin
+if (admin.apps.length === 0) {
+  admin.initializeApp({
+    projectId: "ss6fb4rybd5zz4spw5y6hy" // Keep the actual Firebase Project ID for initialization
+  });
+}
+const firestoreAdmin = admin.firestore();
+
+// Application ID used for data storage path
+const APP_DATA_ID = "tanqueteam-bjj"; 
 
 dotenv.config();
 
@@ -236,6 +248,84 @@ app.post("/api/mp/create-plan", async (req, res) => {
     console.error("MP Plan Creator Error:", error);
     res.status(500).json({ error: error.message });
   }
+});
+
+// --- MERCADO PAGO WEBHOOK ---
+app.post("/api/webhooks/mercadopago", async (req, res) => {
+  const { query, body } = req;
+  const topic = query.topic || query.type || body.type;
+  const id = query.id || (body.data && body.data.id);
+
+  console.log(`[MP Webhook] Received - Topic: ${topic}, ID: ${id}`);
+
+  // We only care about payments and sub approvals
+  if (topic === 'payment' || topic === 'subscription_preapproval') {
+    try {
+      let paymentData;
+      
+      if (topic === 'payment') {
+        const response = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
+          headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+        });
+        paymentData = await response.json();
+      } else {
+        const response = await fetch(`https://api.mercadopago.com/preapproval/${id}`, {
+          headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+        });
+        paymentData = await response.json();
+      }
+
+      // Handle successful status
+      const status = paymentData.status;
+      if (status === 'approved' || status === 'authorized') {
+        const studentEmail = paymentData.payer?.email || paymentData.payer_email;
+        const externalRef = paymentData.external_reference; // studentId
+        const amount = paymentData.transaction_amount || (paymentData.auto_recurring && paymentData.auto_recurring.transaction_amount);
+
+        console.log(`[MP Webhook] Success! Approved payment for ${studentEmail}. External Ref (Student ID): ${externalRef}`);
+
+        const studentsPath = `artifacts/${APP_DATA_ID}/public/data/students`;
+        
+        let studentDocToUpdate: admin.firestore.DocumentReference | null = null;
+
+        // 1. Try to find by external_reference (Student ID)
+        if (externalRef && externalRef !== "null" && externalRef !== "undefined" && externalRef !== "") {
+          const docRef = firestoreAdmin.collection(studentsPath).doc(externalRef);
+          const docSnap = await docRef.get();
+          if (docSnap.exists) {
+            studentDocToUpdate = docRef;
+          }
+        }
+
+        // 2. If not found by ID, try finding by email
+        if (!studentDocToUpdate && studentEmail) {
+          console.log(`[MP Webhook] Student ID not provided or not found. Searching by email: ${studentEmail}`);
+          const snapshot = await firestoreAdmin.collection(studentsPath).where("email", "==", studentEmail).limit(1).get();
+          if (!snapshot.empty) {
+            studentDocToUpdate = snapshot.docs[0].ref;
+          }
+        }
+
+        if (studentDocToUpdate) {
+          console.log(`[MP Webhook] Updating student status for: ${studentDocToUpdate.id}`);
+          await studentDocToUpdate.update({
+            'financeiro.status': 'em dia',
+            'financeiro.ultimoPagamento': admin.firestore.FieldValue.serverTimestamp(),
+            'financeiro.valorPago': amount || 0,
+            'financeiro.metodo': 'Mercado Pago',
+            'updatedAt': admin.firestore.FieldValue.serverTimestamp()
+          });
+          console.log(`[MP Webhook] Student ${studentDocToUpdate.id} updated successfully to 'em dia'.`);
+        } else {
+          console.warn(`[MP Webhook] Student NOT FOUND for email ${studentEmail} or reference ${externalRef}. Status remains unchanged.`);
+        }
+      }
+    } catch (error) {
+      console.error("[MP Webhook] Processing Error:", error);
+    }
+  }
+
+  res.sendStatus(200); // Always return 200 to MP to stop retries
 });
 
 // --- SPA FALLBACK ---

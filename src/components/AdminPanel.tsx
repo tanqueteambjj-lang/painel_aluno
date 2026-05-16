@@ -48,6 +48,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [filterBelt, setFilterBelt] = useState('Todas');
   const [filterLevelOrder, setFilterLevelOrder] = useState<'none' | 'desc' | 'asc'>('none');
   const [filterStatus, setFilterStatus] = useState('Todos');
+  const [filterPlan, setFilterPlan] = useState('Todos');
   const [filterRecent, setFilterRecent] = useState(false);
 
   // Form States
@@ -421,7 +422,12 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
 
     // Status Filter
     if (filterStatus !== 'Todos') {
-      filtered = filtered.filter(s => s.paymentStatus === filterStatus);
+      filtered = filtered.filter(s => (s.paymentStatus || s.financeiro?.status || 'Pendente') === filterStatus);
+    }
+
+    // Plan Filter
+    if (filterPlan !== 'Todos') {
+      filtered = filtered.filter(s => s.plan && s.plan.toLowerCase().includes(filterPlan.toLowerCase()));
     }
 
     // Sort by Level
@@ -1385,6 +1391,25 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     </select>
                   </div>
 
+                  {/* Plan Filter */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase px-1">Plano</span>
+                    <select 
+                      value={filterPlan}
+                      onChange={(e) => setFilterPlan(e.target.value)}
+                      className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
+                    >
+                      <option value="Todos">Todos</option>
+                      <option value="Mensal">Mensal</option>
+                      <option value="Trimestral">Trimestral</option>
+                      <option value="Semestral">Semestral</option>
+                      <option value="Anual">Anual</option>
+                      <option value="Infantil">Infantil</option>
+                      <option value="Combo">Combo</option>
+                      <option value="Isento">Isento</option>
+                    </select>
+                  </div>
+
                   {/* Recent Sort */}
                   <div className="flex flex-col gap-1">
                     <span className="text-[9px] font-bold text-gray-400 uppercase px-1">Ordem</span>
@@ -1401,12 +1426,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   </div>
 
                   {/* Reset Filters */}
-                  {(filterBelt !== 'Todas' || filterLevelOrder !== 'none' || filterStatus !== 'Todos' || filterRecent) && (
+                  {(filterBelt !== 'Todas' || filterLevelOrder !== 'none' || filterStatus !== 'Todos' || filterPlan !== 'Todos' || filterRecent) && (
                     <button 
                       onClick={() => {
                         setFilterBelt('Todas');
                         setFilterLevelOrder('none');
                         setFilterStatus('Todos');
+                        setFilterPlan('Todos');
                         setFilterRecent(false);
                         setSearchQuery('');
                       }}
@@ -1463,6 +1489,18 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                              <div className="flex items-center gap-2">
                                 <h5 className="font-bold dark:text-white text-base truncate max-w-[200px]">{s.name}</h5>
                                 {s.nickname && <span className="text-xs text-gray-400 font-medium truncate max-w-[100px]">({s.nickname})</span>}
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  <span className="bg-brand-red/10 text-brand-red text-[8px] font-black px-1.5 py-0.5 rounded uppercase italic whitespace-nowrap">
+                                    {s.plan?.split(' - R$')[0] || 'S/ PLANO'}
+                                  </span>
+                                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase italic whitespace-nowrap ${
+                                    (s.paymentStatus || s.financeiro?.status)?.toLowerCase() === 'em dia' 
+                                    ? 'bg-emerald-500/10 text-emerald-500' 
+                                    : 'bg-red-500/10 text-red-500'
+                                  }`}>
+                                    {s.paymentStatus || s.financeiro?.status || 'Pendente'}
+                                  </span>
+                                </div>
                                 <button 
                                   onClick={() => handleEditStudent(s)}
                                   className="p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-400 hover:text-brand-red transition-all"
