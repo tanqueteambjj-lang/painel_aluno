@@ -256,18 +256,16 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                     Ativar Recorrência Automática
                   </motion.button>
 
-                  {(planName.toLowerCase().includes('mensal') || planName.toLowerCase() === 'plano mensal') && (
-                    <motion.button
-                      whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.15)" }}
-                      whileTap={{ scale: 0.98 }}
-                      disabled={isPaying}
-                      onClick={() => handlePayment(false)}
-                      className="bg-white/10 border border-white/20 text-white px-8 py-5 rounded-2xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed px-10"
-                    >
-                      {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 opacity-70" />}
-                      Pagamento Único
-                    </motion.button>
-                  )}
+                  <motion.button
+                    whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.15)" }}
+                    whileTap={{ scale: 0.98 }}
+                    disabled={isPaying}
+                    onClick={() => handlePayment(false)}
+                    className="bg-white/10 border border-white/20 text-white px-8 py-5 rounded-2xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+                  >
+                    {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 opacity-70" />}
+                    Pagamento Avulso (Único)
+                  </motion.button>
                 </div>
 
                 {!matchedPlan?.mercadopagoLink && (
@@ -381,21 +379,22 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center bg-gray-900 dark:bg-black p-5 rounded-2xl border border-white/5 shadow-inner">
+                        <div className="flex justify-between items-center bg-gray-900 dark:bg-black p-5 rounded-2xl border border-white/5 shadow-inner">
                         <div className="relative z-10">
-                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Total para Hoje</p>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Custo do Pagamento Avulso</p>
                           <h5 className="text-white font-black text-3xl italic tracking-tighter uppercase leading-none">
                             R$ {planPrice.toFixed(2).replace('.', ',')}
                           </h5>
+                          <p className="text-[9px] text-gray-500 font-bold mt-1 max-w-[200px]">Recorrência automática via cartão mantém sempre o menor valor.</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           {isLate ? (
                             <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 rounded-lg text-white text-[9px] font-black uppercase italic animate-pulse">
-                              <AlertTriangle size={10} /> Valor Integral
+                              <AlertTriangle size={10} /> Valor Integral (Atraso)
                             </div>
                           ) : (
                             <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500 rounded-lg text-white text-[9px] font-black uppercase italic shadow-lg shadow-emerald-500/20">
-                              <CheckCircle size={10} /> Valor Pontual
+                              <CheckCircle size={10} /> Valor Pontual (Em Dia)
                             </div>
                           )}
                         </div>
