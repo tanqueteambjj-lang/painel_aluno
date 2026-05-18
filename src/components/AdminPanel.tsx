@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, deleteField } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1446,7 +1446,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {students.map(s => (
-                  <div key={s.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col gap-4 relative overflow-hidden transition-all hover:shadow-md">
+                  <div key={s.id} className="premium-card p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden">
                     {s.mutedUntil && new Date(s.mutedUntil) > new Date() && (
                       <div className="absolute top-0 right-0 bg-red-500 text-white px-3 py-1 text-[9px] font-bold uppercase rounded-bl-lg">Silenciado</div>
                     )}
@@ -1485,30 +1485,38 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       </div>
                       <div className="flex-1 w-full sm:w-auto">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
-                          <div className="flex flex-col">
-                             <div className="flex items-center gap-2">
-                                <h5 className="font-bold dark:text-white text-base truncate max-w-[200px]">{s.name}</h5>
-                                {s.nickname && <span className="text-xs text-gray-400 font-medium truncate max-w-[100px]">({s.nickname})</span>}
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  <span className="bg-brand-red/10 text-brand-red text-[8px] font-black px-1.5 py-0.5 rounded uppercase italic whitespace-nowrap">
-                                    {s.plan?.split(' - R$')[0] || 'S/ PLANO'}
-                                  </span>
-                                  <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase italic whitespace-nowrap ${
-                                    (s.paymentStatus || s.financeiro?.status)?.toLowerCase() === 'em dia' 
-                                    ? 'bg-emerald-500/10 text-emerald-500' 
-                                    : 'bg-red-500/10 text-red-500'
-                                  }`}>
-                                    {s.paymentStatus || s.financeiro?.status || 'Pendente'}
-                                  </span>
+                          <div className="flex flex-col w-full">
+                             <div className="flex items-center justify-between gap-4 w-full">
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                    <h5 className="font-bold text-gray-900 dark:text-white text-base truncate max-w-[200px]">{s.name}</h5>
+                                    {s.nickname && <span className="text-xs text-gray-400 font-medium truncate max-w-[80px]">({s.nickname})</span>}
+                                  </div>
+                                  <div className="flex flex-col gap-1.5 mt-1.5">
+                                    <div className="inline-flex bg-brand-red/5 dark:bg-brand-red/10 text-brand-red text-[9px] font-black px-2 py-1 rounded shadow-sm border border-brand-red/10 uppercase italic whitespace-normal break-words max-w-full w-fit">
+                                      {s.plan?.split(' - R$')[0] || 'S/ PLANO'}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <span className={`text-[9px] font-black px-2 py-0.5 rounded shadow-sm border uppercase italic whitespace-nowrap ${
+                                        (s.paymentStatus || s.financeiro?.status)?.toLowerCase() === 'em dia' 
+                                        ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-100 dark:border-emerald-500/20' 
+                                        : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-500 border-red-100 dark:border-red-500/20'
+                                      }`}>
+                                        {s.paymentStatus || s.financeiro?.status || 'Pendente'}
+                                      </span>
+                                      <span className="text-[9px] text-gray-400 uppercase font-black tracking-widest self-center opacity-70 italic">{s.belt}</span>
+                                    </div>
+                                  </div>
                                 </div>
                                 <button 
                                   onClick={() => handleEditStudent(s)}
-                                  className="p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-400 hover:text-brand-red transition-all"
+                                  className="p-1.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-400 hover:text-brand-red transition-all border border-gray-100 dark:border-transparent"
                                   title="Editar Informações"
                                 >
                                    <Edit2 size={14} />
                                 </button>
                              </div>
+                             
                           </div>
                           <div className="flex items-center gap-2">
                             {onImpersonate && (
@@ -1525,14 +1533,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${
-                            s.paymentStatus === 'Em dia' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                          }`}>
-                            {s.paymentStatus}
-                          </span>
-                          <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{s.belt}</span>
-                        </div>
+
                         {(() => {
                            const sPlan = (s.plan || '').toLowerCase();
                            const isAdult = !sPlan.includes('infantil');
@@ -1595,7 +1596,51 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       )}
                     </div>
                     
-                    <div className="flex flex-wrap gap-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                    <div className="flex flex-col gap-3 border-t border-gray-100 dark:border-gray-700 pt-4">
+                      {(() => {
+                        const dependents = allStudents.filter(dep => dep.parentId === s.id);
+                        const isDependent = !!s.parentId;
+                        const parent = isDependent ? allStudents.find(p => p.id === s.parentId) : null;
+
+                        return (
+                          <div className="flex flex-col gap-2 w-full px-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Família / Combo</p>
+                              <button 
+                                onClick={() => setIsLinkingFamily({ studentId: s.id, name: s.name, parentId: s.parentId })}
+                                className="text-[9px] font-bold text-brand-red hover:underline uppercase"
+                              >
+                                {isDependent ? 'Alterar Titular' : 'Gerenciar Vínculos'}
+                              </button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {isDependent && parent && (
+                                <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-lg">
+                                  <LinkIcon size={10} className="text-blue-500" />
+                                  <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase">Dependente de: {parent.name}</span>
+                                </div>
+                              )}
+                              {dependents.length > 0 && (
+                                <div className="flex flex-col gap-1 w-full">
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase italic">Dependentes ({dependents.length}):</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {dependents.map(dep => (
+                                      <div key={dep.id} className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700">
+                                        <span className="text-[9px] font-medium text-gray-600 dark:text-gray-300">{dep.name}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {!isDependent && dependents.length === 0 && (
+                                <span className="text-[9px] text-gray-400 italic">Nenhum vínculo familiar</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* XP Penalty/Bonus Section */}
                       <div className="flex items-center gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl w-full">
                         <div className="flex flex-col gap-1 items-center px-1 border-r border-gray-200 dark:border-gray-700 pr-2">
@@ -2312,27 +2357,44 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 />
               </div>
 
-              <div className="max-h-64 overflow-y-auto space-y-2 mb-8 pr-2 custom-scrollbar">
+              <div className="max-h-[400px] overflow-y-auto space-y-3 mb-8 pr-2 custom-scrollbar px-1">
                 {allStudents.filter(os => 
                   os.id !== isLinkingFamily.studentId && 
-                  !os.parentId && 
-                  os.id !== isLinkingFamily.parentId &&
                   (os.name || '').toLowerCase().includes(familySearch.toLowerCase())
                 ).slice(0, 50).map(os => (
-                  <button
-                    key={os.id}
-                    onClick={() => linkAccount(isLinkingFamily.studentId, os.id)}
-                    className="w-full text-left p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent hover:border-brand-red transition-all flex items-center gap-4 group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-white dark:bg-gray-700 overflow-hidden shadow-sm border border-gray-100 dark:border-gray-600 shrink-0">
-                       {os.photoBase64 ? <img src={os.photoBase64} className="w-full h-full object-cover" /> : <User size={20} className="m-3 text-gray-400" />}
+                  <div key={os.id} className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent hover:border-brand-red/30 transition-all flex flex-col gap-3">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-700 overflow-hidden shadow-sm border border-gray-100 dark:border-gray-600 shrink-0">
+                         {os.photoBase64 ? <img src={os.photoBase64} className="w-full h-full object-cover" /> : <User size={16} className="m-3 text-gray-400" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-sm dark:text-white truncate uppercase italic">{os.name}</p>
+                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{os.belt}</p>
+                        {os.parentId && (
+                          <p className="text-[8px] text-blue-500 font-bold uppercase italic mt-0.5">
+                            Já possui titular: {allStudents.find(p => p.id === os.parentId)?.name || 'Outro'}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-black text-base dark:text-white truncate uppercase italic">{os.name}</p>
-                      <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">{os.belt}</p>
+                    
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <button 
+                        onClick={() => linkAccount(isLinkingFamily.studentId, os.id)}
+                        disabled={!!isLinkingFamily.parentId && isLinkingFamily.parentId === os.id}
+                        className="py-2.5 bg-blue-500 text-white disabled:opacity-50 disabled:bg-gray-400 text-[9px] font-black uppercase rounded-xl transition-all shadow-md active:scale-95"
+                      >
+                        Definir como Titular
+                      </button>
+                      <button 
+                        onClick={() => linkAccount(os.id, isLinkingFamily.studentId)}
+                        disabled={os.parentId === isLinkingFamily.studentId}
+                        className="py-2.5 bg-brand-red text-white disabled:opacity-50 disabled:bg-gray-400 text-[9px] font-black uppercase rounded-xl transition-all shadow-md active:scale-95"
+                      >
+                        Adicionar como Dependente
+                      </button>
                     </div>
-                    <Plus className="text-gray-300 group-hover:text-brand-red transition-colors" size={20} />
-                  </button>
+                  </div>
                 ))}
               </div>
               

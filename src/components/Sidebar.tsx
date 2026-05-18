@@ -1,7 +1,7 @@
-import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield, Bell, CreditCard } from 'lucide-react';
+import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield, CreditCard } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, hasUnreadNotifications, onOpenNotifications, isAdmin }: any) {
+export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, isAdmin }: any) {
   return (
     <aside 
       className={`fixed md:relative inset-y-0 left-0 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 w-64 bg-brand-dark text-white flex flex-col shadow-2xl z-40 transition-transform duration-300 ease-in-out h-full border-r border-gray-800`}
@@ -21,22 +21,6 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
         </button>
       </div>
       <nav className="flex-1 px-4 py-6 space-y-1 flex flex-col overflow-y-auto" role="navigation">
-        <motion.button 
-          whileHover={{ scale: 1.02, x: 4 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => { onOpenNotifications(); setIsMobileMenuOpen(false); }} 
-          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left relative text-gray-400 hover:bg-gray-800 hover:text-white border-b border-gray-800/50 pb-4 mb-2`}
-          aria-label="Abrir central de notificações"
-        >
-          <div className="relative">
-            <Bell className="w-6 h-6" aria-hidden="true" />
-            {hasUnreadNotifications && (
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-brand-dark animate-pulse" aria-hidden="true"></span>
-            )}
-          </div>
-          <span className="ml-2 font-bold uppercase tracking-tight text-sm">Notificações</span>
-        </motion.button>
-
         <motion.button 
           whileHover={{ scale: 1.02, x: 4 }}
           whileTap={{ scale: 0.98 }}
@@ -84,16 +68,24 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
           <span className="ml-2">Agendar Aula</span>
         </motion.button>
         <motion.button 
-          whileHover={{ scale: 1.02, x: 4 }}
+          whileHover={{ scale: 1.05, x: 4 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => { setView('finance'); setIsMobileMenuOpen(false); }} 
-          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left relative ${view === 'finance' ? 'bg-brand-red text-white shadow-xl scale-105' : 'text-gray-400 hover:bg-gray-800 hover:text-white border border-brand-red/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'}`}
+          className={`flex items-center px-4 py-3 rounded-lg transition-all w-full text-left relative overflow-hidden group ${
+            view === 'finance' 
+            ? 'bg-brand-red text-white shadow-[0_0_20px_rgba(217,4,41,0.4)] scale-105' 
+            : 'text-white bg-gray-800/40 border border-brand-red/40 shadow-[0_0_15px_rgba(217,4,41,0.15)] hover:bg-gray-800 hover:border-brand-red/60 animate-pulse-slow'
+          }`}
           aria-current={view === 'finance' ? 'page' : undefined}
         >
-          <CreditCard className={`w-6 h-6 ${view === 'finance' ? 'text-white' : 'text-brand-red animate-pulse'}`} aria-hidden="true" />
-          <span className={`ml-2 font-bold ${view === 'finance' ? 'text-white' : 'text-white/90 underline decoration-brand-red/30 underline-offset-4'}`}>Financeiro</span>
+          <div className={`absolute inset-0 bg-brand-red/10 ${view === 'finance' ? 'hidden' : 'block animate-pulse'}`}></div>
+          <CreditCard className={`w-6 h-6 relative z-10 ${view === 'finance' ? 'text-white' : 'text-brand-red'}`} aria-hidden="true" />
+          <span className={`ml-2 font-black italic uppercase tracking-tighter relative z-10 ${view === 'finance' ? 'text-white' : 'text-white'}`}>Financeiro</span>
           {view !== 'finance' && (
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-brand-red rounded-full" />
+            <span className="absolute top-2 right-2 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-red"></span>
+            </span>
           )}
         </motion.button>
         <motion.button 

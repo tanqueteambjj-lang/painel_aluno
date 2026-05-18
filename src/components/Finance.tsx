@@ -194,119 +194,145 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
           {/* Payment Card (Updated) */}
           {!isFreePlan && dynamicPaymentStatus !== 'Isento' && (
             <motion.div 
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-zinc-900 to-zinc-950 p-6 rounded-2xl border border-white/10 shadow-2xl overflow-hidden relative group"
+              className="bg-gradient-to-br from-gray-900 via-brand-dark to-black p-8 rounded-[2.5rem] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative group"
             >
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <CreditCard className="w-24 h-24 text-white" />
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity rotate-12">
+                <CreditCard className="w-48 h-48 text-white" />
               </div>
+
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-brand-red/20 rounded-full blur-[100px] pointer-events-none"></div>
               
               <div className="relative z-10">
-                <h3 className="text-xl font-black text-white uppercase italic tracking-tight flex items-center gap-2 mb-2">
-                  <span className="w-1.5 h-6 bg-brand-red rounded-full"></span>
-                  Pagamento Online
-                </h3>
-                
-                <div className="mb-4">
-                  <span className="bg-brand-red text-white text-[10px] font-black px-2 py-0.5 rounded uppercase italic mr-2">Plano Atual</span>
-                  <span className="text-white font-bold text-sm uppercase italic">{planName}</span>
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter flex items-center gap-3 mb-2">
+                      <div className="w-2 h-8 bg-brand-red rounded-full shadow-[0_0_15px_rgba(239,68,68,0.8)]"></div>
+                      Pagamento Online
+                    </h3>
+                    <p className="text-gray-400 text-sm font-medium">Transação 100% segura via Mercado Pago</p>
+                  </div>
+                  <div className="bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-white/10">
+                    <Shield className="w-6 h-6 text-emerald-400" />
+                  </div>
                 </div>
                 
-                <p className="text-gray-400 text-sm mb-6 max-w-md">
-                  Realize o pagamento da sua mensalidade de forma segura via Mercado Pago. 
-                  <span className="block mt-2 font-bold text-gray-300 italic">Dê preferência ao pagamento recorrente para não se preocupar com vencimentos!</span>
-                </p>
+                <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 mb-8">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="bg-brand-red text-white text-[10px] font-black px-3 py-1 rounded-full uppercase italic">Plano Ativo</span>
+                    <span className="text-brand-red font-black text-xl italic leading-none">R$ {planPrice.toFixed(2).replace('.', ',')}</span>
+                  </div>
+                  <h4 className="text-white font-black text-2xl uppercase italic tracking-tight">{planName}</h4>
+                </div>
                 
-                <div className="flex flex-wrap gap-4">
-                  <button
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <motion.button
+                    whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(239,68,68,0.4)" }}
+                    whileTap={{ scale: 0.98 }}
                     disabled={isPaying || !matchedPlan?.mercadopagoLink}
                     onClick={() => handlePayment(true)}
-                    className="flex-1 min-w-[200px] bg-brand-red text-white px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse hover:animate-none"
+                    className="flex-1 bg-gradient-to-r from-brand-red to-red-600 text-white px-8 py-5 rounded-2xl font-black uppercase italic tracking-tighter text-base flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed relative group/btn overflow-hidden"
                     title={!matchedPlan?.mercadopagoLink ? "Plano de assinatura não configurado pelo administrador." : ""}
                   >
-                    {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Clock className="w-5 h-5" />}
+                    <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700 skew-x-[45deg]"></div>
+                    {isPaying ? <Loader2 className="w-6 h-6 animate-spin" /> : <Clock className="w-6 h-6" />}
                     Ativar Recorrência Automática
-                  </button>
+                  </motion.button>
 
                   {(planName.toLowerCase().includes('mensal') || planName.toLowerCase() === 'plano mensal') && (
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.15)" }}
+                      whileTap={{ scale: 0.98 }}
                       disabled={isPaying}
                       onClick={() => handlePayment(false)}
-                      className="flex-1 min-w-[200px] bg-white/10 border border-white/20 text-white px-6 py-4 rounded-xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn"
+                      className="bg-white/10 border border-white/20 text-white px-8 py-5 rounded-2xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed px-10"
                     >
-                      {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 opacity-50 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />}
-                      Pagar Avulso (R$ {planPrice.toFixed(2).replace('.', ',')})
-                    </button>
+                      {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 opacity-70" />}
+                      Pagamento Único
+                    </motion.button>
                   )}
-                  
-                  {(!planName.toLowerCase().includes('mensal') && planName.toLowerCase() !== 'plano mensal') && (
-                    <div className="w-full bg-blue-900/20 border border-blue-500/30 p-3 rounded-xl">
-                      <p className="text-[10px] text-blue-400 font-bold uppercase italic text-center">
-                        Planos Trimestrais, Semestrais e Anuais devem ser pagos via Recorrência Automática (Cartão) para garantir os descontos progressivos e a manutenção do contrato.
-                      </p>
-                    </div>
-                  )}
+                </div>
 
-                  {!matchedPlan?.mercadopagoLink && (
-                    <p className="w-full text-center text-[10px] text-red-500 font-bold uppercase italic mt-2 animate-pulse">
-                      Atenção: O link de ativação da recorrência ainda não foi configurado. Por favor, fale com o suporte ou professor.
+                {!matchedPlan?.mercadopagoLink && (
+                  <div className="mt-6 flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                    <p className="text-xs text-red-400 font-bold uppercase italic leading-tight">
+                      Link de ativação não configurado. Por favor, fale com o suporte.
                     </p>
-                  )}
-                </div>
+                  </div>
+                )}
                 
-                <div className="mt-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                  <p className="text-xs text-emerald-400 font-bold leading-relaxed">
-                    <CheckCircle className="w-4 h-4 inline-block mr-2" />
-                    O pagamento via PIX agora é processado dentro da plataforma do Mercado Pago ao selecionar "Pagar Avulso" ou na própria interface de Recorrência se o MP permitir, garantindo baixa automática no sistema! Não há mais necessidade de enviar comprovante manualmente.
-                  </p>
-                </div>
-                
-                <div className="mt-4 flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest leading-none">
-                  <Shield className="w-3 h-3" /> Transação Criptografada & Segura via Mercado Pago
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                      <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <p className="text-[10px] text-emerald-400/80 font-bold uppercase italic leading-relaxed">
+                      Pagamento via PIX agora processado via Mercado Pago com baixa automática no sistema!
+                    </p>
+                  </div>
+                  <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
+                      <CreditCard className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <p className="text-[10px] text-blue-400/80 font-bold uppercase italic leading-relaxed">
+                      Planos com desconto exigem recorrência no cartão para garantir a manutenção do contrato.
+                    </p>
+                  </div>
                 </div>
               </div>
             </motion.div>
           )}
 
-          {/* Status Row */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
+          {/* Status Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <motion.div 
+              whileHover={{ y: -5 }}
+              className="bg-white dark:bg-zinc-900 p-8 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-xl flex items-center justify-between group"
+            >
               <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status Atual</p>
-                {dynamicPaymentStatus === 'Pendente' ? (
-                  <span className="text-red-500 font-black text-lg flex items-center gap-1 uppercase italic">
-                    <AlertTriangle className="w-5 h-5" /> Pendente
-                  </span>
-                ) : dynamicPaymentStatus === 'Isento' ? (
-                  <span className="text-gray-500 font-black text-lg flex items-center gap-1 uppercase italic">
-                    <Award className="w-5 h-5" /> Isento
-                  </span>
-                ) : (
-                  <span className="text-green-500 font-black text-lg flex items-center gap-1 uppercase italic">
-                    <CheckCircle className="w-5 h-5" /> Em dia
-                  </span>
-                )}
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-2">Status da Matrícula</p>
+                <div className="flex items-center gap-3">
+                  {dynamicPaymentStatus === 'Pendente' ? (
+                    <div className="bg-red-500 text-white px-4 py-1.5 rounded-full text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-red-500/20">
+                       <AlertTriangle size={14} /> Pendente
+                    </div>
+                  ) : dynamicPaymentStatus === 'Isento' ? (
+                    <div className="bg-gray-500 text-white px-4 py-1.5 rounded-full text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-gray-500/20">
+                       <Award size={14} /> Isento
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-500 text-white px-4 py-1.5 rounded-full text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+                       <CheckCircle size={14} /> Regularizado
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                <Shield className="w-6 h-6 text-brand-red" />
+              <div className="w-14 h-14 bg-gray-50 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-brand-red group-hover:bg-brand-red group-hover:text-white transition-colors duration-300">
+                <Shield className="w-7 h-7 transition-transform group-hover:scale-110" />
               </div>
-            </div>
+            </motion.div>
 
-            <div className="flex-1 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
+            <motion.div 
+              whileHover={{ y: -5 }}
+              className="bg-white dark:bg-zinc-900 p-8 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-xl flex items-center justify-between group"
+            >
               <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Próxima Fatura</p>
-                <span className="text-gray-900 dark:text-white font-black text-lg uppercase italic">
-                  {formattedDueDate}
-                </span>
-                {daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7 && dynamicPaymentStatus !== 'Pendente' && (
-                  <p className="text-[10px] text-amber-500 font-bold mt-1 uppercase">Vence em {daysUntilDue}d</p>
-                )}
+                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-2">Próximo Vencimento</p>
+                <div className="flex flex-col">
+                  <span className="text-2xl font-black text-zinc-900 dark:text-white uppercase italic tracking-tight leading-none">
+                    {formattedDueDate}
+                  </span>
+                  {daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7 && dynamicPaymentStatus !== 'Pendente' && (
+                    <p className="text-[10px] text-amber-500 font-bold mt-1 uppercase tracking-wider">Vence em {daysUntilDue} dias!</p>
+                  )}
+                </div>
               </div>
-              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                <Calendar className="w-6 h-6 text-blue-500" />
+              <div className="w-14 h-14 bg-gray-50 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
+                <Calendar className="w-7 h-7 transition-transform group-hover:scale-110" />
               </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Plan Details Card */}
