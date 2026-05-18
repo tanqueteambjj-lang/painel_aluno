@@ -391,10 +391,10 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   };
 
   useEffect(() => {
-    if (activeTab === 'plans') {
+    if (appId) {
       fetchPlans();
     }
-  }, [activeTab, appId]);
+  }, [appId]);
 
   useEffect(() => {
     if (!hasStartedLoading) {
@@ -698,13 +698,15 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     });
   };
 
-  const linkAccount = async (studentId: string, parentId: string | null) => {
+  const linkAccount = async (studentId: string, parentId: string | null, stayOpen: boolean = false) => {
     try {
       await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
         parentId: parentId || deleteField()
       });
       setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, parentId: parentId || undefined } : s));
-      setIsLinkingFamily(null);
+      if (!stayOpen) {
+        setIsLinkingFamily(null);
+      }
       showAlert("Sucesso", parentId ? "Conta vinculada com sucesso!" : "Vínculo removido com sucesso!", "success");
     } catch (e) {
       console.error(e);
@@ -1776,12 +1778,21 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   </div>
                   <p className="text-sm text-gray-500 italic">Configure valores e integre com Stripe ou Mercado Pago.</p>
                 </div>
-                <button 
-                  onClick={() => setIsAddingPlan(true)}
-                  className="bg-brand-red text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
-                >
-                  <Plus size={18} /> Novo Plano
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => fetchPlans()}
+                    className="p-2 text-gray-400 hover:text-brand-red transition-colors"
+                    title="Atualizar Planos"
+                  >
+                    <RotateCcw size={18} />
+                  </button>
+                  <button 
+                    onClick={() => setIsAddingPlan(true)}
+                    className="bg-brand-red text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
+                  >
+                    <Plus size={18} /> Novo Plano
+                  </button>
+                </div>
               </div>
 
               {/* Alert de ajuda para o usuário */}
@@ -1864,7 +1875,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
                       />
                       <p className="text-[10px] text-blue-500 mt-1 font-bold italic flex items-center gap-1">
-                        <Link size={10} /> Cole o link gerado no seu painel do Mercado Pago
+                        <LinkIcon size={10} /> Cole o link gerado no seu painel do Mercado Pago
                       </p>
                     </div>
                   </div>
@@ -1876,126 +1887,138 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(Array.isArray(dbPlans) ? dbPlans : []).map(plan => (
-                  <div key={plan.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
-                    <div className="absolute top-4 right-4 flex gap-2 transition opacity-0 group-hover:opacity-100">
-                      <button 
-                        onClick={() => setEditingPlan(plan)}
-                        className="text-gray-300 hover:text-brand-red"
-                        title="Editar Plano"
-                      >
-                        <Edit3 size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeletePlan(plan.id)}
-                        className="text-gray-300 hover:text-red-500"
-                        title="Excluir Plano"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    
-                    {editingPlan?.id === plan.id ? (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nome</label>
-                          <input 
-                            type="text" 
-                            value={editingPlan.name}
-                            onChange={(e) => setEditingPlan({...editingPlan, name: e.target.value})}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Pontual</label>
-                            <input 
-                              type="number" 
-                              value={editingPlan.price}
-                              onChange={(e) => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})}
-                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Integral</label>
-                            <input 
-                              type="number" 
-                              value={editingPlan.basePrice}
-                              onChange={(e) => setEditingPlan({...editingPlan, basePrice: parseFloat(e.target.value)})}
-                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                            />
-                          </div>
-                        </div>
-                        <div className="opacity-60">
-                          <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Stripe Price ID</label>
-                          <input 
-                            type="text" 
-                            value={editingPlan.stripePriceId}
-                            onChange={(e) => setEditingPlan({...editingPlan, stripePriceId: e.target.value})}
-                            className={`w-full bg-gray-50 dark:bg-gray-900 border ${editingPlan.stripePriceId?.startsWith('prod_') ? 'border-red-500' : 'border-gray-200'} dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Duração (Meses)</label>
-                          <select 
-                            value={editingPlan.durationMonths || 12}
-                            onChange={(e) => setEditingPlan({...editingPlan, durationMonths: parseInt(e.target.value)})}
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                          >
-                            <option value={1}>1 Mês</option>
-                            <option value={3}>3 Meses</option>
-                            <option value={6}>6 Meses</option>
-                            <option value={12}>12 Meses</option>
-                            <option value={24}>24 Meses</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Link de Assinatura (Mercado Pago)</label>
-                          <input 
-                            type="text" 
-                            value={editingPlan.mercadopagoLink}
-                            onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLink: e.target.value})}
-                            placeholder="https://..."
-                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                          />
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                          <button onClick={handleUpdatePlan} className="bg-brand-red text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Salvar</button>
-                          <button onClick={() => setEditingPlan(null)} className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Canc</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{plan.name}</h4>
-                        <div className="space-y-2 mb-6">
-                          <div className="flex justify-between text-lg mb-2">
-                            <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
-                            <span className="font-black text-green-600">R$ {typeof plan.price === 'number' ? plan.price.toFixed(2).replace('.', ',') : (plan.price || 0)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
-                            <span className="font-bold text-gray-500">R$ {typeof plan.basePrice === 'number' ? plan.basePrice.toFixed(2).replace('.', ',') : (plan.basePrice || 0)}</span>
-                          </div>
-          <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700 space-y-3">
-                            <div>
-                              <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Link de Recorrência (MP):</p>
-                              <p className={`font-mono text-[10px] truncate ${plan.mercadopagoLink ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50 font-bold'} dark:bg-gray-900 p-2 rounded flex items-center justify-between`}>
-                                <span>{plan.mercadopagoLink ? "Link Configurado" : 'Pendente - Clique em Editar e cole o link'}</span>
-                                {plan.mercadopagoLink ? <Link size={12} className="text-green-500" /> : <AlertTriangle size={12} className="animate-pulse" />}
-                              </p>
-                            </div>
-                            <div className="opacity-40">
-                              <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID (Opcional):</p>
-                              <p className="font-mono text-[10px] truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">
-                                {plan.stripePriceId || 'Não vinculado'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
+                {(!dbPlans || dbPlans.length === 0) ? (
+                  <div className="col-span-full py-12 text-center bg-gray-50 dark:bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-500 dark:text-gray-400 font-medium mb-4">Nenhum plano cadastrado ainda.</p>
+                    <button 
+                      onClick={() => setIsAddingPlan(true)}
+                      className="inline-flex items-center gap-2 bg-brand-red text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-brand-red/90 transition-all"
+                    >
+                      <Plus size={18} /> Criar Primeiro Plano
+                    </button>
                   </div>
-                ))}
+                ) : (
+                  (Array.isArray(dbPlans) ? dbPlans : []).map(plan => (
+                    <div key={plan.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
+                      <div className="absolute top-4 right-4 flex gap-2 transition opacity-0 group-hover:opacity-100">
+                        <button 
+                          onClick={() => setEditingPlan(plan)}
+                          className="text-gray-300 hover:text-brand-red"
+                          title="Editar Plano"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeletePlan(plan.id)}
+                          className="text-gray-300 hover:text-red-500"
+                          title="Excluir Plano"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                      
+                      {editingPlan?.id === plan.id ? (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nome</label>
+                            <input 
+                              type="text" 
+                              value={editingPlan.name}
+                              onChange={(e) => setEditingPlan({...editingPlan, name: e.target.value})}
+                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Pontual</label>
+                              <input 
+                                type="number" 
+                                value={editingPlan.price}
+                                onChange={(e) => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})}
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Integral</label>
+                              <input 
+                                type="number" 
+                                value={editingPlan.basePrice}
+                                onChange={(e) => setEditingPlan({...editingPlan, basePrice: parseFloat(e.target.value)})}
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                              />
+                            </div>
+                          </div>
+                          <div className="opacity-60">
+                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Stripe Price ID</label>
+                            <input 
+                              type="text" 
+                              value={editingPlan.stripePriceId}
+                              onChange={(e) => setEditingPlan({...editingPlan, stripePriceId: e.target.value})}
+                              className={`w-full bg-gray-50 dark:bg-gray-900 border ${editingPlan.stripePriceId?.startsWith('prod_') ? 'border-red-500' : 'border-gray-200'} dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white`}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Duração (Meses)</label>
+                            <select 
+                              value={editingPlan.durationMonths || 12}
+                              onChange={(e) => setEditingPlan({...editingPlan, durationMonths: parseInt(e.target.value)})}
+                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                            >
+                              <option value={1}>1 Mês</option>
+                              <option value={3}>3 Meses</option>
+                              <option value={6}>6 Meses</option>
+                              <option value={12}>12 Meses</option>
+                              <option value={24}>24 Meses</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Link de Assinatura (Mercado Pago)</label>
+                            <input 
+                              type="text" 
+                              value={editingPlan.mercadopagoLink}
+                              onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLink: e.target.value})}
+                              placeholder="https://..."
+                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                            />
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                            <button onClick={handleUpdatePlan} className="bg-brand-red text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Salvar</button>
+                            <button onClick={() => setEditingPlan(null)} className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Canc</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{plan.name}</h4>
+                          <div className="space-y-2 mb-6">
+                            <div className="flex justify-between text-lg mb-2">
+                              <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
+                              <span className="font-black text-green-600">R$ {typeof plan.price === 'number' ? plan.price.toFixed(2).replace('.', ',') : (plan.price || 0)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
+                              <span className="font-bold text-gray-500">R$ {typeof plan.basePrice === 'number' ? plan.basePrice.toFixed(2).replace('.', ',') : (plan.basePrice || 0)}</span>
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700 space-y-3">
+                              <div>
+                                <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Link de Recorrência (MP):</p>
+                                <p className={`font-mono text-[10px] truncate ${plan.mercadopagoLink ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50 font-bold'} dark:bg-gray-900 p-2 rounded flex items-center justify-between`}>
+                                  <span>{plan.mercadopagoLink ? "Link Configurado" : 'Pendente - Clique em Editar e cole o link'}</span>
+                                  {plan.mercadopagoLink ? <LinkIcon size={12} className="text-green-500" /> : <AlertTriangle size={12} className="animate-pulse" />}
+                                </p>
+                              </div>
+                              <div className="opacity-40">
+                                <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID (Opcional):</p>
+                                <p className="font-mono text-[10px] truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">
+                                  {plan.stripePriceId || 'Não vinculado'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
         )}
@@ -2370,9 +2393,19 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       <div className="flex-1 min-w-0">
                         <p className="font-black text-sm dark:text-white truncate uppercase italic">{os.name}</p>
                         <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{os.belt}</p>
-                        {os.parentId && (
-                          <p className="text-[8px] text-blue-500 font-bold uppercase italic mt-0.5">
-                            Já possui titular: {allStudents.find(p => p.id === os.parentId)?.name || 'Outro'}
+                        {os.id === isLinkingFamily.parentId && (
+                          <p className="text-[8px] text-green-500 font-bold uppercase italic mt-0.5 flex items-center gap-1">
+                            <Check size={8} /> Atual Titular
+                          </p>
+                        )}
+                        {os.parentId === isLinkingFamily.studentId && (
+                          <p className="text-[8px] text-blue-500 font-bold uppercase italic mt-0.5 flex items-center gap-1">
+                            <Check size={8} /> Seu Dependente
+                          </p>
+                        )}
+                        {os.parentId && os.parentId !== isLinkingFamily.studentId && (
+                          <p className="text-[8px] text-orange-500 font-bold uppercase italic mt-0.5">
+                            Titular: {allStudents.find(p => p.id === os.parentId)?.name || 'Outro'}
                           </p>
                         )}
                       </div>
@@ -2380,18 +2413,22 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     
                     <div className="grid grid-cols-2 gap-2 mt-1">
                       <button 
-                        onClick={() => linkAccount(isLinkingFamily.studentId, os.id)}
-                        disabled={!!isLinkingFamily.parentId && isLinkingFamily.parentId === os.id}
-                        className="py-2.5 bg-blue-500 text-white disabled:opacity-50 disabled:bg-gray-400 text-[9px] font-black uppercase rounded-xl transition-all shadow-md active:scale-95"
+                        onClick={() => linkAccount(isLinkingFamily.studentId, os.id, true)}
+                        disabled={isLinkingFamily.parentId === os.id}
+                        className={`py-2.5 text-white text-[9px] font-black uppercase rounded-xl transition-all shadow-md active:scale-95 ${
+                          isLinkingFamily.parentId === os.id ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600'
+                        }`}
                       >
-                        Definir como Titular
+                        {isLinkingFamily.parentId === os.id ? 'Já é o Titular' : 'Definir como Titular'}
                       </button>
                       <button 
-                        onClick={() => linkAccount(os.id, isLinkingFamily.studentId)}
+                        onClick={() => linkAccount(os.id, isLinkingFamily.studentId, true)}
                         disabled={os.parentId === isLinkingFamily.studentId}
-                        className="py-2.5 bg-brand-red text-white disabled:opacity-50 disabled:bg-gray-400 text-[9px] font-black uppercase rounded-xl transition-all shadow-md active:scale-95"
+                        className={`py-2.5 text-white text-[9px] font-black uppercase rounded-xl transition-all shadow-md active:scale-95 ${
+                          os.parentId === isLinkingFamily.studentId ? 'bg-gray-400' : 'bg-brand-red hover:bg-brand-red/90'
+                        }`}
                       >
-                        Adicionar como Dependente
+                        {os.parentId === isLinkingFamily.studentId ? 'Já é Dependente' : 'Add como Dependente'}
                       </button>
                     </div>
                   </div>
