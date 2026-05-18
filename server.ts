@@ -133,19 +133,24 @@ const mpHandler = async (req: express.Request, res: express.Response) => {
 
   try {
     const { action, title, price, payer_email, studentEmail, planId, studentId } = req.body;
-    const finalEmail = payer_email || studentEmail || 'administrativo@tanqueteambjj.com.br';
-    const origin = req.headers.origin || (process.env.APP_URL || "http://localhost:3000");
+    
+    if (!studentId && action !== 'mp_plan_creator') {
+       console.warn("[MercadoPago Handler] studentId is missing in request body");
+    }
+
+    const finalEmail = (payer_email || studentEmail || 'administrativo@tanqueteambjj.com.br').trim();
+    // Default to the known production URL if headers are missing
+    const origin = req.headers.origin || (process.env.APP_URL || "https://ais-pre-ss6fb4rybd5zz4spw5y6hy-121814073773.us-west1.run.app");
     const appUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin;
 
+    console.log(`[MercadoPago Handler] Origin: ${origin}, AppURL: ${appUrl}, Email: ${finalEmail}, Action: ${action}`);
+
     if (action === 'subscription') {
-      // For subscriptions, we use the Preapproval API
-      // Note: Preapproval usually requires a pre-created planId or inline definition
-      // We'll use the pre-created planId provided in the request
+      console.log(`[MercadoPago Handler] Processing SUBSCRIPTION for Plan: ${planId}`);
       if (!planId) {
         return res.status(400).json({ error: "O ID do Plano (Plan ID) é obrigatório para assinaturas." });
       }
 
-      // Using raw fetch for Preapproval as the SDK might have different versions
       const response = await fetch('https://api.mercadopago.com/preapproval', {
         method: 'POST',
         headers: {
@@ -158,21 +163,27 @@ const mpHandler = async (req: express.Request, res: express.Response) => {
           external_reference: studentId,
           payer_email: finalEmail,
           back_url: `${appUrl}/financeiro`,
-          status: "pending" // Will redirect user to pay
+          status: "pending"
         })
       });
 
       const data = await response.json();
+      console.log(`[MercadoPago Handler] MP Subscription Response Status: ${response.status}`);
+      
       if (!response.ok) {
-        throw new Error(data.message || "Erro ao criar assinatura no Mercado Pago");
+        console.error("[MercadoPago Handler] MP Subscription Error Data:", data);
+        return res.status(response.status).json({ 
+          error: data.message || "Erro ao criar assinatura no Mercado Pago",
+          details: data
+        });
       }
 
-      // init_point is where the user completes the preapproval
       return res.json({ id: data.id, init_point: data.init_point });
     } else {
+      console.log(`[MercadoPago Handler] Processing ONE-TIME PAYMENT. Price: ${price}`);
       // Default: One-time payment via Preference
       const preference = new Preference(mpClient);
-      const result = await preference.create({
+      const preferenceData = {
         body: {
           items: [{ 
             title: title || 'Mensalidade Jiu-Jitsu', 
@@ -188,16 +199,24 @@ const mpHandler = async (req: express.Request, res: express.Response) => {
           },
           auto_return: 'approved',
           external_reference: studentId,
-          notification_url: process.env.WEBHOOK_URL, // Optional
+          notification_url: process.env.WEBHOOK_URL || undefined,
         }
-      });
+      };
+
+      console.log("[MercadoPago Handler] Preference Payload:", JSON.stringify(preferenceData));
+
+      const result = await preference.create(preferenceData);
+      console.log("[MercadoPago Handler] Preference Created Success:", result.id);
+      
+      // We wrap result in JSON and return
       return res.json({ id: result.id, init_point: result.init_point });
     }
   } catch (error: any) {
     console.error("Mercado Pago Backend Error:", error);
-    res.status(500).json({ 
+    // Ensure we always return JSON
+    return res.status(500).json({ 
       error: error.message || 'Falha ao processar pagamento com Mercado Pago',
-      details: error.details
+      details: error.details || error.toString()
     });
   }
 };

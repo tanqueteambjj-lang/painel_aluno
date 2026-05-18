@@ -264,7 +264,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                     className="bg-white/10 border border-white/20 text-white px-8 py-5 rounded-2xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-1"
                   >
                     {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 opacity-70" />}
-                    Pagamento Avulso (Único)
+                    Pagamento Avulso - R$ {planPrice.toFixed(2).replace('.', ',')}
                   </motion.button>
                 </div>
 
