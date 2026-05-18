@@ -1529,10 +1529,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                                 Ver Painel
                               </button>
                             )}
-                            <div className="bg-brand-red/10 border border-brand-red/20 rounded-lg px-2 py-1 flex items-center gap-1 shrink-0">
-                              <ArrowUpCircle className="w-3 h-3 text-brand-red" />
-                              <span className="text-[9px] font-black text-brand-red">NÍVEL {calculateStudentLevel(s)}</span>
-                            </div>
                           </div>
                         </div>
 
@@ -1561,10 +1557,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         <p className="text-gray-400 font-bold uppercase text-[9px]">ID Sistema</p>
                         <p className="dark:text-white font-medium truncate text-[11px]">{s.studentLogin}</p>
                       </div>
-                      <div className="flex justify-between items-start min-w-0">
+                      <div className="min-w-0">
+                        <p className="text-gray-400 font-bold uppercase text-[9px]">Telefone</p>
+                        <p className="dark:text-white font-medium truncate text-[11px] font-mono">{s.phone || '(Não inf.)'}</p>
+                      </div>
+                      <div className="flex justify-between items-start min-w-0 col-span-2 mt-1 pt-1 border-t border-gray-200 dark:border-gray-700">
                         <div className="min-w-0 flex-1 overflow-hidden">
-                          <p className="text-gray-400 font-bold uppercase text-[9px]">Nível Atual</p>
-                          <p className="dark:text-white font-medium text-[11px] leading-tight">Lvl {calculateStudentLevel(s)}</p>
+                          <p className="text-gray-400 font-bold uppercase text-[9px]">Consistência / Nível</p>
+                          <p className="dark:text-white font-black text-[12px] leading-tight italic uppercase text-brand-red flex items-center gap-1">
+                            <TrendingUp size={12} /> Nível {calculateStudentLevel(s)}
+                          </p>
                         </div>
                         <button 
                           onClick={() => setViewingXPHistoryStudent(s)}
@@ -2344,7 +2346,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               </div>
 
               {isLinkingFamily.parentId && (
-                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50">
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
@@ -2352,7 +2354,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Titular Atual</p>
-                        <p className="text-sm font-bold dark:text-white">{allStudents.find(s => s && s.id === isLinkingFamily.parentId)?.name || 'Não encontrado'}</p>
+                        <p className="text-sm font-bold dark:text-white truncate max-w-[120px]">{allStudents.find(s => s && s.id === isLinkingFamily.parentId)?.name || 'Não encontrado'}</p>
                       </div>
                     </div>
                     <button 
@@ -2363,11 +2365,48 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       }}
                       className="px-3 py-1.5 bg-white dark:bg-gray-800 text-red-500 rounded-lg text-[10px] font-black uppercase border border-red-100 dark:border-red-900/30 hover:bg-red-50 transition-colors shadow-sm"
                     >
-                      Remover Vínculo
+                      Remover
                     </button>
                   </div>
                 </div>
               )}
+
+              {/* LIST ALL DEPENDENTS ALREADY LINKED TO THIS USER */}
+              {(() => {
+                const dependents = allStudents.filter(s => s.parentId === isLinkingFamily.studentId);
+                if (dependents.length > 0) {
+                  return (
+                    <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100 dark:border-emerald-800/50">
+                      <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                        <Users size={12} /> Dependentes Vinculados ({dependents.length})
+                      </p>
+                      <div className="space-y-3">
+                        {dependents.map(dep => (
+                          <div key={dep.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold">
+                                {dep.name?.charAt(0)}
+                              </div>
+                              <span className="text-xs font-bold dark:text-zinc-200 truncate max-w-[150px]">{dep.name}</span>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                if (confirm(`Remover ${dep.name} da família de ${isLinkingFamily.name}?`)) {
+                                  linkAccount(dep.id, null, true);
+                                }
+                              }}
+                              className="text-[10px] font-bold text-red-500 hover:underline px-2"
+                            >
+                              Soltar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               
               <div className="relative mb-6">
                 <Search className="absolute left-4 top-3.5 text-gray-400 w-5 h-5" />

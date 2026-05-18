@@ -114,10 +114,10 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
     if (!isNaN(parsed)) parsedPrice = parsed;
   }
   
-  const planPrice = matchedPlan?.price !== undefined ? matchedPlan.price : (planInfo?.price !== undefined ? planInfo.price : (parsedPrice !== undefined ? parsedPrice : (currentUserData?.planPrice || 150.00)));
-  const basePrice = matchedPlan?.basePrice !== undefined ? matchedPlan.basePrice : planPrice;
+  const initialPrice = matchedPlan?.price !== undefined ? matchedPlan.price : (planInfo?.price !== undefined ? planInfo.price : (parsedPrice !== undefined ? parsedPrice : (currentUserData?.planPrice || 150.00)));
+  const basePrice = matchedPlan?.basePrice !== undefined ? matchedPlan.basePrice : initialPrice;
   
-  const isFreePlan = planPrice === 0 || currentUserData?.paymentStatus === 'Isento' || currentUserData?.plan?.toLowerCase() === 'isento' || currentUserData?.plan?.toLowerCase() === 'dependente';
+  const isFreePlan = initialPrice === 0 || currentUserData?.paymentStatus === 'Isento' || currentUserData?.plan?.toLowerCase() === 'isento' || currentUserData?.plan?.toLowerCase() === 'dependente';
   const isInvalidPlan = false;
 
   let formattedDueDate = "Não definido";
@@ -125,6 +125,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   
   let dynamicPaymentStatus = currentUserData?.paymentStatus || 'Em dia';
   let daysUntilDue: number | null = null;
+  let isLate = false;
 
   if (dueDateValue) {
     const dateObj = parseDateString(dueDateValue);
@@ -142,12 +143,16 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         
         if (daysUntilDue < 0) {
           dynamicPaymentStatus = 'Pendente';
+          isLate = true;
         } else {
           dynamicPaymentStatus = 'Em dia';
         }
       }
     }
   }
+
+  // Auto-adjust price: if late, use integral price (basePrice)
+  const planPrice = isLate ? basePrice : initialPrice;
 
   if (isFreePlan) {
     dynamicPaymentStatus = 'Isento';
@@ -220,8 +225,19 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                 
                 <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 mb-8">
                   <div className="flex justify-between items-center mb-4">
-                    <span className="bg-brand-red text-white text-[10px] font-black px-3 py-1 rounded-full uppercase italic">Plano Ativo</span>
-                    <span className="text-brand-red font-black text-xl italic leading-none">R$ {planPrice.toFixed(2).replace('.', ',')}</span>
+                    <div className="flex flex-col">
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase italic w-fit mb-1 ${isLate ? 'bg-amber-500/20 text-amber-500' : 'bg-brand-red text-white'}`}>
+                        {isLate ? 'Vencimento Excedido' : 'Valor em Dia'}
+                      </span>
+                      {isLate && (
+                        <span className="text-gray-400 text-[10px] uppercase font-bold italic line-through tracking-wider">
+                          R$ {initialPrice.toFixed(2).replace('.', ',')} (Pontual)
+                        </span>
+                      )}
+                    </div>
+                    <span className={`font-black text-2xl italic leading-none ${isLate ? 'text-amber-500' : 'text-brand-red'}`}>
+                      R$ {planPrice.toFixed(2).replace('.', ',')}
+                    </span>
                   </div>
                   <h4 className="text-white font-black text-2xl uppercase italic tracking-tight">{planName}</h4>
                 </div>
@@ -347,26 +363,44 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Valor da Mensalidade</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Resumo Financeiro</p>
                   {isFreePlan ? (
                     <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl border border-gray-100 dark:border-gray-600">
                       <p className="text-2xl font-black text-gray-500 italic uppercase">Isento de Mensalidade</p>
                     </div>
-                  ) : basePrice !== planPrice ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-900/30">
-                        <p className="text-[10px] font-bold text-green-600 uppercase mb-1">Pontualidade</p>
-                        <p className="text-2xl font-black text-green-700 dark:text-green-400">R$ {planPrice.toFixed(2).replace('.', ',')}</p>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className={`p-4 rounded-xl border transition-all ${!isLate ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30 shadow-lg shadow-emerald-500/5 scale-105' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-40 grayscale'}`}>
+                          <p className={`text-[10px] font-bold uppercase mb-1 ${!isLate ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>Valor Pontual (Até Venc.)</p>
+                          <p className={`text-2xl font-black ${!isLate ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 font-bold'}`}>R$ {initialPrice.toFixed(2).replace('.', ',')}</p>
+                        </div>
+                        <div className={`p-4 rounded-xl border transition-all ${isLate ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30 shadow-lg shadow-amber-500/5 scale-105' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-40 grayscale'}`}>
+                          <p className={`text-[10px] font-bold uppercase mb-1 ${isLate ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>Valor Integral (Após Venc.)</p>
+                          <p className={`text-2xl font-black ${isLate ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400 font-bold'}`}>R$ {basePrice.toFixed(2).replace('.', ',')}</p>
+                        </div>
                       </div>
-                      <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Valor Integral</p>
-                        <p className="text-2xl font-black text-gray-600 dark:text-gray-400">R$ {basePrice.toFixed(2).replace('.', ',')}</p>
+
+                      <div className="flex justify-between items-center bg-gray-900 dark:bg-black p-5 rounded-2xl border border-white/5 shadow-inner">
+                        <div className="relative z-10">
+                          <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-1">Total para Hoje</p>
+                          <h5 className="text-white font-black text-3xl italic tracking-tighter uppercase leading-none">
+                            R$ {planPrice.toFixed(2).replace('.', ',')}
+                          </h5>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {isLate ? (
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 rounded-lg text-white text-[9px] font-black uppercase italic animate-pulse">
+                              <AlertTriangle size={10} /> Valor Integral
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500 rounded-lg text-white text-[9px] font-black uppercase italic shadow-lg shadow-emerald-500/20">
+                              <CheckCircle size={10} /> Valor Pontual
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  ) : (
-                    <p className="text-3xl font-black text-gray-900 dark:text-white italic">
-                      R$ {planPrice.toFixed(2).replace('.', ',')}
-                    </p>
                   )}
                 </div>
 
