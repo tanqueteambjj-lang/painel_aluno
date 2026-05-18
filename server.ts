@@ -327,14 +327,21 @@ app.post("/api/webhooks/mercadopago", async (req, res) => {
 
         if (studentDocToUpdate) {
           console.log(`[MP Webhook] Updating student status for: ${studentDocToUpdate.id}`);
+          
+          const nextMonthDate = new Date();
+          nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+          const nextMonthStr = nextMonthDate.toISOString().split('T')[0];
+
           await studentDocToUpdate.update({
+            'paymentStatus': 'Em dia',
+            'dueDate': nextMonthStr,
             'financeiro.status': 'em dia',
             'financeiro.ultimoPagamento': admin.firestore.FieldValue.serverTimestamp(),
             'financeiro.valorPago': amount || 0,
             'financeiro.metodo': 'Mercado Pago',
             'updatedAt': admin.firestore.FieldValue.serverTimestamp()
           });
-          console.log(`[MP Webhook] Student ${studentDocToUpdate.id} updated successfully to 'em dia'.`);
+          console.log(`[MP Webhook] Student ${studentDocToUpdate.id} updated successfully to 'Em dia' and next dueDate: ${nextMonthStr}.`);
         } else {
           console.warn(`[MP Webhook] Student NOT FOUND for email ${studentEmail} or reference ${externalRef}. Status remains unchanged.`);
         }

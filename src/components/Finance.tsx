@@ -57,6 +57,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
 
     setIsPaying(true);
     try {
+      // RECURRING PAYMENT (Always use the initial price link)
       if (recurring) {
         if (matchedPlan?.mercadopagoLink) {
           window.location.href = matchedPlan.mercadopagoLink;
@@ -66,6 +67,14 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         }
       }
 
+      // ONE-TIME PAYMENT (Avulso)
+      // If late and has a specific late link, use it
+      if (isLate && matchedPlan?.mercadopagoLateLink) {
+        window.location.href = matchedPlan.mercadopagoLateLink;
+        return;
+      }
+
+      // Otherwise, use dynamic checkout (handles both on-time and late prices)
       if (!currentUserData.email) {
         console.warn("Aluno sem e-mail cadastrado. Usando e-mail da academia para o Mercado Pago.");
       }
@@ -277,22 +286,39 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                   </div>
                 )}
                 
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
                       <CheckCircle className="w-4 h-4 text-emerald-400" />
                     </div>
-                    <p className="text-[10px] text-emerald-400/80 font-bold uppercase italic leading-relaxed">
-                      Pagamento via PIX agora processado via Mercado Pago com baixa automática no sistema!
-                    </p>
+                    <div>
+                      <p className="text-[10px] text-emerald-400 font-black uppercase italic mb-1 tracking-wider">Checkout Seguro</p>
+                      <p className="text-[10px] text-emerald-400/70 font-medium leading-relaxed italic">
+                        Pagamento via PIX/Cartão processado via Mercado Pago com baixa automática no sistema!
+                      </p>
+                    </div>
                   </div>
                   <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                      <CreditCard className="w-4 h-4 text-blue-400" />
+                      <Shield className="w-4 h-4 text-blue-400" />
                     </div>
-                    <p className="text-[10px] text-blue-400/80 font-bold uppercase italic leading-relaxed">
-                      Planos com desconto exigem recorrência no cartão para garantir a manutenção do contrato.
-                    </p>
+                    <div>
+                      <p className="text-[10px] text-blue-400 font-black uppercase italic mb-1 tracking-wider">Menor Valor Garantido</p>
+                      <p className="text-[10px] text-blue-400/70 font-medium leading-relaxed italic">
+                        A recorrência no cartão garante sempre o valor pontual com desconto, sem risco de atrasos.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                      <Award className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-amber-500 font-black uppercase italic mb-1 tracking-wider">Foco no Treino</p>
+                      <p className="text-[10px] text-amber-500/70 font-medium leading-relaxed italic">
+                        Não se preocupe mais com datas de vencimento. Cadastre uma vez e mantenha seu foco no tatame!
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -318,6 +318,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     basePrice: 0,
     stripePriceId: '',
     mercadopagoLink: '',
+    mercadopagoLateLink: '',
     durationMonths: 12
   });
 
@@ -331,6 +332,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         basePrice: Number(editingPlan.basePrice),
         stripePriceId: editingPlan.stripePriceId || '',
         mercadopagoLink: editingPlan.mercadopagoLink || '',
+        mercadopagoLateLink: editingPlan.mercadopagoLateLink || '',
         durationMonths: Number(editingPlan.durationMonths || 12)
       });
       setEditingPlan(null);
@@ -353,7 +355,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
   };
 
-  const setNewPlanDataReset = () => setNewPlanData({ name: '', price: 0, basePrice: 0, stripePriceId: '', mercadopagoLink: '', durationMonths: 12 });
+  const setNewPlanDataReset = () => setNewPlanData({ name: '', price: 0, basePrice: 0, stripePriceId: '', mercadopagoLink: '', mercadopagoLateLink: '', durationMonths: 12 });
 
   const handleAddPlan = async () => {
     if (!newPlanData.name) {
@@ -1880,6 +1882,19 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         <LinkIcon size={10} /> Cole o link gerado no seu painel do Mercado Pago
                       </p>
                     </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Link Avulso - Atrasado (Mercado Pago)</label>
+                      <input 
+                        type="text" 
+                        value={newPlanData.mercadopagoLateLink}
+                        onChange={(e) => setNewPlanData({...newPlanData, mercadopagoLateLink: e.target.value})}
+                        placeholder="https://www.mercadopago.com.br/checkout/v1/redirect?..."
+                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
+                      />
+                      <p className="text-[10px] text-amber-500 mt-1 font-bold italic flex items-center gap-1">
+                        <LinkIcon size={10} /> Link para o valor INTEGRAL (após o vencimento)
+                      </p>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={handleAddPlan} className="bg-green-600 text-white px-6 py-2 rounded-xl font-bold text-sm">Salvar Plano</button>
@@ -1979,6 +1994,14 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                               type="text" 
                               value={editingPlan.mercadopagoLink}
                               onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLink: e.target.value})}
+                              placeholder="https://..."
+                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white mb-2"
+                            />
+                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Link Avulso - Atrasado (Mercado Pago)</label>
+                            <input 
+                              type="text" 
+                              value={editingPlan.mercadopagoLateLink}
+                              onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLateLink: e.target.value})}
                               placeholder="https://..."
                               className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
                             />
