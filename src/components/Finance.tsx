@@ -233,6 +233,21 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                 </div>
                 
                 <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 mb-8">
+                  {isLate && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="mb-4 p-3 bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center gap-3 overflow-hidden"
+                    >
+                      <Award className="w-8 h-8 text-amber-500 shrink-0 animate-bounce" />
+                      <div>
+                        <p className="text-[10px] font-black text-amber-500 uppercase italic">Oportunidade de Desconto</p>
+                        <p className="text-[10px] text-amber-500/90 font-bold leading-tight">
+                          Ative a <span className="underline">Recorrência Automática</span> agora e pague o <span className="font-black">VALOR COM DESCONTO</span> (R$ {initialPrice.toFixed(2).replace('.', ',')}) mesmo estando em atraso!
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex flex-col">
                       <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase italic w-fit mb-1 ${isLate ? 'bg-amber-500/20 text-amber-500' : 'bg-brand-red text-white'}`}>
