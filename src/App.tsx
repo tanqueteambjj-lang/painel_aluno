@@ -1827,7 +1827,7 @@ export default function Dashboard() {
                  {(() => {
                     const currentAura = VISUAL_TIERS.find(t => t.id === (activeUserData?.selectedVisualTier || 'none'))?.glow || '';
                     return (
-                      <div className="mb-8 flex justify-between items-end">
+                      <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-6">
                         <div className="flex items-center gap-4">
                           <div className={`w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800 shadow-xl overflow-hidden flex-shrink-0 relative transition-all duration-500 unselectable ${currentAura}`}>
                             {activeUserData?.photoBase64 ? (
@@ -1890,7 +1890,7 @@ export default function Dashboard() {
                             </div>
                           </div>
                         </div>
-                        <div className="hidden md:flex flex-col items-end gap-2">
+                        <div className="flex flex-wrap items-center md:flex-col md:items-end gap-2 shrink-0 md:self-end">
                           <div className="flex items-center gap-2">
                             {VISUAL_TIERS.filter(t => t.id !== 'none' && userLevel >= t.minLevel).map(t => (
                               <div key={t.id} title={`Desbloqueado: ${t.name}`} className="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center shadow-md border border-yellow-500 ring-2 ring-yellow-400/20">
@@ -1898,113 +1898,56 @@ export default function Dashboard() {
                               </div>
                             ))}
                           </div>
-                          <span className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm text-sm font-bold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 flex items-center">
-                            <Calendar className="w-4 h-4 mr-2 text-brand-red" /> {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' }).toUpperCase()}
+                          
+                          {/* Date Pill - Visible on all devices now */}
+                          <span className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-sm text-xs font-bold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700/50 flex items-center h-9">
+                            <Calendar className="w-3.5 h-3.5 mr-2 text-brand-red" /> {new Date().toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase()}
                           </span>
+
+                          {/* Plan & Payment Status Pill - Reduced, extremely discrete and clickable! */}
+                          {(() => {
+                            const userPlanNameRaw = activeUserData?.plan || "Plano";
+                            const userPlanName = userPlanNameRaw.split(' - R$')[0].trim();
+                            
+                            const dbStatus = activeUserData?.paymentStatus || 'Em dia';
+                            const isFree = (activeUserData?.planPrice || 0) === 0 || 
+                                           dbStatus === 'Isento' || 
+                                           userPlanName.toLowerCase().includes('isento') || 
+                                           userPlanName.toLowerCase().includes('dependente');
+
+                            let pillStatus = 'Em dia';
+                            let pillStyle = "bg-green-50/70 hover:bg-green-150/70 dark:bg-green-950/20 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 border-green-200/50 dark:border-green-900/40";
+                            let PillIcon = CheckCircle;
+
+                            if (isFree) {
+                              pillStatus = 'Isento';
+                              pillStyle = "bg-gray-100/70 hover:bg-gray-250/70 dark:bg-gray-800/40 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-300 border-gray-200/50 dark:border-gray-750";
+                              PillIcon = Shield;
+                            } else if (dbStatus === 'Pendente' || (isLate && dbStatus !== 'Em dia')) {
+                              pillStatus = 'Pendente';
+                              pillStyle = "bg-red-50/70 hover:bg-red-150/70 dark:bg-red-950/20 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 border-red-200/50 dark:border-red-900/40";
+                              PillIcon = AlertTriangle;
+                            }
+
+                            return (
+                              <motion.button
+                                whileHover={{ scale: 1.02, y: -1 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => setView('finance')}
+                                className={`px-4 py-2 rounded-full shadow-sm text-xs font-bold border flex items-center transition-all h-9 ${pillStyle}`}
+                                title="Visualizar Detalhes Financeiros"
+                              >
+                                <PillIcon className={`w-3.5 h-3.5 mr-2 ${pillStatus === 'Pendente' ? 'animate-pulse text-red-500' : ''}`} />
+                                <span className="uppercase tracking-tight">
+                                  {userPlanName}: <span className="font-black">{pillStatus.toUpperCase()}</span>
+                                </span>
+                              </motion.button>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
-                 })()}
-
-              {/* Discreet Monthly Payment Status Card */}
-              {(() => {
-                const financeState = (() => {
-                  if (isFreePlan) {
-                    return {
-                      type: 'free',
-                      title: 'Plano Isento / Dependente',
-                      message: 'Seu plano está classificado como Isento / Dependente. Nenhuma pendência!',
-                      subMessage: 'Tudo certo por aqui! Clique para acessar a aba Financeiro.',
-                      className: 'bg-emerald-500/5 border-emerald-500/10 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-                      iconBg: 'bg-emerald-500',
-                      icon: CheckCircle,
-                      pulse: false
-                    };
-                  }
-                  
-                  if (!dueDateValue) {
-                    return {
-                      type: 'no_duedate',
-                      title: 'Vencimento não cadastrado',
-                      message: 'Não há um dia de vencimento cadastrado no seu perfil.',
-                      subMessage: 'Clique para falar com o suporte ou gerenciar opções de pagamento.',
-                      className: 'bg-zinc-500/5 border-zinc-500/10 hover:bg-zinc-500/10 text-zinc-500 dark:text-zinc-400',
-                      iconBg: 'bg-zinc-400',
-                      icon: AlertTriangle,
-                      pulse: false
-                    };
-                  }
-                  
-                  if (isLate) {
-                    return {
-                      type: 'late',
-                      title: 'Mensalidade Pendente',
-                      message: 'Sua mensalidade está em aberto. Clique aqui para regularizar com desconto por pontualidade!',
-                      subMessage: `O vencimento original foi em ${formattedDueDate}. Evite bloqueios.`,
-                      className: 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20 text-red-600 dark:text-red-400',
-                      iconBg: 'bg-red-500',
-                      icon: AlertTriangle,
-                      pulse: true
-                    };
-                  }
-                  
-                  if (daysUntilDue !== null && daysUntilDue <= 7) {
-                    return {
-                      type: 'warning',
-                      title: 'Vencimento Próximo',
-                      message: `Sua mensalidade vence em ${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'} (${formattedDueDate}).`,
-                      subMessage: 'Clique aqui se deseja efetuar o pagamento antecipado do seu plano.',
-                      className: 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400',
-                      iconBg: 'bg-amber-500',
-                      icon: Clock,
-                      pulse: false
-                    };
-                  }
-                  
-                  return {
-                    type: 'normal',
-                    title: 'Mensalidade em Dia',
-                    message: `Seu próximo vencimento cadastrado é ${formattedDueDate}.`,
-                    subMessage: 'Tudo completamente em ordem! Clique para ver os detalhes financeiros.',
-                    className: 'bg-green-500/5 border-green-500/10 hover:bg-green-500/10 text-green-600 dark:text-green-400',
-                    iconBg: 'bg-green-500',
-                    icon: CheckCircle,
-                    pulse: false
-                  };
-                })();
-
-                return (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    onClick={() => setView('finance')}
-                    className={`mb-6 p-4 rounded-2xl border flex items-center justify-between cursor-pointer group transition-all shadow-sm ${financeState.className}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${financeState.iconBg}`}>
-                        <financeState.icon className={`w-5 h-5 text-white ${financeState.pulse ? 'animate-pulse' : ''}`} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase italic tracking-wider">
-                          {financeState.title}
-                        </p>
-                        <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                          {financeState.message}
-                        </p>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium tracking-tight">
-                          {financeState.subMessage}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-1 group-hover:gap-2 transition-all">
-                        <span className="text-[10px] font-black uppercase italic">Ver Financeiro</span>
-                        <ChevronRight size={16} className="transition-transform" />
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })()}
+                  })()}
 
               {/* Check-in Button */}
               <div className="mb-8 no-print">
