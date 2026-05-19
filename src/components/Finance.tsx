@@ -97,7 +97,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const plansRef = collection(db, 'artifacts', 'tanqueteam-bjj', 'public', 'data', 'plans');
+        const plansRef = collection(db, 'artifacts', '4e7d00d8-3c19-4e5a-a4ab-4522f02376e4', 'public', 'data', 'plans');
         const snapshot = await getDocs(plansRef);
         const plansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setDbPlans(plansData);

@@ -119,7 +119,7 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
       }
 
       // 3. VERIFICAÇÃO DE ALUNO (Firestore)
-      const appId = "tanqueteam-bjj";
+      const appId = "4e7d00d8-3c19-4e5a-a4ab-4522f02376e4";
       const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
       
       let q = query(studentsRef, where('studentLogin', '==', loginInput), where('studentPassword', '==', passwordInput));

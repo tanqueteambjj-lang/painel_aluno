@@ -188,7 +188,7 @@ export default function Dashboard() {
     setConfirmState({ isOpen: true, title, message, onConfirm });
   };
 
-  const appId = "tanqueteam-bjj"; // Hardcoded for this specific app context
+  const appId = "4e7d00d8-3c19-4e5a-a4ab-4522f02376e4"; // Actual ID provided by user
 
   const handleShareBadge = (badge: any) => {
     setSharingBadge(badge);
@@ -1049,10 +1049,10 @@ export default function Dashboard() {
           const isDependent = !!data.parentId;
           
           let isKids = false;
-          if (!isAdultPlan) {
-            isKids = planStr.includes('infantil') || planStr.includes('kids') || hasKidsBelt || isDependent || isItalo;
-            
-            // Age detection using dob (Date of Birth)
+          if (isAdultPlan) {
+            isKids = false;
+          } else {
+            // Check if age is available
             if (data.dob) {
               const birth = parseDateString(data.dob);
               const today = new Date();
@@ -1061,11 +1061,17 @@ export default function Dashboard() {
               if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
                 age--;
               }
-              if (age < 12) isKids = true;
+              // Rule: if age >= 16, they are ALWAYS adult ranking (or 13 depending on academy, let's use 16 as standard for adult division)
+              // Renato is 34, so he will be isKids = false.
+              if (age >= 16) {
+                isKids = false;
+              } else {
+                isKids = planStr.includes('infantil') || planStr.includes('kids') || hasKidsBelt || isDependent || isItalo || age < 12;
+              }
+            } else {
+              // No DOB, rely on other flags
+              isKids = planStr.includes('infantil') || planStr.includes('kids') || hasKidsBelt || isDependent || isItalo;
             }
-          } else {
-            // Explicitly Adult Plan always stays in Adult Ranking
-            isKids = false;
           }
           
           if (isKids) {

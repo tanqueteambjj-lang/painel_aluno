@@ -973,7 +973,12 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => {
+                setActiveTab(tab.id as any);
+                if (tab.id === 'plans' && dbPlans.length === 0) {
+                  fetchPlans();
+                }
+              }}
               className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-300 flex-shrink-0 relative group ${
                 activeTab === tab.id
                   ? 'bg-white dark:bg-gray-700 text-brand-red shadow-md transform scale-102'
@@ -1498,6 +1503,23 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                     <h5 className="font-bold text-gray-900 dark:text-white text-base truncate max-w-[200px]">{s.name}</h5>
                                     {s.nickname && <span className="text-xs text-gray-400 font-medium truncate max-w-[80px]">({s.nickname})</span>}
+                                    {s.dob && (
+                                      <span className="text-[10px] bg-gray-100 dark:bg-gray-700/50 text-gray-500 px-2 py-0.5 rounded-full font-bold">
+                                        {(() => {
+                                          try {
+                                            const birth = new Date(s.dob + 'T12:00:00');
+                                            if (isNaN(birth.getTime())) return null;
+                                            const today = new Date();
+                                            let age = today.getFullYear() - birth.getFullYear();
+                                            const m = today.getMonth() - birth.getMonth();
+                                            if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+                                              age--;
+                                            }
+                                            return `${age} anos`;
+                                          } catch (e) { return null; }
+                                        })()}
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex flex-col gap-1.5 mt-1.5">
                                     <div className="inline-flex bg-brand-red/5 dark:bg-brand-red/10 text-brand-red text-[9px] font-black px-2 py-1 rounded shadow-sm border border-brand-red/10 uppercase italic whitespace-normal break-words max-w-full w-fit">
@@ -1804,7 +1826,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
 
               {/* Plans Statistics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                {dbPlans.map(plan => {
+                {(Array.isArray(dbPlans) ? dbPlans : []).map(plan => {
                   const count = allStudents.filter(s => s.plan && s.plan.toLowerCase().includes(plan.name.toLowerCase())).length;
                   return (
                     <div key={plan.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col">
