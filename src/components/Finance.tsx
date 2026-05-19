@@ -277,7 +277,16 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                   >
                     <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700 skew-x-[45deg]"></div>
                     {isPaying ? <Loader2 className="w-6 h-6 animate-spin" /> : <Clock className="w-6 h-6" />}
-                    Ativar Recorrência Automática
+                    {initialPrice < basePrice ? (
+                      <div className="flex flex-col items-center leading-tight">
+                        <span className="text-[10px] opacity-70 line-through font-bold tracking-widest">R$ {basePrice.toFixed(2).replace('.', ',')}</span>
+                        <span className="flex items-center gap-1">
+                          Ativar Recorrência - R$ {initialPrice.toFixed(2).replace('.', ',')}
+                        </span>
+                      </div>
+                    ) : (
+                      `Ativar Recorrência - R$ ${initialPrice.toFixed(2).replace('.', ',')}`
+                    )}
                   </motion.button>
 
                   <motion.button

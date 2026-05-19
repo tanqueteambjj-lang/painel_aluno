@@ -262,10 +262,6 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
                   )}
                 </motion.button>
               )}
-              
-              <p className="text-sm text-gray-600 dark:text-gray-300 font-medium flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-700/50 px-4 py-3 rounded-xl w-full">
-                <Camera className="w-4 h-4 text-brand-red" /> Tire um print da tela para salvar
-              </p>
             </div>
           </motion.div>
         </motion.div>
