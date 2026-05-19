@@ -15,6 +15,7 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
     cep: userData?.cep || '',
     address: userData?.address || '',
     addressNumber: userData?.addressNumber || '',
+    dob: userData?.dob || '',
     weight: userData?.weight || '',
     height: userData?.height || '',
     password: '',
@@ -32,6 +33,7 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
         cep: userData.cep || '',
         address: userData.address || '',
         addressNumber: userData.addressNumber || '',
+        dob: userData.dob || '',
         weight: userData.weight || '',
         height: userData.height || '',
         password: '',
@@ -134,6 +136,7 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
         cep: formData.cep,
         address: formData.address,
         addressNumber: formData.addressNumber,
+        dob: formData.dob,
         weight: formData.weight,
         height: formData.height,
       };
@@ -321,6 +324,17 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                       <input id="address" type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" placeholder="Rua, Avenida..." />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="dob" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Data de Nascimento</label>
+                      <input id="dob" type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
+                    </div>
+                    <div>
+                      <label htmlFor="phone" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Telefone</label>
+                      <input id="phone" type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
+                    </div>
+                  </div>
                   
                   <div className="grid grid-cols-2 sm:grid-cols-12 gap-3">
                     <div className="col-span-1 sm:col-span-4">
@@ -359,17 +373,11 @@ export default function ProfileEditModal({ isOpen, onClose, userData, appId, onS
                       />
                     </div>
                   </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="email" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">E-mail</label>
                     <input id="email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
                   </div>
-                  <div>
-                    <label htmlFor="phone" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Telefone</label>
-                    <input id="phone" type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-brand-red focus:outline-none" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700 mt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700 mt-2">
                   <div>
                     <label htmlFor="pass" className="block text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">Nova Senha (Opcional)</label>
                     <input id="pass" type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full border border-blue-200 dark:border-blue-800 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:ring-1 focus:ring-blue-500 focus:outline-none" placeholder="Nova senha..." />

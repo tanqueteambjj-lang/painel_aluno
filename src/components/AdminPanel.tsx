@@ -60,6 +60,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     plan: 'Mensal',
     belt: 'Faixa Branca - 0º Grau',
     phone: '',
+    dob: '',
     paymentStatus: 'Em dia',
     parentId: '',
     parentName: ''
@@ -69,6 +70,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     name: '',
     nickname: '',
     studentLogin: '',
+    dob: '',
     plan: '',
     belt: '',
     isGraduationInitial: false
@@ -188,6 +190,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         plan: 'Mensal',
         belt: 'Faixa Branca - 0º Grau',
         phone: '',
+        dob: '',
         paymentStatus: 'Em dia',
         parentId: '',
         parentName: ''
@@ -209,6 +212,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       name: student.name || '',
       nickname: student.nickname || '',
       studentLogin: student.studentLogin || '',
+      dob: student.dob || '',
       plan: student.plan || '',
       belt: student.belt || 'Faixa Branca - 0º Grau',
       isGraduationInitial: false
@@ -223,6 +227,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         name: editFormData.name,
         nickname: editFormData.nickname,
         studentLogin: editFormData.studentLogin,
+        dob: editFormData.dob,
         plan: editFormData.plan,
         belt: editFormData.belt
       };
@@ -2251,14 +2256,25 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               </div>
               
               <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
-                  <input 
-                    type="text" 
-                    value={editFormData.name}
-                    onChange={e => setEditFormData({...editFormData, name: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo</label>
+                    <input 
+                      type="text" 
+                      value={editFormData.name}
+                      onChange={e => setEditFormData({...editFormData, name: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data de Nascimento</label>
+                    <input 
+                      type="date" 
+                      value={editFormData.dob}
+                      onChange={e => setEditFormData({...editFormData, dob: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Apelido</label>
@@ -2546,6 +2562,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red focus:bg-white dark:focus:bg-gray-800 p-3.5 pl-12 rounded-2xl outline-none transition-all dark:text-white font-medium"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 px-1">Data de Nascimento</label>
+                    <input 
+                      type="date" 
+                      value={newStudentData.dob}
+                      onChange={e => setNewStudentData({...newStudentData, dob: e.target.value})}
+                      className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red p-3.5 rounded-2xl outline-none transition-all dark:text-white font-medium"
+                    />
                   </div>
 
                   <div>

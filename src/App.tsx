@@ -1052,10 +1052,15 @@ export default function Dashboard() {
           if (!isAdultPlan) {
             isKids = planStr.includes('infantil') || planStr.includes('kids') || hasKidsBelt || isDependent || isItalo;
             
-            // If age is available (assuming birthDate field might exist or be added)
-            if (data.birthDate) {
-              const birth = parseDateString(data.birthDate);
-              const age = new Date().getFullYear() - birth.getFullYear();
+            // Age detection using dob (Date of Birth)
+            if (data.dob) {
+              const birth = parseDateString(data.dob);
+              const today = new Date();
+              let age = today.getFullYear() - birth.getFullYear();
+              const m = today.getMonth() - birth.getMonth();
+              if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+                age--;
+              }
               if (age < 12) isKids = true;
             }
           } else {
