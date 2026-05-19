@@ -1906,72 +1906,105 @@ export default function Dashboard() {
                     );
                  })()}
 
-              {/* Discreet Finance Alert */}
-              {!isFreePlan && dueDateValue && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  onClick={() => setView('finance')}
-                  className={`mb-6 p-4 rounded-2xl border flex items-center justify-between cursor-pointer group transition-all shadow-sm ${
-                    isLate 
-                      ? 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20' 
-                      : daysUntilDue !== null && daysUntilDue <= 7
-                        ? 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20'
-                        : 'bg-green-500/5 border-green-500/10 hover:bg-green-500/10 opacity-80 hover:opacity-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {isLate ? (
-                      <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shrink-0">
-                        <AlertTriangle className="w-5 h-5 text-white animate-pulse" />
+              {/* Discreet Monthly Payment Status Card */}
+              {(() => {
+                const financeState = (() => {
+                  if (isFreePlan) {
+                    return {
+                      type: 'free',
+                      title: 'Plano Isento / Dependente',
+                      message: 'Seu plano está classificado como Isento / Dependente. Nenhuma pendência!',
+                      subMessage: 'Tudo certo por aqui! Clique para acessar a aba Financeiro.',
+                      className: 'bg-emerald-500/5 border-emerald-500/10 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                      iconBg: 'bg-emerald-500',
+                      icon: CheckCircle,
+                      pulse: false
+                    };
+                  }
+                  
+                  if (!dueDateValue) {
+                    return {
+                      type: 'no_duedate',
+                      title: 'Vencimento não cadastrado',
+                      message: 'Não há um dia de vencimento cadastrado no seu perfil.',
+                      subMessage: 'Clique para falar com o suporte ou gerenciar opções de pagamento.',
+                      className: 'bg-zinc-500/5 border-zinc-500/10 hover:bg-zinc-500/10 text-zinc-500 dark:text-zinc-400',
+                      iconBg: 'bg-zinc-400',
+                      icon: AlertTriangle,
+                      pulse: false
+                    };
+                  }
+                  
+                  if (isLate) {
+                    return {
+                      type: 'late',
+                      title: 'Mensalidade Pendente',
+                      message: 'Sua mensalidade está em aberto. Clique aqui para regularizar com desconto por pontualidade!',
+                      subMessage: `O vencimento original foi em ${formattedDueDate}. Evite bloqueios.`,
+                      className: 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20 text-red-600 dark:text-red-400',
+                      iconBg: 'bg-red-500',
+                      icon: AlertTriangle,
+                      pulse: true
+                    };
+                  }
+                  
+                  if (daysUntilDue !== null && daysUntilDue <= 7) {
+                    return {
+                      type: 'warning',
+                      title: 'Vencimento Próximo',
+                      message: `Sua mensalidade vence em ${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'} (${formattedDueDate}).`,
+                      subMessage: 'Clique aqui se deseja efetuar o pagamento antecipado do seu plano.',
+                      className: 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400',
+                      iconBg: 'bg-amber-500',
+                      icon: Clock,
+                      pulse: false
+                    };
+                  }
+                  
+                  return {
+                    type: 'normal',
+                    title: 'Mensalidade em Dia',
+                    message: `Seu próximo vencimento cadastrado é ${formattedDueDate}.`,
+                    subMessage: 'Tudo completamente em ordem! Clique para ver os detalhes financeiros.',
+                    className: 'bg-green-500/5 border-green-500/10 hover:bg-green-500/10 text-green-600 dark:text-green-400',
+                    iconBg: 'bg-green-500',
+                    icon: CheckCircle,
+                    pulse: false
+                  };
+                })();
+
+                return (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    onClick={() => setView('finance')}
+                    className={`mb-6 p-4 rounded-2xl border flex items-center justify-between cursor-pointer group transition-all shadow-sm ${financeState.className}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${financeState.iconBg}`}>
+                        <financeState.icon className={`w-5 h-5 text-white ${financeState.pulse ? 'animate-pulse' : ''}`} />
                       </div>
-                    ) : daysUntilDue !== null && daysUntilDue <= 7 ? (
-                      <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
-                        <Clock className="w-5 h-5 text-white" />
+                      <div>
+                        <p className="text-[10px] font-black uppercase italic tracking-wider">
+                          {financeState.title}
+                        </p>
+                        <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
+                          {financeState.message}
+                        </p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium tracking-tight">
+                          {financeState.subMessage}
+                        </p>
                       </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shrink-0">
-                        <CheckCircle className="w-5 h-5 text-white" />
-                      </div>
-                    )}
-                    <div>
-                      <p className={`text-[10px] font-black uppercase italic tracking-wider ${
-                        isLate ? 'text-red-600 dark:text-red-400' : 
-                        daysUntilDue !== null && daysUntilDue <= 7 ? 'text-amber-600 dark:text-amber-400' : 
-                        'text-green-600 dark:text-green-400'
-                      }`}>
-                        {isLate ? 'Pagamento Pendente' : 
-                         daysUntilDue !== null && daysUntilDue <= 7 ? 'Vencimento Próximo' : 
-                         'Situação Financeira'}
-                      </p>
-                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                        {isLate 
-                          ? 'Sua mensalidade está em aberto. Clique aqui para regularizar com desconto via recorrência!' 
-                          : daysUntilDue !== null && daysUntilDue <= 7
-                            ? `Seu vencimento é em ${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'} (${formattedDueDate}).`
-                            : `Seu próximo vencimento é ${formattedDueDate}.`}
-                      </p>
-                      {!isLate && daysUntilDue !== null && daysUntilDue > 7 && (
-                        <p className="text-[10px] text-gray-400 font-medium tracking-tight">Tudo certo com seu plano por enquanto!</p>
-                      )}
                     </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-1 group-hover:gap-2 transition-all">
-                      <span className={`text-[10px] font-black uppercase italic ${
-                        isLate ? 'text-red-500' : 
-                        daysUntilDue !== null && daysUntilDue <= 7 ? 'text-amber-500' : 
-                        'text-green-500'
-                      }`}>Ver Financeiro</span>
-                      <ChevronRight size={16} className={`transition-transform ${
-                        isLate ? 'text-red-500' : 
-                        daysUntilDue !== null && daysUntilDue <= 7 ? 'text-amber-500' : 
-                        'text-green-500'
-                      }`} />
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-1 group-hover:gap-2 transition-all">
+                        <span className="text-[10px] font-black uppercase italic">Ver Financeiro</span>
+                        <ChevronRight size={16} className="transition-transform" />
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              )}
+                  </motion.div>
+                );
+              })()}
 
               {/* Check-in Button */}
               <div className="mb-8 no-print">
