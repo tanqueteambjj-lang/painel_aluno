@@ -1454,6 +1454,35 @@ export default function Dashboard() {
   const xpForNextLevel = Math.max(1, Math.pow(userLevel, 2) * 100);
   const progress = Math.min(100, Math.max(0, (userXP / xpForNextLevel) * 100));
 
+  // Due date calculation for the dashboard alert
+  const dueDateValue = activeUserData?.dueDate || activeUserData?.nextDueDate;
+  let formattedDueDate = "Não definido";
+  let daysUntilDue: number | null = null;
+  let isLate = false;
+  let isFreePlan = (activeUserData?.planPrice || 0) === 0 || 
+                   activeUserData?.paymentStatus === 'Isento' || 
+                   activeUserData?.plan?.toLowerCase().includes('isento') || 
+                   activeUserData?.plan?.toLowerCase().includes('dependente');
+
+  if (dueDateValue) {
+    const dateObj = parseDateString(dueDateValue);
+    if (!isNaN(dateObj.getTime())) {
+      formattedDueDate = dateObj.toLocaleDateString('pt-BR');
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(dateObj);
+      due.setHours(0, 0, 0, 0);
+      
+      const diffTime = due.getTime() - today.getTime();
+      daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilDue < 0) {
+        isLate = true;
+      }
+    }
+  }
+
   const calendarDaysList = [];
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   
@@ -1846,6 +1875,42 @@ export default function Dashboard() {
                       </div>
                     );
                  })()}
+
+              {/* Discreet Finance Alert */}
+              {!isFreePlan && daysUntilDue !== null && daysUntilDue <= 7 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => setView('finance')}
+                  className={`mb-6 p-4 rounded-2xl border flex items-center justify-between cursor-pointer group transition-all ${
+                    isLate 
+                      ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' 
+                      : 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {isLate ? (
+                      <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" />
+                    ) : (
+                      <Clock className="w-5 h-5 text-amber-500" />
+                    )}
+                    <div>
+                      <p className={`text-[10px] font-black uppercase italic tracking-wider ${isLate ? 'text-red-500' : 'text-amber-500'}`}>
+                        {isLate ? 'Pagamento Pendente' : 'Vencimento Próximo'}
+                      </p>
+                      <p className="text-xs font-bold text-gray-700 dark:text-gray-200">
+                        {isLate 
+                          ? 'Sua mensalidade está atrasada. Clique aqui para regularizar agora.' 
+                          : `Seu vencimento é daqui a ${daysUntilDue} dias (${formattedDueDate}). Clique para ver detalhes.`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 group-hover:gap-2 transition-all">
+                    <span className={`text-[10px] font-black uppercase italic ${isLate ? 'text-red-500' : 'text-amber-500'}`}>Ver Financeiro</span>
+                    <ChevronRight size={16} className={`transition-transform ${isLate ? 'text-red-500' : 'text-amber-500'}`} />
+                  </div>
+                </motion.div>
+              )}
 
               {/* Check-in Button */}
               <div className="mb-8 no-print">

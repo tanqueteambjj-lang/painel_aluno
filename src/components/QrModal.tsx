@@ -135,7 +135,7 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] p-6 pt-12 text-center max-w-sm w-full relative flex flex-col items-center border border-gray-100 dark:border-gray-700 my-auto"
+            className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] p-5 pt-10 text-center max-w-sm w-full relative flex flex-col items-center border border-white/20 my-auto"
           >
             <button 
               onClick={onClose} 
@@ -145,116 +145,100 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
               <X className="w-8 h-8" />
             </button>
 
-            <h3 className="font-display font-black text-2xl mb-8 uppercase flex items-center justify-center gap-3 text-gray-800 dark:text-white tracking-tighter">
-              <div className="w-2 h-10 bg-brand-red rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-              Identidade do Atleta
+            <h3 className="font-display font-black text-xl mb-4 uppercase flex items-center justify-center gap-3 text-gray-800 dark:text-white tracking-tighter">
+              <div className="w-1.5 h-8 bg-brand-red rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+              Identidade Digital
             </h3>
             
             {/* ID Card */}
-            <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black rounded-[2.5rem] overflow-hidden relative shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] flex flex-col w-full max-w-[380px] mx-auto group/card border border-white/5">
+            <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black rounded-[2rem] overflow-hidden relative shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] flex flex-col w-full max-w-[340px] mx-auto group/card border border-white/10">
               
               {/* Background Pattern */}
-              <div className="absolute inset-0 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] mix-blend-overlay pointer-events-none"></div>
+              <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] mix-blend-overlay pointer-events-none"></div>
               
               {/* Watermark Logo */}
-              <div className="absolute -right-12 -bottom-12 opacity-[0.03] w-72 h-72 pointer-events-none rotate-12">
+              <div className="absolute -right-8 -bottom-8 opacity-[0.03] w-56 h-56 pointer-events-none rotate-12">
                 <img src="https://iili.io/qC543c7.png" className="w-full h-full object-contain" alt="" />
               </div>
 
               {/* Red Accent Top */}
-              <div className="h-3 w-full bg-gradient-to-r from-red-800 via-brand-red to-red-800 shadow-[0_4px_10px_rgba(0,0,0,0.3)]"></div>
+              <div className="h-1.5 w-full bg-gradient-to-r from-red-800 via-brand-red to-red-800 shadow-[0_4px_10px_rgba(0,0,0,0.3)]"></div>
 
               {/* Header */}
-              <div className="p-4 sm:p-6 flex items-center justify-between shrink-0 relative z-10 border-b border-white/5 bg-black/20 backdrop-blur-sm">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="relative h-12 w-12 sm:h-14 sm:w-14 bg-white rounded-2xl p-1.5 shadow-2xl transform">
-                    <img src="https://iili.io/qC543c7.png" loading="lazy" className="w-full h-full object-contain drop-shadow-md" alt="Logo" />
-                    <div className="absolute -inset-0.5 rounded-2xl border border-black/10"></div>
+              <div className="p-4 flex items-center justify-between shrink-0 relative z-10 bg-white/5 backdrop-blur-md">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-white rounded-xl p-1.5 shadow-2xl">
+                    <img src="https://iili.io/qC543c7.png" loading="lazy" className="w-full h-full object-contain" alt="Logo" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="font-display font-black text-base sm:text-lg tracking-[0.2em] sm:tracking-[0.25em] uppercase text-white drop-shadow-md leading-none italic">TANQUE TEAM</span>
-                    <span className="text-[10px] sm:text-[11px] text-brand-red font-black uppercase tracking-[0.4em] mt-2 flex items-center gap-2">
-                       JIU-JITSU
-                    </span>
+                    <span className="font-display font-black text-sm tracking-[0.15em] uppercase text-white leading-none italic">TANQUE TEAM</span>
+                    <span className="text-[9px] text-brand-red font-black uppercase tracking-[0.3em] mt-1">JIU-JITSU</span>
                   </div>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${isBlocked ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-emerald-500 text-emerald-500 bg-emerald-500/10'} uppercase tracking-widest`}>
+                    {isBlocked ? 'BLOQUEADO' : 'ATIVO'}
+                  </span>
                 </div>
               </div>
               
               {/* Body */}
-              <div className="flex flex-row items-center relative z-10 p-5 sm:p-6 gap-5 sm:gap-6">
-                
-                {/* Photo Container with Reflection */}
-                <div className="relative group/photo">
-                  <div className="w-24 h-32 sm:w-32 sm:h-44 bg-zinc-800 rounded-2xl border-2 border-white/10 shadow-2xl overflow-hidden flex-shrink-0 relative z-10">
+              <div className="flex flex-row items-center relative z-10 px-5 py-4 gap-4">
+                {/* Photo */}
+                <div className="relative shrink-0">
+                  <div className="w-20 h-24 bg-zinc-800 rounded-xl border border-white/20 shadow-2xl overflow-hidden relative z-10">
                     {userData.photoBase64 ? (
-                      <img src={userData.photoBase64} loading="lazy" className="w-full h-full object-cover grayscale-[0.2] group-hover/photo:grayscale-0 transition-all duration-500" alt="Profile" />
+                      <img src={userData.photoBase64} loading="lazy" className="w-full h-full object-cover grayscale-[0.1] hover:grayscale-0 transition-all duration-500" alt="Profile" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-zinc-600 font-bold text-5xl sm:text-6xl font-display bg-gradient-to-br from-zinc-800 to-zinc-900">
+                      <div className="w-full h-full flex items-center justify-center text-zinc-600 font-bold text-4xl font-display bg-gradient-to-br from-zinc-800 to-zinc-900">
                         {userData.name.charAt(0).toUpperCase()}
                       </div>
                     )}
-                    {/* Shadow inner overlay */}
-                    <div className="absolute inset-0 shadow-[inset_0_0_40px_rgba(0,0,0,0.5)] pointer-events-none"></div>
                   </div>
-                  {/* Decorative Elements */}
-                  <div className="absolute -left-2 -bottom-2 w-10 h-10 border-l-4 border-b-4 border-brand-red rounded-bl-xl opacity-50"></div>
-                  <div className="absolute -right-2 -top-2 w-10 h-10 border-r-4 border-t-4 border-white/20 rounded-tr-xl opacity-30"></div>
+                  <div className="absolute -left-1 -bottom-1 w-6 h-6 border-l-2 border-b-2 border-brand-red rounded-bl-lg opacity-40"></div>
                 </div>
                 
                 {/* Info Area */}
-                <div className="text-left flex-1 flex flex-col justify-center min-w-0">
-                  <h4 className="font-display font-black text-xl sm:text-2xl text-white leading-tight uppercase tracking-tight drop-shadow-xl mb-4 truncate italic" title={userData.name}>{displayName}</h4>
+                <div className="text-left flex-1 min-w-0">
+                  <h4 className="font-display font-black text-lg text-white leading-tight uppercase tracking-tight mb-2 truncate italic" title={userData.name}>{displayName}</h4>
                   
-                  <div className="space-y-4">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] text-brand-red uppercase font-black tracking-widest mb-1">Graduação Oficial</span>
-                      <div className="px-3 py-2 bg-white/5 rounded-lg border border-white/10 backdrop-blur-sm">
-                        <span className="text-xs sm:text-sm text-zinc-100 font-bold uppercase flex items-center gap-2 truncate">
-                          {userData.belt || "Faixa Branca"}
-                        </span>
-                      </div>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-[8px] text-brand-red uppercase font-black tracking-widest block mb-0.5">Graduação</span>
+                      <span className="text-xs text-zinc-100 font-bold uppercase truncate bg-white/5 px-2 py-0.5 rounded border border-white/10 inline-block">
+                        {userData.belt || "Faixa Branca"}
+                      </span>
                     </div>
 
-                    <div className="flex flex-col">
-                      <span className="text-[9px] text-zinc-500 uppercase font-black tracking-widest mb-1">ID Atleta</span>
-                      <span className="text-[11px] font-mono font-bold text-zinc-400">#{userData.id.substring(0, 8).toUpperCase()}</span>
+                    <div>
+                      <span className="text-[8px] text-zinc-500 uppercase font-black tracking-widest block">ID Atleta</span>
+                      <span className="text-[10px] font-mono font-bold text-zinc-400">#{userData.id.substring(0, 8).toUpperCase()}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Digital DNA Section (QR) */}
-              <div className="bg-white p-6 sm:p-8 flex flex-col items-center justify-center relative z-10 gap-6 rounded-t-[3rem] shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
-                <div className="w-full flex items-center justify-between px-2">
-                  <span className="text-[10px] bg-zinc-950 text-white px-4 py-1.5 rounded-full font-black uppercase tracking-[0.2em] shadow-lg">
+              {/* QR Section */}
+              <div className="bg-white px-5 py-5 flex flex-row items-center justify-between relative z-10 rounded-t-[2.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.15)]">
+                <div className="flex flex-col items-start gap-2">
+                  <span className="text-[9px] bg-zinc-950 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.15em]">
                     {planShort}
                   </span>
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 rounded-full">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                    <span className="text-[10px] font-black text-green-700 uppercase tracking-widest">{isBlocked ? 'BLOQUEADO' : 'ATIVO'}</span>
+                  <div className="text-left">
+                    <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-[0.2em] mb-0.5">Acesso Digital</p>
+                    <p className="text-[8px] text-zinc-300 font-medium">SIATG - Tanque Team</p>
                   </div>
                 </div>
 
-                <div className="relative group/qr">
-                  <div className="absolute -inset-4 bg-gradient-to-tr from-brand-red/10 to-transparent rounded-[2rem] blur-xl opacity-0 group-hover/qr:opacity-100 transition-opacity"></div>
-                  <div className="bg-white p-4 rounded-[2rem] shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-gray-100 relative z-10 transition-transform group-hover/qr:scale-[1.02]">
-                    {isBlocked ? (
-                      <div className="flex flex-col items-center justify-center w-[160px] h-[160px] sm:w-[200px] sm:h-[200px] text-center bg-red-50 rounded-2xl p-6 border-2 border-dashed border-red-200">
-                        <Lock className="text-red-500 w-16 h-16 mb-4" />
-                        <h5 className="text-sm text-red-700 font-black uppercase tracking-tight">Assinatura Pendente</h5>
-                        <p className="text-[10px] text-red-500 mt-2 font-medium leading-tight opacity-70">
-                          {isInactive ? "Matrícula inativa no sistema." : "Sua última mensalidade não foi identificada."}
-                        </p>
-                      </div>
-                    ) : (
-                      <QRCodeSVG value={userData.id} size={200} level="H" className="w-[160px] h-[160px] sm:w-[200px] sm:h-[200px]" />
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-center">
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-[0.3em] mb-1">Acesso Autorizado</p>
-                  <p className="text-[9px] text-zinc-300 font-medium">Documento gerado pelo SIATG - Tanque Team BJJ</p>
+                <div className="bg-white p-2 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-gray-50">
+                  {isBlocked ? (
+                    <div className="flex flex-col items-center justify-center w-[80px] h-[80px] bg-red-50 rounded-xl p-1 border border-dashed border-red-200">
+                      <Lock className="text-red-500 w-6 h-6" />
+                      <span className="text-[6px] text-red-700 font-black uppercase mt-1">BLOQUEADO</span>
+                    </div>
+                  ) : (
+                    <QRCodeSVG value={userData.id} size={80} level="H" className="w-[80px] h-[80px]" />
+                  )}
                 </div>
               </div>
             </div>
