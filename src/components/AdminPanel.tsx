@@ -1827,10 +1827,14 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               {/* Plans Statistics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 {(Array.isArray(dbPlans) ? dbPlans : []).map(plan => {
-                  const count = allStudents.filter(s => s.plan && s.plan.toLowerCase().includes(plan.name.toLowerCase())).length;
+                  const planName = plan && typeof plan.name === 'string' ? plan.name : '';
+                  const count = !planName ? 0 : (Array.isArray(allStudents) ? allStudents : []).filter(s => {
+                    const studentPlan = s && typeof s.plan === 'string' ? s.plan : '';
+                    return studentPlan.toLowerCase().includes(planName.toLowerCase());
+                  }).length;
                   return (
-                    <div key={plan.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col">
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate">{plan.name}</span>
+                    <div key={plan?.id || Math.random().toString()} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate">{planName || "Sem Nome"}</span>
                       <span className="text-2xl font-black text-brand-red italic">{count}</span>
                       <span className="text-[9px] text-gray-500 font-bold uppercase italic">Alunos Ativos</span>
                     </div>
@@ -1944,119 +1948,123 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     </button>
                   </div>
                 ) : (
-                  (Array.isArray(dbPlans) ? dbPlans : []).map(plan => (
-                    <div key={plan.id} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
-                      <div className="absolute top-4 right-4 flex gap-2 transition opacity-0 group-hover:opacity-100">
-                        <button 
-                          onClick={() => setEditingPlan(plan)}
-                          className="text-gray-300 hover:text-brand-red"
-                          title="Editar Plano"
-                        >
-                          <Edit3 size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDeletePlan(plan.id)}
-                          className="text-gray-300 hover:text-red-500"
-                          title="Excluir Plano"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                      
-                      {editingPlan?.id === plan.id ? (
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nome</label>
-                            <input 
-                              type="text" 
-                              value={editingPlan.name}
-                              onChange={(e) => setEditingPlan({...editingPlan, name: e.target.value})}
-                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Pontual</label>
-                              <input 
-                                type="number" 
-                                value={editingPlan.price}
-                                onChange={(e) => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Integral</label>
-                              <input 
-                                type="number" 
-                                value={editingPlan.basePrice}
-                                onChange={(e) => setEditingPlan({...editingPlan, basePrice: parseFloat(e.target.value)})}
-                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Duração (Meses)</label>
-                            <select 
-                              value={editingPlan.durationMonths || 12}
-                              onChange={(e) => setEditingPlan({...editingPlan, durationMonths: parseInt(e.target.value)})}
-                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                            >
-                              <option value={1}>1 Mês</option>
-                              <option value={3}>3 Meses</option>
-                              <option value={6}>6 Meses</option>
-                              <option value={12}>12 Meses</option>
-                              <option value={24}>24 Meses</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Link de Assinatura (Mercado Pago)</label>
-                            <input 
-                              type="text" 
-                              value={editingPlan.mercadopagoLink}
-                              onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLink: e.target.value})}
-                              placeholder="https://..."
-                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white mb-2"
-                            />
-                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Link Avulso - Atrasado (Mercado Pago)</label>
-                            <input 
-                              type="text" 
-                              value={editingPlan.mercadopagoLateLink}
-                              onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLateLink: e.target.value})}
-                              placeholder="https://..."
-                              className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
-                            />
-                          </div>
-                          <div className="flex gap-2 pt-2">
-                            <button onClick={handleUpdatePlan} className="bg-brand-red text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Salvar</button>
-                            <button onClick={() => setEditingPlan(null)} className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Canc</button>
-                          </div>
+                  (Array.isArray(dbPlans) ? dbPlans : []).map(plan => {
+                    if (!plan) return null;
+                    const planName = typeof plan.name === 'string' ? plan.name : '';
+                    return (
+                      <div key={plan.id || Math.random().toString()} className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative group">
+                        <div className="absolute top-4 right-4 flex gap-2 transition opacity-0 group-hover:opacity-100">
+                          <button 
+                            onClick={() => setEditingPlan(plan)}
+                            className="text-gray-300 hover:text-brand-red"
+                            title="Editar Plano"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeletePlan(plan.id)}
+                            className="text-gray-300 hover:text-red-500"
+                            title="Excluir Plano"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
-                      ) : (
-                        <>
-                          <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{plan.name}</h4>
-                          <div className="space-y-2 mb-6">
-                            <div className="flex justify-between text-lg mb-2">
-                              <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
-                              <span className="font-black text-green-600">R$ {typeof plan.price === 'number' ? plan.price.toFixed(2).replace('.', ',') : (plan.price || 0)}</span>
+                        
+                        {editingPlan?.id === plan.id ? (
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Nome</label>
+                              <input 
+                                type="text" 
+                                value={editingPlan.name || ''}
+                                onChange={(e) => setEditingPlan({...editingPlan, name: e.target.value})}
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                              />
                             </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
-                              <span className="font-bold text-gray-500">R$ {typeof plan.basePrice === 'number' ? plan.basePrice.toFixed(2).replace('.', ',') : (plan.basePrice || 0)}</span>
-                            </div>
-                            <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700 space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Link de Recorrência (MP):</p>
-                                <p className={`font-mono text-[10px] truncate ${plan.mercadopagoLink ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50 font-bold'} dark:bg-gray-900 p-2 rounded flex items-center justify-between`}>
-                                  <span>{plan.mercadopagoLink ? "Link Configurado" : 'Pendente - Clique em Editar e cole o link'}</span>
-                                  {plan.mercadopagoLink ? <LinkIcon size={12} className="text-green-500" /> : <AlertTriangle size={12} className="animate-pulse" />}
-                                </p>
+                                <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Pontual</label>
+                                <input 
+                                  type="number" 
+                                  value={editingPlan.price || 0}
+                                  onChange={(e) => setEditingPlan({...editingPlan, price: parseFloat(e.target.value)})}
+                                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Integral</label>
+                                <input 
+                                  type="number" 
+                                  value={editingPlan.basePrice || 0}
+                                  onChange={(e) => setEditingPlan({...editingPlan, basePrice: parseFloat(e.target.value)})}
+                                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                                />
                               </div>
                             </div>
+                            <div>
+                              <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Duração (Meses)</label>
+                              <select 
+                                value={editingPlan.durationMonths || 12}
+                                onChange={(e) => setEditingPlan({...editingPlan, durationMonths: parseInt(e.target.value)})}
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                              >
+                                <option value={1}>1 Mês</option>
+                                <option value={3}>3 Meses</option>
+                                <option value={6}>6 Meses</option>
+                                <option value={12}>12 Meses</option>
+                                <option value={24}>24 Meses</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Link de Assinatura (Mercado Pago)</label>
+                              <input 
+                                type="text" 
+                                value={editingPlan.mercadopagoLink || ''}
+                                onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLink: e.target.value})}
+                                placeholder="https://..."
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white mb-2"
+                              />
+                              <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Link Avulso - Atrasado (Mercado Pago)</label>
+                              <input 
+                                type="text" 
+                                value={editingPlan.mercadopagoLateLink || ''}
+                                onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLateLink: e.target.value})}
+                                placeholder="https://..."
+                                className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white"
+                              />
+                            </div>
+                            <div className="flex gap-2 pt-2">
+                              <button onClick={handleUpdatePlan} className="bg-brand-red text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Salvar</button>
+                              <button onClick={() => setEditingPlan(null)} className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-1 rounded-lg text-[10px] font-bold uppercase italic">Canc</button>
+                            </div>
                           </div>
-                        </>
-                      )}
-                    </div>
-                  ))
+                        ) : (
+                          <>
+                            <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{planName || 'Plano Sem Nome'}</h4>
+                            <div className="space-y-2 mb-6">
+                              <div className="flex justify-between text-lg mb-2">
+                                <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
+                                <span className="font-black text-green-600">R$ {typeof plan.price === 'number' ? plan.price.toFixed(2).replace('.', ',') : (plan.price || 0)}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400 font-bold uppercase text-[10px]">Integral:</span>
+                                <span className="font-bold text-gray-500">R$ {typeof plan.basePrice === 'number' ? plan.basePrice.toFixed(2).replace('.', ',') : (plan.basePrice || 0)}</span>
+                              </div>
+                              <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700 space-y-3">
+                                <div>
+                                  <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Link de Recorrência (MP):</p>
+                                  <p className={`font-mono text-[10px] truncate ${plan.mercadopagoLink ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50 font-bold'} dark:bg-gray-900 p-2 rounded flex items-center justify-between`}>
+                                    <span>{plan.mercadopagoLink ? "Link Configurado" : 'Pendente - Clique em Editar e cole o link'}</span>
+                                    {plan.mercadopagoLink ? <LinkIcon size={12} className="text-green-500" /> : <AlertTriangle size={12} className="animate-pulse" />}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </motion.div>
