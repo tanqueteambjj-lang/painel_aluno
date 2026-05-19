@@ -1017,7 +1017,7 @@ export default function Dashboard() {
           let lastMonthCount = 0;
           if(data.attendance && data.attendance.length > 0) {
             data.attendance.forEach((d: string) => {
-              const dateObj = new Date(d + 'T12:00:00');
+              const dateObj = parseDateString(d);
               if(dateObj.getMonth() === currentMonth && dateObj.getFullYear() === currentYear) monthCount++;
               if(dateObj.getMonth() === lastMonth && dateObj.getFullYear() === lastYear) lastMonthCount++;
             });
@@ -1040,9 +1040,28 @@ export default function Dashboard() {
           };
 
           const planStr = (data.plan || '').toLowerCase();
+          const beltStr = (data.belt || '').toLowerCase();
           const isAdultPlan = planStr.includes('adulto');
           const isItalo = (data.name || '').toUpperCase().includes("ITALO DOS ANJOS SALES");
-          const isKids = ((planStr.includes('infantil') || planStr.includes('kids')) && !isAdultPlan) || isItalo;
+          
+          // Enhanced Kids Detection (Students with kids belts or dependents are kids UNLESS explicitly on an adult plan)
+          const hasKidsBelt = beltStr.includes('cinza') || beltStr.includes('amarela') || beltStr.includes('laranja') || beltStr.includes('verde');
+          const isDependent = !!data.parentId;
+          
+          let isKids = false;
+          if (!isAdultPlan) {
+            isKids = planStr.includes('infantil') || planStr.includes('kids') || hasKidsBelt || isDependent || isItalo;
+            
+            // If age is available (assuming birthDate field might exist or be added)
+            if (data.birthDate) {
+              const birth = parseDateString(data.birthDate);
+              const age = new Date().getFullYear() - birth.getFullYear();
+              if (age < 12) isKids = true;
+            }
+          } else {
+            // Explicitly Adult Plan always stays in Adult Ranking
+            isKids = false;
+          }
           
           if (isKids) {
             if (monthCount > 0) rankInfantil.push({...studentItem});
@@ -1877,37 +1896,68 @@ export default function Dashboard() {
                  })()}
 
               {/* Discreet Finance Alert */}
-              {!isFreePlan && daysUntilDue !== null && daysUntilDue <= 7 && (
+              {!isFreePlan && dueDateValue && (
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => setView('finance')}
-                  className={`mb-6 p-4 rounded-2xl border flex items-center justify-between cursor-pointer group transition-all ${
+                  className={`mb-6 p-4 rounded-2xl border flex items-center justify-between cursor-pointer group transition-all shadow-sm ${
                     isLate 
-                      ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' 
-                      : 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15'
+                      ? 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20' 
+                      : daysUntilDue !== null && daysUntilDue <= 7
+                        ? 'bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20'
+                        : 'bg-green-500/5 border-green-500/10 hover:bg-green-500/10 opacity-80 hover:opacity-100'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     {isLate ? (
-                      <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" />
+                      <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shrink-0">
+                        <AlertTriangle className="w-5 h-5 text-white animate-pulse" />
+                      </div>
+                    ) : daysUntilDue !== null && daysUntilDue <= 7 ? (
+                      <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+                        <Clock className="w-5 h-5 text-white" />
+                      </div>
                     ) : (
-                      <Clock className="w-5 h-5 text-amber-500" />
+                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                        <CheckCircle className="w-5 h-5 text-white" />
+                      </div>
                     )}
                     <div>
-                      <p className={`text-[10px] font-black uppercase italic tracking-wider ${isLate ? 'text-red-500' : 'text-amber-500'}`}>
-                        {isLate ? 'Pagamento Pendente' : 'Vencimento Próximo'}
+                      <p className={`text-[10px] font-black uppercase italic tracking-wider ${
+                        isLate ? 'text-red-600 dark:text-red-400' : 
+                        daysUntilDue !== null && daysUntilDue <= 7 ? 'text-amber-600 dark:text-amber-400' : 
+                        'text-green-600 dark:text-green-400'
+                      }`}>
+                        {isLate ? 'Pagamento Pendente' : 
+                         daysUntilDue !== null && daysUntilDue <= 7 ? 'Vencimento Próximo' : 
+                         'Situação Financeira'}
                       </p>
-                      <p className="text-xs font-bold text-gray-700 dark:text-gray-200">
+                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
                         {isLate 
-                          ? 'Sua mensalidade está atrasada. Clique aqui para regularizar agora.' 
-                          : `Seu vencimento é daqui a ${daysUntilDue} dias (${formattedDueDate}). Clique para ver detalhes.`}
+                          ? 'Sua mensalidade está em aberto. Clique aqui para regularizar com desconto via recorrência!' 
+                          : daysUntilDue !== null && daysUntilDue <= 7
+                            ? `Seu vencimento é em ${daysUntilDue} ${daysUntilDue === 1 ? 'dia' : 'dias'} (${formattedDueDate}).`
+                            : `Seu próximo vencimento é ${formattedDueDate}.`}
                       </p>
+                      {!isLate && daysUntilDue !== null && daysUntilDue > 7 && (
+                        <p className="text-[10px] text-gray-400 font-medium tracking-tight">Tudo certo com seu plano por enquanto!</p>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 group-hover:gap-2 transition-all">
-                    <span className={`text-[10px] font-black uppercase italic ${isLate ? 'text-red-500' : 'text-amber-500'}`}>Ver Financeiro</span>
-                    <ChevronRight size={16} className={`transition-transform ${isLate ? 'text-red-500' : 'text-amber-500'}`} />
+                  <div className="flex flex-col items-end">
+                    <div className="flex items-center gap-1 group-hover:gap-2 transition-all">
+                      <span className={`text-[10px] font-black uppercase italic ${
+                        isLate ? 'text-red-500' : 
+                        daysUntilDue !== null && daysUntilDue <= 7 ? 'text-amber-500' : 
+                        'text-green-500'
+                      }`}>Ver Financeiro</span>
+                      <ChevronRight size={16} className={`transition-transform ${
+                        isLate ? 'text-red-500' : 
+                        daysUntilDue !== null && daysUntilDue <= 7 ? 'text-amber-500' : 
+                        'text-green-500'
+                      }`} />
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -2427,8 +2477,8 @@ export default function Dashboard() {
                         isAdmin={isAdmin} 
                         activeTab={rankingTab}
                         onTabChange={setRankingTab}
-                        title={rankingTab === 'presence' ? "Ranking Adulto / Geral" : "Mestres da Técnica (Adulto)"}
-                        subtitle={rankingTab === 'presence' ? "Os 10 guerreiros que mais treinaram neste mês." : "Ranking geral de XP acumulado."}
+                        title={rankingTab === 'presence' ? "Hall da Fama - Adultos" : "Mestres da Técnica (Geral)"}
+                        subtitle={rankingTab === 'presence' ? "Guerreiros com maior constância nos treinos este mês." : "Ranking histórico de XP acumulado."}
                       />
                     )}
                     
@@ -2440,8 +2490,8 @@ export default function Dashboard() {
                         isAdmin={isAdmin} 
                         activeTab={rankingTab}
                         onTabChange={setRankingTab}
-                        title={rankingTab === 'presence' ? "Ranking Infantil" : "Pequenos Samurais (Infantil)"}
-                        subtitle={rankingTab === 'presence' ? "Os 10 pequenos guerreiros que mais treinaram neste mês." : "Ranking infantil de XP acumulado."}
+                        title={rankingTab === 'presence' ? "Hall da Fama - Kids" : "Pequenos Samurais (Hall XP)"}
+                        subtitle={rankingTab === 'presence' ? "Pequenos guerreiros com maior constância nos treinos." : "Ranking histórico de XP infantil."}
                       />
                     )}
                   </div>

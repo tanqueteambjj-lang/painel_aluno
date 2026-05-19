@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer, Shield, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer, Shield, CreditCard, ExternalLink, Loader2, Zap } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ReceiptModal from './ReceiptModal';
 import { collection, getDocs, updateDoc, doc, arrayUnion } from 'firebase/firestore';
@@ -235,33 +235,43 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                 <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 mb-8">
                   {isLate && (
                     <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="mb-4 p-3 bg-amber-500/20 border border-amber-500/30 rounded-2xl flex items-center gap-3 overflow-hidden"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mb-6 p-5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-2 border-amber-500/40 rounded-3xl flex items-center gap-4 shadow-lg shadow-amber-500/10"
                     >
-                      <Award className="w-8 h-8 text-amber-500 shrink-0 animate-bounce" />
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                        <Zap className="w-7 h-7 text-white animate-pulse" />
+                      </div>
                       <div>
-                        <p className="text-[10px] font-black text-amber-500 uppercase italic">Oportunidade de Desconto</p>
-                        <p className="text-[10px] text-amber-500/90 font-bold leading-tight">
-                          Ative a <span className="underline">Recorrência Automática</span> agora e pague o <span className="font-black">VALOR COM DESCONTO</span> (R$ {initialPrice.toFixed(2).replace('.', ',')}) mesmo estando em atraso!
+                        <p className="text-xs font-black text-amber-500 uppercase italic tracking-wider mb-1">Dica de mestre!</p>
+                        <p className="text-sm text-white/90 font-bold leading-tight">
+                          Ative a <span className="text-amber-400 underline decoration-amber-400/50 underline-offset-4">Recorrência Automática</span> e pague o <span className="text-emerald-400 font-extrabold">VALOR COM DESCONTO</span> mesmo estando em atraso!
                         </p>
+                        <p className="text-[10px] text-amber-500/70 font-bold mt-1 uppercase tracking-tighter">Economize agora: R$ {(basePrice - initialPrice).toFixed(2).replace('.', ',')} de desconto imediato.</p>
                       </div>
                     </motion.div>
                   )}
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex flex-col">
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase italic w-fit mb-1 ${isLate ? 'bg-amber-500/20 text-amber-500' : 'bg-brand-red text-white'}`}>
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase italic w-fit mb-1 shadow-sm ${isLate ? 'bg-amber-500 text-white' : 'bg-brand-red text-white'}`}>
                         {isLate ? 'Vencimento Excedido' : 'Valor em Dia'}
                       </span>
+                      <span className="text-gray-400 text-[10px] uppercase font-bold italic tracking-wider">
+                        {isLate ? (
+                          <>Original: <span className="line-through">R$ {initialPrice.toFixed(2).replace('.', ',')}</span></>
+                        ) : (
+                          <>Valor de Tabela: <span className="line-through">R$ {basePrice.toFixed(2).replace('.', ',')}</span></>
+                        )}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className={`font-black text-3xl italic leading-none block ${isLate ? 'text-amber-500' : 'text-brand-red'}`}>
+                        R$ {planPrice.toFixed(2).replace('.', ',')}
+                      </span>
                       {isLate && (
-                        <span className="text-gray-400 text-[10px] uppercase font-bold italic line-through tracking-wider">
-                          R$ {initialPrice.toFixed(2).replace('.', ',')} (Pontual)
-                        </span>
+                        <span className="text-[9px] text-amber-500/70 font-bold uppercase tracking-tighter">Valor Integral c/ Atraso</span>
                       )}
                     </div>
-                    <span className={`font-black text-2xl italic leading-none ${isLate ? 'text-amber-500' : 'text-brand-red'}`}>
-                      R$ {planPrice.toFixed(2).replace('.', ',')}
-                    </span>
                   </div>
                   <h4 className="text-white font-black text-2xl uppercase italic tracking-tight">{planName}</h4>
                 </div>
@@ -272,21 +282,19 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                     whileTap={{ scale: 0.98 }}
                     disabled={isPaying || !matchedPlan?.mercadopagoLink}
                     onClick={() => handlePayment(true)}
-                    className="flex-1 bg-gradient-to-r from-brand-red to-red-600 text-white px-8 py-5 rounded-2xl font-black uppercase italic tracking-tighter text-base flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed relative group/btn overflow-hidden"
+                    className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-8 py-5 rounded-3xl font-black uppercase italic tracking-tighter text-lg flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-emerald-500/20"
                     title={!matchedPlan?.mercadopagoLink ? "Plano de assinatura não configurado pelo administrador." : ""}
                   >
-                    <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover/btn:translate-x-[100%] transition-transform duration-700 skew-x-[45deg]"></div>
-                    {isPaying ? <Loader2 className="w-6 h-6 animate-spin" /> : <Clock className="w-6 h-6" />}
-                    {initialPrice < basePrice ? (
-                      <div className="flex flex-col items-center leading-tight">
-                        <span className="text-[10px] opacity-70 line-through font-bold tracking-widest">R$ {basePrice.toFixed(2).replace('.', ',')}</span>
-                        <span className="flex items-center gap-1">
-                          Ativar Recorrência - R$ {initialPrice.toFixed(2).replace('.', ',')}
-                        </span>
-                      </div>
-                    ) : (
-                      `Ativar Recorrência - R$ ${initialPrice.toFixed(2).replace('.', ',')}`
-                    )}
+                    <div className="flex flex-col items-center leading-tight">
+                      <span className="text-[10px] opacity-80 font-bold tracking-widest flex items-center gap-2">
+                        {isLate && <span className="line-through opacity-50">R$ {basePrice.toFixed(2).replace('.', ',')}</span>}
+                        <span>PAGUE COM DESCONTO AGORA</span>
+                      </span>
+                      <span className="flex items-center gap-2 text-xl">
+                        {isPaying ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className="w-5 h-5 fill-yellow-400 text-yellow-400" />}
+                        Ativar Recorrência - R$ {initialPrice.toFixed(2).replace('.', ',')}
+                      </span>
+                    </div>
                   </motion.button>
 
                   <motion.button

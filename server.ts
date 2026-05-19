@@ -3,7 +3,6 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import cors from "cors";
 import dotenv from "dotenv";
-import Stripe from "stripe";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import * as admin from 'firebase-admin';
 
@@ -22,10 +21,6 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
-
-// Stripe Setup
-const STRIPE_SECRET = process.env.STRIPE_SECRET_KEY || 'sk_test_51TX0MCK3Sea0s4uAI8qtqFHfmREy7NjwXY5XBxcwhK8pqkM1dRFENUizVFfRI2m6lMGcaTipYvWMOhifJDJKf7vU00sQY4HJtL';
-const stripe = new Stripe(STRIPE_SECRET);
 
 // Mercado Pago Setup
 const MP_ACCESS_TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN || 'APP_USR-5825120061754229-022016-ecb35610bbb69399336717aaf09d0539-89303803';
@@ -46,85 +41,9 @@ app.get("/api/health", (req, res) => {
   res.json({ 
     status: "ok", 
     mode: process.env.NODE_ENV,
-    stripe: !!STRIPE_SECRET,
     mp: !!MP_ACCESS_TOKEN
   });
 });
-
-// --- STRIPE CHECKOUT ---
-const stripeHandler = async (req: express.Request, res: express.Response) => {
-  console.log(`[Stripe Handler] ${req.method} ${req.url}`);
-  console.log("Request Body:", JSON.stringify(req.body));
-  
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: `Method ${req.method} Not Allowed. Use POST.` });
-  }
-
-  try {
-    const { planName, price, studentId, studentEmail, recurring = false, priceId } = req.body;
-    
-    if (priceId && priceId.startsWith('prod_')) {
-      return res.status(400).json({ 
-        error: "ID de Produto detectado. O Stripe exige um 'ID de Preço' (que começa com 'price_'), não um 'ID de Produto' (que começa com 'prod_'). Por favor, verifique as configurações do plano no Painel Administrativo.",
-        code: 'invalid_price_id_type'
-      });
-    }
-
-    if (!studentId) {
-      return res.status(400).json({ error: "O ID do aluno é obrigatório. (Backend Error: Missing studentId)" });
-    }
-
-    const unitAmount = Math.round(Number(price || 0) * 100);
-    if (!priceId && unitAmount <= 0) {
-      return res.status(400).json({ error: "O valor do plano deve ser maior que zero." });
-    }
-
-    const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = priceId ? {
-      price: priceId,
-      quantity: 1,
-    } : {
-      price_data: {
-        currency: "brl",
-        product_data: {
-          name: planName || "Mensalidade Jiu-Jitsu",
-        },
-        unit_amount: unitAmount,
-        ...(recurring ? { recurring: { interval: 'month' } } : {})
-      },
-      quantity: 1,
-    };
-
-    const origin = req.headers.origin || (process.env.APP_URL || "http://localhost:3000");
-    const appUrl = origin.endsWith('/') ? origin.slice(0, -1) : origin;
-
-    console.log(`Using App URL for success/cancel: ${appUrl}`);
-
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [lineItem],
-      mode: (recurring || priceId) ? "subscription" : "payment",
-      success_url: `${appUrl}/financeiro?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/financeiro`,
-      client_reference_id: studentId,
-      metadata: { studentId, planName: planName || "" },
-      customer_email: (studentEmail && typeof studentEmail === 'string' && studentEmail.includes('@')) ? studentEmail.trim() : undefined,
-    });
-
-    console.log("Stripe Session Created:", session.id);
-    return res.json({ id: session.id, url: session.url });
-  } catch (error: any) {
-    console.error("Stripe Backend Error Detail:", error);
-    return res.status(500).json({ 
-      error: error.message || "Erro interno ao processar Stripe",
-      type: error.type,
-      raw: process.env.NODE_ENV !== 'production' ? error : undefined
-    });
-  }
-};
-
-// Register routes using .all to handle method mismatches gracefully
-app.all("/api/pay/stripe", stripeHandler);
-app.all("/api/pay/stripe/", stripeHandler);
 
 // --- MERCADO PAGO ---
 const mpHandler = async (req: express.Request, res: express.Response) => {

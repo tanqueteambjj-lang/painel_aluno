@@ -30,39 +30,41 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
 
   return (
     <div className="max-w-4xl mx-auto pb-4">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
-        <div>
-          <h2 className="font-display text-2xl md:text-3xl font-bold text-brand-dark dark:text-white flex items-center gap-3">
-            <Trophy className="text-yellow-500 w-7 h-7 md:w-8 md:h-8" /> {title || "Hall da Fama"}
-          </h2>
-          <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle || "Reconhecimento pela sua dedicação e técnica."}</p>
-        </div>
+      <div className="mb-6 flex flex-col gap-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-brand-dark dark:text-white flex items-center gap-3">
+              <Trophy className="text-yellow-500 w-7 h-7 md:w-8 md:h-8" /> {title || "Hall da Fama"}
+            </h2>
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1">{subtitle || "Reconhecimento pela sua dedicação e técnica."}</p>
+          </div>
 
-        {/* MANUAL BUTTON */}
-        <div className="flex gap-2">
-           <button 
-             onClick={() => {
-               const el = document.getElementById('ranking-manual');
-               if (el) el.scrollIntoView({ behavior: 'smooth' });
-             }}
-             className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-100 dark:border-blue-800/50 hover:bg-blue-100 transition-colors"
-           >
-              <Star size={14} /> Como Funciona?
-           </button>
-           <div className="flex bg-gray-100 dark:bg-gray-800/50 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shrink-0">
+          {/* MANUAL BUTTON */}
+          <div className="flex gap-2">
              <button 
-               onClick={() => onTabChange && onTabChange('presence')}
-               className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'presence' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+               onClick={() => {
+                 const el = document.getElementById('ranking-manual');
+                 if (el) el.scrollIntoView({ behavior: 'smooth' });
+               }}
+               className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-100 dark:border-blue-800/50 hover:bg-blue-100 transition-colors"
              >
-               Treinos
+                <Star size={14} /> Regras
              </button>
-             <button 
-               onClick={() => onTabChange && onTabChange('xp')}
-               className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'xp' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
-             >
-               Nível
-             </button>
-           </div>
+             <div className="flex bg-gray-100 dark:bg-gray-800/50 p-1 rounded-xl border border-gray-200 dark:border-gray-700 shrink-0">
+               <button 
+                 onClick={() => onTabChange && onTabChange('presence')}
+                 className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'presence' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+               >
+                 Treinos
+               </button>
+               <button 
+                 onClick={() => onTabChange && onTabChange('xp')}
+                 className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'xp' ? 'bg-white dark:bg-gray-700 text-brand-red shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'}`}
+               >
+                 Nível
+               </button>
+             </div>
+          </div>
         </div>
       </div>
       
@@ -71,10 +73,10 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-4">
             <Star className="text-yellow-500 w-5 h-5 fill-yellow-500" />
-            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400">Campeões do Mês Passado</h3>
+            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-gray-400">Pódio do Mês Passado</h3>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {lastMonthRanking.slice(0, 5).map((student: any, i: number) => (
+            {lastMonthRanking.map((student: any, i: number) => (
               <motion.div 
                 key={`last-${student.id}`}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -105,7 +107,6 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
           {ranking.map((student: any, i: number) => {
             const beltClasses = getBeltColorClass(student.belt);
-            const isDarkBelt = beltClasses.includes('text-white');
             const isSelf = student.id === currentUserData?.id;
             
             return (

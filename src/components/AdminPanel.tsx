@@ -316,7 +316,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     name: '',
     price: 0,
     basePrice: 0,
-    stripePriceId: '',
     mercadopagoLink: '',
     mercadopagoLateLink: '',
     durationMonths: 12
@@ -330,7 +329,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         name: editingPlan.name,
         price: Number(editingPlan.price),
         basePrice: Number(editingPlan.basePrice),
-        stripePriceId: editingPlan.stripePriceId || '',
         mercadopagoLink: editingPlan.mercadopagoLink || '',
         mercadopagoLateLink: editingPlan.mercadopagoLateLink || '',
         durationMonths: Number(editingPlan.durationMonths || 12)
@@ -355,7 +353,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
   };
 
-  const setNewPlanDataReset = () => setNewPlanData({ name: '', price: 0, basePrice: 0, stripePriceId: '', mercadopagoLink: '', mercadopagoLateLink: '', durationMonths: 12 });
+  const setNewPlanDataReset = () => setNewPlanData({ name: '', price: 0, basePrice: 0, mercadopagoLink: '', mercadopagoLateLink: '', durationMonths: 12 });
 
   const handleAddPlan = async () => {
     if (!newPlanData.name) {
@@ -1780,7 +1778,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       Mercado Pago Ativo
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 italic">Configure valores e integre com Stripe ou Mercado Pago.</p>
+                  <p className="text-sm text-gray-500 italic">Configure valores e integre com Mercado Pago.</p>
                 </div>
                 <div className="flex gap-2">
                   <button 
@@ -1797,6 +1795,20 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     <Plus size={18} /> Novo Plano
                   </button>
                 </div>
+              </div>
+
+              {/* Plans Statistics */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {dbPlans.map(plan => {
+                  const count = allStudents.filter(s => s.plan && s.plan.toLowerCase().includes(plan.name.toLowerCase())).length;
+                  return (
+                    <div key={plan.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate">{plan.name}</span>
+                      <span className="text-2xl font-black text-brand-red italic">{count}</span>
+                      <span className="text-[9px] text-gray-500 font-bold uppercase italic">Alunos Ativos</span>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Alert de ajuda para o usuário */}
@@ -1843,16 +1855,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         value={newPlanData.basePrice}
                         onChange={(e) => setNewPlanData({...newPlanData, basePrice: parseFloat(e.target.value)})}
                         className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Stripe Price ID (Legado)</label>
-                      <input 
-                        type="text" 
-                        value={newPlanData.stripePriceId}
-                        onChange={(e) => setNewPlanData({...newPlanData, stripePriceId: e.target.value})}
-                        placeholder="price_..."
-                        className={`w-full bg-gray-50 dark:bg-gray-900 border ${newPlanData.stripePriceId.startsWith('prod_') ? 'border-red-500' : 'border-gray-200'} dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white opacity-60`}
                       />
                     </div>
                     <div>
@@ -1965,15 +1967,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                               />
                             </div>
                           </div>
-                          <div className="opacity-60">
-                            <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Stripe Price ID</label>
-                            <input 
-                              type="text" 
-                              value={editingPlan.stripePriceId}
-                              onChange={(e) => setEditingPlan({...editingPlan, stripePriceId: e.target.value})}
-                              className={`w-full bg-gray-50 dark:bg-gray-900 border ${editingPlan.stripePriceId?.startsWith('prod_') ? 'border-red-500' : 'border-gray-200'} dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white`}
-                            />
-                          </div>
                           <div>
                             <label className="block text-[8px] font-bold text-gray-400 uppercase mb-1">Duração (Meses)</label>
                             <select 
@@ -2029,12 +2022,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                                 <p className={`font-mono text-[10px] truncate ${plan.mercadopagoLink ? 'text-blue-600 bg-blue-50' : 'text-red-500 bg-red-50 font-bold'} dark:bg-gray-900 p-2 rounded flex items-center justify-between`}>
                                   <span>{plan.mercadopagoLink ? "Link Configurado" : 'Pendente - Clique em Editar e cole o link'}</span>
                                   {plan.mercadopagoLink ? <LinkIcon size={12} className="text-green-500" /> : <AlertTriangle size={12} className="animate-pulse" />}
-                                </p>
-                              </div>
-                              <div className="opacity-40">
-                                <p className="text-gray-400 font-bold uppercase text-[9px] mb-1">Stripe Price ID (Opcional):</p>
-                                <p className="font-mono text-[10px] truncate text-gray-500 bg-gray-50 dark:bg-gray-900 p-2 rounded">
-                                  {plan.stripePriceId || 'Não vinculado'}
                                 </p>
                               </div>
                             </div>

@@ -151,113 +151,103 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
             </h3>
             
             {/* ID Card */}
-            <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black rounded-[2rem] overflow-hidden relative shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] flex flex-col w-full max-w-[340px] mx-auto group/card border border-white/10">
+            <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black rounded-[2rem] overflow-hidden relative shadow-[0_20px_40px_rgba(0,0,0,0.4)] flex flex-col w-full max-w-[320px] mx-auto group/card border border-white/10 scale-[0.95] sm:scale-100">
               
               {/* Background Pattern */}
-              <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] mix-blend-overlay pointer-events-none"></div>
+              <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] mix-blend-overlay pointer-events-none"></div>
               
-              {/* Watermark Logo */}
-              <div className="absolute -right-8 -bottom-8 opacity-[0.03] w-56 h-56 pointer-events-none rotate-12">
-                <img src="https://iili.io/qC543c7.png" className="w-full h-full object-contain" alt="" />
-              </div>
-
               {/* Red Accent Top */}
-              <div className="h-1.5 w-full bg-gradient-to-r from-red-800 via-brand-red to-red-800 shadow-[0_4px_10px_rgba(0,0,0,0.3)]"></div>
+              <div className="h-1 w-full bg-gradient-to-r from-red-800 via-brand-red to-red-800"></div>
 
               {/* Header */}
-              <div className="p-4 flex items-center justify-between shrink-0 relative z-10 bg-white/5 backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-white rounded-xl p-1.5 shadow-2xl">
+              <div className="px-4 py-3 flex items-center justify-between shrink-0 relative z-10 bg-white/5 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 bg-white rounded-lg p-1 shadow-xl">
                     <img src="https://iili.io/qC543c7.png" loading="lazy" className="w-full h-full object-contain" alt="Logo" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="font-display font-black text-sm tracking-[0.15em] uppercase text-white leading-none italic">TANQUE TEAM</span>
-                    <span className="text-[9px] text-brand-red font-black uppercase tracking-[0.3em] mt-1">JIU-JITSU</span>
+                    <span className="font-display font-black text-[10px] tracking-[0.1em] uppercase text-white leading-none italic">TANQUE TEAM</span>
+                    <span className="text-[7px] text-brand-red font-black uppercase tracking-[0.2em] mt-0.5">JIU-JITSU</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${isBlocked ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-emerald-500 text-emerald-500 bg-emerald-500/10'} uppercase tracking-widest`}>
-                    {isBlocked ? 'BLOQUEADO' : 'ATIVO'}
-                  </span>
-                </div>
+                <span className={`text-[7px] font-black px-2 py-0.5 rounded-full border ${isBlocked ? 'border-red-500 text-red-500 bg-red-500/10' : 'border-emerald-500 text-emerald-500 bg-emerald-500/10'} uppercase tracking-widest`}>
+                  {isBlocked ? 'BLOQUEADO' : 'ATIVO'}
+                </span>
               </div>
               
               {/* Body */}
-              <div className="flex flex-row items-center relative z-10 px-5 py-4 gap-4">
+              <div className="flex flex-row items-center relative z-10 px-4 py-3 gap-3">
                 {/* Photo */}
-                <div className="relative shrink-0">
-                  <div className="w-20 h-24 bg-zinc-800 rounded-xl border border-white/20 shadow-2xl overflow-hidden relative z-10">
-                    {userData.photoBase64 ? (
-                      <img src={userData.photoBase64} loading="lazy" className="w-full h-full object-cover grayscale-[0.1] hover:grayscale-0 transition-all duration-500" alt="Profile" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-zinc-600 font-bold text-4xl font-display bg-gradient-to-br from-zinc-800 to-zinc-900">
-                        {userData.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute -left-1 -bottom-1 w-6 h-6 border-l-2 border-b-2 border-brand-red rounded-bl-lg opacity-40"></div>
+                <div className="w-16 h-20 bg-zinc-800 rounded-lg border border-white/10 shadow-xl overflow-hidden shrink-0">
+                  {userData.photoBase64 ? (
+                    <img src={userData.photoBase64} loading="lazy" className="w-full h-full object-cover grayscale-[0.2] hover:grayscale-0 transition-all duration-500" alt="Profile" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-zinc-600 font-bold text-2xl font-display bg-gradient-to-br from-zinc-800 to-zinc-900">
+                      {userData.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
                 
                 {/* Info Area */}
                 <div className="text-left flex-1 min-w-0">
-                  <h4 className="font-display font-black text-lg text-white leading-tight uppercase tracking-tight mb-2 truncate italic" title={userData.name}>{displayName}</h4>
+                  <h4 className="font-display font-black text-base text-white leading-tight uppercase tracking-tight mb-1 truncate italic" title={userData.name}>{displayName}</h4>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div>
-                      <span className="text-[8px] text-brand-red uppercase font-black tracking-widest block mb-0.5">Graduação</span>
-                      <span className="text-xs text-zinc-100 font-bold uppercase truncate bg-white/5 px-2 py-0.5 rounded border border-white/10 inline-block">
+                      <span className="text-[7px] text-brand-red uppercase font-black tracking-widest block mb-0.5">Graduação</span>
+                      <span className="text-[10px] text-zinc-100 font-bold uppercase truncate bg-white/5 px-2 py-0.5 rounded border border-white/10 inline-block max-w-full">
                         {userData.belt || "Faixa Branca"}
                       </span>
                     </div>
 
                     <div>
-                      <span className="text-[8px] text-zinc-500 uppercase font-black tracking-widest block">ID Atleta</span>
-                      <span className="text-[10px] font-mono font-bold text-zinc-400">#{userData.id.substring(0, 8).toUpperCase()}</span>
+                      <span className="text-[7px] text-zinc-500 uppercase font-black tracking-widest block">ID Atleta</span>
+                      <span className="text-[9px] font-mono font-bold text-zinc-400">#{userData.id.substring(0, 8).toUpperCase()}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* QR Section */}
-              <div className="bg-white px-5 py-5 flex flex-row items-center justify-between relative z-10 rounded-t-[2.5rem] shadow-[0_-10px_30px_rgba(0,0,0,0.15)]">
-                <div className="flex flex-col items-start gap-2">
-                  <span className="text-[9px] bg-zinc-950 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.15em]">
+              <div className="bg-white px-4 py-4 flex flex-row items-center justify-between relative z-10 rounded-t-[1.5rem] mt-1 shadow-2xl">
+                <div className="flex flex-col items-start gap-1">
+                  <span className="text-[8px] bg-zinc-950 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
                     {planShort}
                   </span>
                   <div className="text-left">
-                    <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-[0.2em] mb-0.5">Acesso Digital</p>
-                    <p className="text-[8px] text-zinc-300 font-medium">SIATG - Tanque Team</p>
+                    <p className="text-[7px] text-zinc-400 font-bold uppercase tracking-[0.1em]">Acesso Digital</p>
+                    <p className="text-[7px] text-zinc-300 font-medium">SIATG - Tanque Team</p>
                   </div>
                 </div>
 
-                <div className="bg-white p-2 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.06)] border border-gray-50">
+                <div className="bg-white p-1.5 rounded-xl shadow-lg border border-gray-50">
                   {isBlocked ? (
-                    <div className="flex flex-col items-center justify-center w-[80px] h-[80px] bg-red-50 rounded-xl p-1 border border-dashed border-red-200">
-                      <Lock className="text-red-500 w-6 h-6" />
-                      <span className="text-[6px] text-red-700 font-black uppercase mt-1">BLOQUEADO</span>
+                    <div className="flex flex-col items-center justify-center w-[60px] h-[60px] bg-red-50 rounded-lg p-1 border border-dashed border-red-200">
+                      <Lock className="text-red-500 w-5 h-5" />
+                      <span className="text-[6px] text-red-700 font-black uppercase mt-1 text-center">BLOQUEADO</span>
                     </div>
                   ) : (
-                    <QRCodeSVG value={userData.id} size={80} level="H" className="w-[80px] h-[80px]" />
+                    <QRCodeSVG value={userData.id} size={60} level="H" className="w-[60px] h-[60px]" />
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 w-full flex flex-col items-center gap-3">
+            <div className="mt-4 w-full flex flex-col items-center gap-2">
               {!isBlocked && (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleProximityCheckin}
                   disabled={checkingIn}
-                  className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50"
+                  className="w-full py-3 bg-brand-dark hover:bg-black text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50"
                 >
                   {checkingIn ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      <MapPin className="w-5 h-5" />
-                      Validar por Localização (GPS)
+                      <MapPin className="w-4 h-4 text-brand-red" />
+                      Validar Presença (GPS)
                     </>
                   )}
                 </motion.button>
