@@ -43,7 +43,7 @@ exports.createPaymentPreference = onCall({ cors: true }, async (request) => {
 
     if (studentId !== 'mock_student_id' && studentId !== 'test_user') {
       const db = admin.firestore();
-      const studentRef = db.collection("artifacts").doc("4e7d00d8-3c19-4e5a-a4ab-4522f02376e4").collection("public").doc("data").collection("students").doc(studentId);
+      const studentRef = db.collection("artifacts").doc("tanqueteam-bjj").collection("public").doc("data").collection("students").doc(studentId);
       const studentSnap = await studentRef.get();
 
       if (!studentSnap.exists) {
@@ -122,7 +122,7 @@ exports.mercadopagoWebhook = onRequest(async (req, res) => {
         
         if (studentId) {
           const db = admin.firestore();
-          const studentRef = db.collection("artifacts").doc("4e7d00d8-3c19-4e5a-a4ab-4522f02376e4").collection("public").doc("data").collection("students").doc(studentId);
+          const studentRef = db.collection("artifacts").doc("tanqueteam-bjj").collection("public").doc("data").collection("students").doc(studentId);
           
           const studentSnap = await studentRef.get();
           if (studentSnap.exists) {

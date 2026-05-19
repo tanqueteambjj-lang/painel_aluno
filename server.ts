@@ -15,7 +15,7 @@ if (admin.apps.length === 0) {
 const firestoreAdmin = admin.firestore();
 
 // Application ID used for data storage path
-const APP_DATA_ID = "4e7d00d8-3c19-4e5a-a4ab-4522f02376e4"; 
+const APP_DATA_ID = "tanqueteam-bjj"; 
 
 dotenv.config();
 

@@ -188,7 +188,7 @@ export default function Dashboard() {
     setConfirmState({ isOpen: true, title, message, onConfirm });
   };
 
-  const appId = "4e7d00d8-3c19-4e5a-a4ab-4522f02376e4"; // Actual ID provided by user
+  const appId = "tanqueteam-bjj"; // Hardcoded for this specific app context
 
   const handleShareBadge = (badge: any) => {
     setSharingBadge(badge);
