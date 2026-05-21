@@ -1489,10 +1489,14 @@ export default function Dashboard() {
   let formattedDueDate = "Não definido";
   let daysUntilDue: number | null = null;
   let isLate = false;
-  let isFreePlan = (activeUserData?.planPrice || 0) === 0 || 
+  let isFreePlan = (activeUserData?.planPrice === 0) || 
+                   (planInfo?.price === 0) ||
                    activeUserData?.paymentStatus === 'Isento' || 
                    activeUserData?.plan?.toLowerCase().includes('isento') || 
-                   activeUserData?.plan?.toLowerCase().includes('dependente');
+                   activeUserData?.plan?.toLowerCase().includes('dependente') ||
+                   planKey === 'dependente' ||
+                   planKey === 'isento' ||
+                   planKey === 'administracao';
 
   if (dueDateValue) {
     const dateObj = parseDateString(dueDateValue);
@@ -1910,22 +1914,23 @@ export default function Dashboard() {
                             const userPlanName = userPlanNameRaw.split(' - R$')[0].trim();
                             
                             const dbStatus = activeUserData?.paymentStatus || 'Em dia';
-                            const isFree = (activeUserData?.planPrice || 0) === 0 || 
+                            const isFree = activeUserData?.planPrice === 0 || 
+                                           planInfo?.price === 0 ||
                                            dbStatus === 'Isento' || 
                                            userPlanName.toLowerCase().includes('isento') || 
                                            userPlanName.toLowerCase().includes('dependente');
 
                             let pillStatus = 'Em dia';
-                            let pillStyle = "bg-green-50/70 hover:bg-green-150/70 dark:bg-green-950/20 dark:hover:bg-green-900/40 text-green-700 dark:text-green-400 border-green-200/50 dark:border-green-900/40";
+                            let pillStyle = "bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/25 dark:hover:bg-emerald-900/35 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50 shadow-[0_2px_8px_-3px_rgba(16,185,129,0.15)]";
                             let PillIcon = CheckCircle;
 
                             if (isFree) {
                               pillStatus = 'Isento';
-                              pillStyle = "bg-gray-100/70 hover:bg-gray-250/70 dark:bg-gray-800/40 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-300 border-gray-200/50 dark:border-gray-750";
+                              pillStyle = "bg-slate-100/90 hover:bg-slate-250/90 dark:bg-slate-800/45 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-350 border-slate-300 dark:border-slate-700/65 shadow-[0_2px_8px_-3px_rgba(148,163,184,0.15)]";
                               PillIcon = Shield;
                             } else if (dbStatus === 'Pendente' || (isLate && dbStatus !== 'Em dia')) {
                               pillStatus = 'Pendente';
-                              pillStyle = "bg-red-50/70 hover:bg-red-150/70 dark:bg-red-950/20 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 border-red-200/50 dark:border-red-900/40";
+                              pillStyle = "bg-red-50/95 hover:bg-red-100/95 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50 shadow-[0_2px_8px_-3px_rgba(239,68,68,0.2)]";
                               PillIcon = AlertTriangle;
                             }
 

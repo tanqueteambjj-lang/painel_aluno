@@ -200,7 +200,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full px-1 sm:px-0">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Plan Details & Contract */}
         <div className="lg:col-span-8 space-y-6">
@@ -210,50 +210,50 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-gray-900 via-brand-dark to-black p-8 rounded-[2.5rem] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative group"
+              className="bg-gradient-to-br from-gray-900 via-brand-dark to-black p-5 sm:p-8 rounded-[1.75rem] sm:rounded-[2.5rem] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden relative group"
             >
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity rotate-12">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity rotate-12 hidden sm:block">
                 <CreditCard className="w-48 h-48 text-white" />
               </div>
 
               <div className="absolute -top-24 -left-24 w-64 h-64 bg-brand-red/20 rounded-full blur-[100px] pointer-events-none"></div>
               
               <div className="relative z-10">
-                <div className="flex justify-between items-start mb-8">
+                <div className="flex justify-between items-center sm:items-start gap-4 mb-6 sm:mb-8">
                   <div>
-                    <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter flex items-center gap-3 mb-2">
-                      <div className="w-2 h-8 bg-brand-red rounded-full shadow-[0_0_15px_rgba(239,68,68,0.8)]"></div>
+                    <h3 className="text-xl sm:text-2xl font-black text-white uppercase italic tracking-tighter flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                      <div className="w-1.5 sm:w-2 h-6 sm:h-8 bg-brand-red rounded-full shadow-[0_0_15px_rgba(239,68,68,0.8)]"></div>
                       Pagamento Online
                     </h3>
-                    <p className="text-gray-400 text-sm font-medium">Transação 100% segura via Mercado Pago</p>
+                    <p className="text-gray-400 text-xs sm:text-sm font-medium">Transação 100% segura via Mercado Pago</p>
                   </div>
-                  <div className="bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-white/10">
-                    <Shield className="w-6 h-6 text-emerald-400" />
+                  <div className="bg-white/5 backdrop-blur-md p-2.5 sm:p-3 rounded-2xl border border-white/10 shrink-0">
+                    <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
                   </div>
                 </div>
                 
-                <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10 mb-8">
+                <div className="bg-white/5 backdrop-blur-md p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/10 mb-6 sm:mb-8">
                   {isLate && (
                     <motion.div 
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="mb-6 p-5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-2 border-amber-500/40 rounded-3xl flex items-center gap-4 shadow-lg shadow-amber-500/10"
+                      className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 shadow-lg shadow-amber-500/10"
                     >
-                      <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
-                        <Zap className="w-7 h-7 text-white animate-pulse" />
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-500 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                        <Zap className="w-5 h-5 sm:w-7 sm:h-7 text-white animate-pulse" />
                       </div>
-                      <div>
-                        <p className="text-xs font-black text-amber-500 uppercase italic tracking-wider mb-1">Dica de mestre!</p>
-                        <p className="text-sm text-white/90 font-bold leading-tight">
+                      <div className="text-center sm:text-left">
+                        <p className="text-[10px] font-black text-amber-500 uppercase italic tracking-wider mb-1">Dica de mestre!</p>
+                        <p className="text-xs sm:text-sm text-white/90 font-bold leading-tight">
                           Ative a <span className="text-amber-400 underline decoration-amber-400/50 underline-offset-4">Recorrência Automática</span> e pague o <span className="text-emerald-400 font-extrabold">VALOR COM DESCONTO</span> mesmo estando em atraso!
                         </p>
-                        <p className="text-[10px] text-amber-500/70 font-bold mt-1 uppercase tracking-tighter">Economize agora: R$ {(basePrice - initialPrice).toFixed(2).replace('.', ',')} de desconto imediato.</p>
+                        <p className="text-[9px] sm:text-[10px] text-amber-500/70 font-bold mt-1.5 uppercase tracking-tighter">Economize agora: R$ {(basePrice - initialPrice).toFixed(2).replace('.', ',')} de desconto imediato.</p>
                       </div>
                     </motion.div>
                   )}
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
                     <div className="flex flex-col">
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase italic w-fit mb-1 shadow-sm ${isLate ? 'bg-amber-500 text-white' : 'bg-brand-red text-white'}`}>
+                      <span className={`text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase italic w-fit mb-1 shadow-sm ${isLate ? 'bg-amber-500 text-white' : 'bg-brand-red text-white'}`}>
                         {isLate ? 'Vencimento Excedido' : 'Valor em Dia'}
                       </span>
                       <span className="text-gray-400 text-[10px] uppercase font-bold italic tracking-wider">
@@ -264,8 +264,8 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                         )}
                       </span>
                     </div>
-                    <div className="text-right">
-                      <span className={`font-black text-3xl italic leading-none block ${isLate ? 'text-amber-500' : 'text-brand-red'}`}>
+                    <div className="text-left sm:text-right">
+                      <span className={`font-black text-2xl sm:text-3xl italic leading-none block ${isLate ? 'text-amber-500' : 'text-brand-red'}`}>
                         R$ {planPrice.toFixed(2).replace('.', ',')}
                       </span>
                       {isLate && (
@@ -273,44 +273,44 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                       )}
                     </div>
                   </div>
-                  <h4 className="text-white font-black text-2xl uppercase italic tracking-tight">{planName}</h4>
+                  <h4 className="text-white font-black text-xl sm:text-2xl uppercase italic tracking-tight">{planName}</h4>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col gap-3.5 sm:gap-4">
                   <motion.button
-                    whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(239,68,68,0.4)" }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
                     disabled={isPaying || !matchedPlan?.mercadopagoLink}
                     onClick={() => handlePayment(true)}
-                    className="flex-1 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-8 py-5 rounded-3xl font-black uppercase italic tracking-tighter text-lg flex items-center justify-center gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-emerald-500/20"
+                    className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-4 sm:px-8 py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black uppercase italic tracking-tighter text-sm sm:text-lg flex items-center justify-center gap-2.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-emerald-500/20"
                     title={!matchedPlan?.mercadopagoLink ? "Plano de assinatura não configurado pelo administrador." : ""}
                   >
-                    <div className="flex flex-col items-center leading-tight">
-                      <span className="text-[10px] opacity-80 font-bold tracking-widest flex items-center gap-2">
-                        {isLate && <span className="line-through opacity-50">R$ {basePrice.toFixed(2).replace('.', ',')}</span>}
-                        <span>PAGUE COM DESCONTO AGORA</span>
+                    <div className="flex flex-col items-center leading-normal sm:leading-tight text-center">
+                      <span className="text-[9px] sm:text-[10px] opacity-90 font-bold tracking-widest flex items-center justify-center gap-1.5 flex-wrap">
+                        {isLate && <span className="line-through opacity-65">R$ {basePrice.toFixed(2).replace('.', ',')}</span>}
+                        <span>PAGUE COM DESCONTO AUTOMÁTICO</span>
                       </span>
-                      <span className="flex items-center gap-2 text-xl">
-                        {isPaying ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className="w-5 h-5 fill-yellow-400 text-yellow-400" />}
+                      <span className="flex items-center justify-center gap-1.5 text-sm sm:text-xl font-black mt-0.5">
+                        {isPaying ? <Loader2 className="w-4.5 h-4.5 sm:w-6 sm:h-6 animate-spin" /> : <Zap className="w-4 h-4 sm:w-5 sm:h-5 fill-yellow-400 text-yellow-400" />}
                         Ativar Recorrência - R$ {initialPrice.toFixed(2).replace('.', ',')}
                       </span>
                     </div>
                   </motion.button>
 
                   <motion.button
-                    whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.15)" }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1.01, backgroundColor: "rgba(255,255,255,0.15)" }}
+                    whileTap={{ scale: 0.99 }}
                     disabled={isPaying}
                     onClick={() => handlePayment(false)}
-                    className="bg-white/10 border border-white/20 text-white px-8 py-5 rounded-2xl font-black uppercase italic tracking-tighter text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+                    className="w-full bg-white/10 border border-white/20 text-white px-4 sm:px-8 py-3 w-full sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase italic tracking-tighter text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5 opacity-70" />}
+                    {isPaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4 opacity-70" />}
                     Pagamento Avulso - R$ {planPrice.toFixed(2).replace('.', ',')}
                   </motion.button>
                 </div>
 
                 {!matchedPlan?.mercadopagoLink && (
-                  <div className="mt-6 flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                  <div className="mt-5 flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
                     <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
                     <p className="text-xs text-red-400 font-bold uppercase italic leading-tight">
                       Link de ativação não configurado. Por favor, fale com o suporte.
@@ -318,7 +318,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                   </div>
                 )}
                 
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl flex items-start gap-3">
                     <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
                       <CheckCircle className="w-4 h-4 text-emerald-400" />
@@ -358,94 +358,94 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
           )}
 
           {/* Status Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <motion.div 
-              whileHover={{ y: -5 }}
-              className="bg-white dark:bg-zinc-900 p-8 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-xl flex items-center justify-between group"
+              whileHover={{ y: -3 }}
+              className="bg-white dark:bg-zinc-900 p-5 sm:p-8 rounded-2xl sm:rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-xl flex items-center justify-between group"
             >
               <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-2">Status da Matrícula</p>
+                <p className="text-[9px] sm:text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-1 sm:mb-2">Status da Matrícula</p>
                 <div className="flex items-center gap-3">
                   {dynamicPaymentStatus === 'Pendente' ? (
-                    <div className="bg-red-500 text-white px-4 py-1.5 rounded-full text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-red-500/20">
-                       <AlertTriangle size={14} /> Pendente
+                    <div className="bg-red-500 text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-red-500/20">
+                       <AlertTriangle size={12} /> Pendente
                     </div>
                   ) : dynamicPaymentStatus === 'Isento' ? (
-                    <div className="bg-gray-500 text-white px-4 py-1.5 rounded-full text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-gray-500/20">
-                       <Award size={14} /> Isento
+                    <div className="bg-gray-500 text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-gray-500/20">
+                       <Award size={12} /> Isento
                     </div>
                   ) : (
-                    <div className="bg-emerald-500 text-white px-4 py-1.5 rounded-full text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
-                       <CheckCircle size={14} /> Regularizado
+                    <div className="bg-emerald-500 text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-black uppercase italic tracking-tighter flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+                       <CheckCircle size={12} /> Regularizado
                     </div>
                   )}
                 </div>
               </div>
-              <div className="w-14 h-14 bg-gray-50 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-brand-red group-hover:bg-brand-red group-hover:text-white transition-colors duration-300">
-                <Shield className="w-7 h-7 transition-transform group-hover:scale-110" />
+              <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gray-50 dark:bg-zinc-800 rounded-xl sm:rounded-2xl flex items-center justify-center text-brand-red group-hover:bg-brand-red group-hover:text-white transition-colors duration-300 shrink-0">
+                <Shield className="w-5 h-5 sm:w-7 sm:h-7 transition-transform group-hover:scale-110" />
               </div>
             </motion.div>
 
             <motion.div 
-              whileHover={{ y: -5 }}
-              className="bg-white dark:bg-zinc-900 p-8 rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-xl flex items-center justify-between group"
+              whileHover={{ y: -3 }}
+              className="bg-white dark:bg-zinc-900 p-5 sm:p-8 rounded-2xl sm:rounded-[2rem] border border-gray-100 dark:border-white/5 shadow-xl flex items-center justify-between group"
             >
               <div>
-                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-2">Próximo Vencimento</p>
+                <p className="text-[9px] sm:text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-1 sm:mb-2">Próximo Vencimento</p>
                 <div className="flex flex-col">
-                  <span className="text-2xl font-black text-zinc-900 dark:text-white uppercase italic tracking-tight leading-none">
+                  <span className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white uppercase italic tracking-tight leading-none">
                     {formattedDueDate}
                   </span>
                   {daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 7 && dynamicPaymentStatus !== 'Pendente' && (
-                    <p className="text-[10px] text-amber-500 font-bold mt-1 uppercase tracking-wider">Vence em {daysUntilDue} dias!</p>
+                    <p className="text-[9px] sm:text-[10px] text-amber-500 font-bold mt-1 uppercase tracking-wider">Vence em {daysUntilDue} dias!</p>
                   )}
                 </div>
               </div>
-              <div className="w-14 h-14 bg-gray-50 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
-                <Calendar className="w-7 h-7 transition-transform group-hover:scale-110" />
+              <div className="w-11 h-11 sm:w-14 sm:h-14 bg-gray-50 dark:bg-zinc-800 rounded-xl sm:rounded-2xl flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300 shrink-0">
+                <Calendar className="w-5 h-5 sm:w-7 sm:h-7 transition-transform group-hover:scale-110" />
               </div>
             </motion.div>
           </div>
 
           {/* Plan Details Card */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-display font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight flex items-center gap-2 shrink-0">
+            <div className="bg-gray-50 dark:bg-gray-700/50 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
+              <h3 className="font-display font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight flex items-center gap-2 shrink-0 text-sm sm:text-base">
                 <FileText className="w-4 h-4" /> Detalhes do Contrato
               </h3>
-              <span className="bg-brand-red/10 text-brand-red text-[10px] font-black px-3 py-1 rounded-full uppercase italic truncate max-w-[150px] sm:max-w-[250px]" title={planName}>{planName}</span>
+              <span className="bg-brand-red/10 text-brand-red text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase italic truncate max-w-[120px] sm:max-w-[250px]" title={planName}>{planName}</span>
             </div>
             
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
+            <div className="p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="sm:col-span-2">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Resumo Financeiro</p>
                   {isFreePlan ? (
                     <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl border border-gray-100 dark:border-gray-600">
-                      <p className="text-2xl font-black text-gray-500 italic uppercase">Isento de Mensalidade</p>
+                      <p className="text-xl sm:text-2xl font-black text-gray-500 italic uppercase">Isento de Mensalidade</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className={`p-4 rounded-xl border transition-all ${!isLate ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30 shadow-lg shadow-emerald-500/5 scale-105' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-40 grayscale'}`}>
+                        <div className={`p-4 rounded-xl border transition-all ${!isLate ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30 shadow-lg shadow-emerald-500/5 sm:scale-105' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-40 grayscale'}`}>
                           <p className={`text-[10px] font-bold uppercase mb-1 ${!isLate ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>Valor Pontual (Até Venc.)</p>
-                          <p className={`text-2xl font-black ${!isLate ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 font-bold'}`}>R$ {initialPrice.toFixed(2).replace('.', ',')}</p>
+                          <p className={`text-xl sm:text-2xl font-black ${!isLate ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-400 font-bold'}`}>R$ {initialPrice.toFixed(2).replace('.', ',')}</p>
                         </div>
-                        <div className={`p-4 rounded-xl border transition-all ${isLate ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30 shadow-lg shadow-amber-500/5 scale-105' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-40 grayscale'}`}>
+                        <div className={`p-4 rounded-xl border transition-all ${isLate ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-900/30 shadow-lg shadow-amber-500/5 sm:scale-105' : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-40 grayscale'}`}>
                           <p className={`text-[10px] font-bold uppercase mb-1 ${isLate ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>Valor Integral (Após Venc.)</p>
-                          <p className={`text-2xl font-black ${isLate ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400 font-bold'}`}>R$ {basePrice.toFixed(2).replace('.', ',')}</p>
+                          <p className={`text-xl sm:text-2xl font-black ${isLate ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400 font-bold'}`}>R$ {basePrice.toFixed(2).replace('.', ',')}</p>
                         </div>
                       </div>
 
-                        <div className="flex justify-between items-center bg-gray-900 dark:bg-black p-5 rounded-2xl border border-white/5 shadow-inner">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-900 dark:bg-black p-4 sm:p-5 rounded-2xl border border-white/5 shadow-inner gap-4">
                         <div className="relative z-10">
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Custo do Pagamento Avulso</p>
-                          <h5 className="text-white font-black text-3xl italic tracking-tighter uppercase leading-none">
+                          <h5 className="text-white font-black text-2xl sm:text-3xl italic tracking-tighter uppercase leading-none">
                             R$ {planPrice.toFixed(2).replace('.', ',')}
                           </h5>
-                          <p className="text-[9px] text-gray-500 font-bold mt-1 max-w-[200px]">Recorrência automática via cartão mantém sempre o menor valor.</p>
+                          <p className="text-[9px] text-gray-500 font-bold mt-1.5 max-w-[200px]">Recorrência automática via cartão mantém sempre o menor valor.</p>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
+                        <div className="flex flex-col items-start sm:items-end gap-1 shrink-0">
                           {isLate ? (
                             <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 rounded-lg text-white text-[9px] font-black uppercase italic animate-pulse">
                               <AlertTriangle size={10} /> Valor Integral (Atraso)
@@ -498,13 +498,13 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         {/* Right Column: History */}
         <div className="lg:col-span-4 h-full">
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col h-full overflow-hidden">
-            <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-display font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight flex items-center gap-2">
+            <div className="bg-gray-50 dark:bg-gray-700/50 px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="font-display font-bold text-gray-700 dark:text-gray-200 uppercase tracking-tight flex items-center gap-2 text-sm sm:text-base">
                 <Receipt className="w-4 h-4" /> Recibos
               </h3>
             </div>
             
-            <div className="p-4 flex-1 overflow-y-auto space-y-3 max-h-[600px]">
+            <div className="p-4 flex-1 overflow-y-auto space-y-3 max-h-[400px] lg:max-h-[600px]">
               {histArray.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Receipt className="w-12 h-12 text-gray-200 dark:text-gray-700 mb-2" />
@@ -516,7 +516,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                   return (
                     <motion.div 
                       key={idx}
-                      whileHover={{ scale: 1.02 }}
+                      whileHover={{ scale: 1.01 }}
                       className="group p-4 bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-900/30 hover:shadow-md transition-all cursor-default"
                     >
                       <div className="flex justify-between items-start mb-2">
@@ -537,7 +537,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                         </span>
                         <button 
                           onClick={() => handlePrintReceipt(p)}
-                          className="flex items-center gap-1 p-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all scale-100"
                         >
                           <Printer className="w-4 h-4" />
                           <span className="text-[10px] font-bold uppercase">PDF</span>
