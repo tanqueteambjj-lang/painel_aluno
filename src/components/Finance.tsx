@@ -134,7 +134,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   
   let dynamicPaymentStatus = currentUserData?.paymentStatus || 'Em dia';
   let daysUntilDue: number | null = null;
-  let isLate = false;
+  let isLate = dynamicPaymentStatus === 'Pendente';
 
   if (dueDateValue) {
     const dateObj = parseDateString(dueDateValue);
@@ -152,6 +152,8 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
         
         if (daysUntilDue < 0) {
           dynamicPaymentStatus = 'Pendente';
+          isLate = true;
+        } else if (dynamicPaymentStatus === 'Pendente') {
           isLate = true;
         } else {
           dynamicPaymentStatus = 'Em dia';
