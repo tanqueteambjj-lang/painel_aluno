@@ -1517,6 +1517,8 @@ export default function Dashboard() {
     }
   }
 
+  const isPaymentLateOrPending = (activeUserData?.paymentStatus === 'Pendente' || isLate) && !isFreePlan;
+
   const calendarDaysList = [];
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   
@@ -1928,7 +1930,7 @@ export default function Dashboard() {
                               pillStatus = 'Isento';
                               pillStyle = "bg-slate-100/90 hover:bg-slate-250/90 dark:bg-slate-800/45 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-350 border-slate-300 dark:border-slate-700/65 shadow-[0_2px_8px_-3px_rgba(148,163,184,0.15)]";
                               PillIcon = Shield;
-                            } else if (dbStatus === 'Pendente' || (isLate && dbStatus !== 'Em dia')) {
+                            } else if (dbStatus === 'Pendente' || isLate) {
                               pillStatus = 'Pendente';
                               pillStyle = "bg-red-50/95 hover:bg-red-100/95 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50 shadow-[0_2px_8px_-3px_rgba(239,68,68,0.2)]";
                               PillIcon = AlertTriangle;
@@ -2184,12 +2186,12 @@ export default function Dashboard() {
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="text-gray-400 dark:text-gray-500 text-xs font-bold uppercase tracking-widest">Financeiro</h3>
-                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold mt-2 ${activeUserData?.paymentStatus === 'Pendente' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                            {activeUserData?.paymentStatus === 'Pendente' ? <><AlertTriangle className="w-3 h-3 mr-1" /> Pendente</> : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? <><LinkIcon className="w-3 h-3 mr-1" /> Isento</> : <><CheckCircle className="w-3 h-3 mr-1" /> Em dia</>}
+                          <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold mt-2 ${isPaymentLateOrPending ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                            {isPaymentLateOrPending ? <><AlertTriangle className="w-3 h-3 mr-1" /> Pendente</> : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? <><LinkIcon className="w-3 h-3 mr-1" /> Isento</> : <><CheckCircle className="w-3 h-3 mr-1" /> Em dia</>}
                           </div>
                         </div>
-                        <div className={`p-2 rounded-lg ${activeUserData?.paymentStatus === 'Pendente' ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? 'bg-gray-50 dark:bg-gray-700 text-gray-400' : 'bg-green-50 dark:bg-green-900/20 text-green-500'}`}>
-                          {activeUserData?.paymentStatus === 'Pendente' ? <X className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />}
+                        <div className={`p-2 rounded-lg ${isPaymentLateOrPending ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : activeUserData?.paymentStatus === 'Isento' || planKey === 'dependente' ? 'bg-gray-50 dark:bg-gray-700 text-gray-400' : 'bg-green-50 dark:bg-green-900/20 text-green-500'}`}>
+                          {isPaymentLateOrPending ? <X className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />}
                         </div>
                       </div>
                       <div className="mt-4">
