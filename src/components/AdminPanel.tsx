@@ -2326,12 +2326,27 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Plano</label>
-                  <input 
-                    type="text" 
+                  <select 
                     value={editFormData.plan}
                     onChange={e => setEditFormData({...editFormData, plan: e.target.value})}
-                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
-                  />
+                    className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white font-bold"
+                  >
+                    <option value="Mensal">Mensal</option>
+                    <option value="Trimestral">Trimestral</option>
+                    <option value="Semestral">Semestral</option>
+                    <option value="Anual">Anual</option>
+                    <option value="Infantil Mensal">Infantil Mensal</option>
+                    <option value="Infantil Trimestral">Infantil Trimestral</option>
+                    <option value="Infantil Semestral">Infantil Semestral</option>
+                    <option value="Adulto Mensal">Adulto Mensal</option>
+                    <option value="Adulto Trimestral">Adulto Trimestral</option>
+                    <option value="Adulto Semestral">Adulto Semestral</option>
+                    <option value="Combo Dupla">Combo Dupla</option>
+                    <option value="Combo Família">Combo Família</option>
+                    <option value="Dependente">Dependente</option>
+                    <option value="Isento">Isento</option>
+                    <option value="Administração">Administração</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Faixa / Graduação</label>
@@ -2663,8 +2678,17 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       <option value="Trimestral">Trimestral</option>
                       <option value="Semestral">Semestral</option>
                       <option value="Anual">Anual</option>
+                      <option value="Infantil Mensal">Infantil Mensal</option>
+                      <option value="Infantil Trimestral">Infantil Trimestral</option>
+                      <option value="Infantil Semestral">Infantil Semestral</option>
+                      <option value="Adulto Mensal">Adulto Mensal</option>
+                      <option value="Adulto Trimestral">Adulto Trimestral</option>
+                      <option value="Adulto Semestral">Adulto Semestral</option>
+                      <option value="Combo Dupla">Combo Dupla</option>
+                      <option value="Combo Família">Combo Família</option>
                       <option value="Dependente">Dependente</option>
                       <option value="Isento">Isento</option>
+                      <option value="Administração">Administração</option>
                     </select>
                   </div>
 
