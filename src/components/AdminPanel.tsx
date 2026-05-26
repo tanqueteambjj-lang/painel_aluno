@@ -454,7 +454,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
 
     setStudents(filtered);
-  }, [searchQuery, allStudents, filterBelt, filterLevelOrder, filterStatus, filterRecent]);
+  }, [searchQuery, allStudents, filterBelt, filterLevelOrder, filterStatus, filterRecent, filterPlan]);
 
   const weekDays = [
     { id: 0, name: 'Domingo' },
@@ -1416,9 +1416,19 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       <option value="Trimestral">Trimestral</option>
                       <option value="Semestral">Semestral</option>
                       <option value="Anual">Anual</option>
-                      <option value="Infantil">Infantil</option>
-                      <option value="Combo">Combo</option>
+                      <option value="Infantil Mensal">Infantil Mensal</option>
+                      <option value="Infantil Trimestral">Infantil Trimestral</option>
+                      <option value="Infantil Semestral">Infantil Semestral</option>
+                      <option value="Adulto Mensal">Adulto Mensal</option>
+                      <option value="Adulto Trimestral">Adulto Trimestral</option>
+                      <option value="Adulto Semestral">Adulto Semestral</option>
+                      <option value="Combo Dupla">Combo Dupla</option>
+                      <option value="Combo Família">Combo Família</option>
+                      <option value="Dependente">Dependente</option>
                       <option value="Isento">Isento</option>
+                      <option value="Administração">Administração</option>
+                      <option value="Infantil">Todos Infantis (Parcial)</option>
+                      <option value="Combo">Todos Combos (Parcial)</option>
                     </select>
                   </div>
 
