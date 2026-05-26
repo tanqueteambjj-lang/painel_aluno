@@ -7,6 +7,60 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 
+export function normalizePlanName(name: string): string {
+  if (!name) return "";
+  const clean = name.trim().toUpperCase();
+  if (clean === "ADULTO SEMESTRAL" || clean === "ADULTO-SEMESTRAL" || clean === "PLANO ADULTO SEMESTRAL") return "ADULTO SEMESTRAL";
+  if (clean === "ALUNO BLUE/ADULTO - SEMESTRAL" || clean.includes("ALUNO BLUE") || clean.includes("BLUE/ADULTO") || clean.includes("BLUEFIT")) {
+    if (clean.includes("DEPENDENTE")) return "INFANTIL DEPENDENTE BLUEFIT";
+    return "ALUNO BLUE/ADULTO - SEMESTRAL";
+  }
+  if (clean === "INFANTIL SEMESTRAL" || clean === "INFANTIL-SEMESTRAL" || clean === "PLANO INFANTIL SEMESTRAL") return "INFANTIL SEMESTRAL";
+  if (clean === "ADMINISTRAÇÃO" || clean === "ADMINISTRACAO") return "ADMINISTRAÇÃO";
+  if (clean === "ADULTO SEMESTRAL 110" || clean === "ADULTO SEMESTRAL R$ 110" || clean === "ADULTO SEMESTRAL - R$ 110") return "ADULTO SEMESTRAL 110";
+  if (clean.includes("KIDS NO PIX") || clean.includes("PROMOÇÃO - INFANTIL NO PIX") || clean.includes("PROMOCAO - INFANTIL NO PIX") || clean.includes("PROMOÇÃO KIDS NO PIX") || clean.includes("KIDS NO PIX - R$ 140,00") || clean.includes("KIDS NO PIX - R$ 140")) return "PROMOÇÃO - INFANTIL NO PIX";
+  if (clean === "INFANTIL TRIMESTRAL") return "INFANTIL TRIMESTRAL";
+  if (clean === "ISENTO" || clean === "ISENTO / BOLSISTA" || clean === "ISENTO/BOLSISTA") {
+    if (clean.includes("BOLSISTA")) return "ISENTO / BOLSISTA";
+    return "ISENTO";
+  }
+  if (clean.includes("DESCONTO FAMÍLIA") || clean.includes("DESCONTO FAMILIA") || clean.includes("FAMÍLIA - INFANTIL") || clean.includes("FAMILIA - INFANTIL")) return "DESCONTO FAMÍLIA - INFANTIL (50%)";
+  if (clean.includes("INFANTIL DEPENDENTE")) return "INFANTIL DEPENDENTE BLUEFIT";
+  if (clean === "DEPENDENTE" || clean === "DEPENDENTE - COMBO FAMÍLIA" || clean === "DEPENDENTE-COMBO FAMILIA") return "DEPENDENTE - COMBO FAMÍLIA";
+  if (clean === "COMBO DUPLA" || clean === "COMBO DUPLA SEMESTRAL" || clean === "COMBO DUPLA - SEMESTRAL") return "COMBO DUPLA SEMESTRAL";
+  if (clean === "ADULTO SEMESTRAL 115" || clean === "ADULTO SEMESTRAL - R$ 115") return "ADULTO SEMESTRAL 115";
+  if (clean === "INFANTIL MENSAL") return "INFANTIL MENSAL";
+  if (clean === "ADULTO MENSAL") return "ADULTO MENSAL";
+  if (clean === "ADULTO TRIMESTRAL") return "ADULTO TRIMESTRAL";
+  if (clean === "COMBO CASAL SEMESTRAL") return "COMBO CASAL SEMESTRAL";
+  if (clean === "COMBO FAMÍLIA SEMESTRAL" || clean === "COMBO FAMILIA SEMESTRAL") return "COMBO FAMÍLIA SEMESTRAL";
+  if (clean === "OUTROS") return "OUTROS";
+  return clean;
+}
+
+export const PLAN_ORDER = [
+  "INFANTIL MENSAL",
+  "INFANTIL TRIMESTRAL",
+  "INFANTIL SEMESTRAL",
+  "ADULTO MENSAL",
+  "ADULTO TRIMESTRAL",
+  "ADULTO SEMESTRAL",
+  "COMBO DUPLA SEMESTRAL",
+  "COMBO CASAL SEMESTRAL",
+  "COMBO FAMÍLIA SEMESTRAL",
+  "ADMINISTRAÇÃO",
+  "DEPENDENTE - COMBO FAMÍLIA",
+  "ISENTO / BOLSISTA",
+  "OUTROS",
+  "ADULTO SEMESTRAL 110",
+  "ISENTO",
+  "PROMOÇÃO - INFANTIL NO PIX",
+  "ADULTO SEMESTRAL 115",
+  "INFANTIL DEPENDENTE BLUEFIT",
+  "DESCONTO FAMÍLIA - INFANTIL (50%)",
+  "ALUNO BLUE/ADULTO - SEMESTRAL"
+];
+
 export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonate, lastMonthRankingAdulto = [], lastMonthRankingInfantil = [] }: any) {
   // 1. STATE DECLARATIONS AT THE TOP
   const [activeTab, setActiveTab] = useState('bookings');
@@ -351,8 +405,49 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     try {
       const plansRef = collection(db, 'artifacts', appId, 'public', 'data', 'plans');
       const snapshot = await getDocs(plansRef);
-      let plansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const rawPlansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
+      // Step 1: Deduplicate local copies of plans using normalizePlanName
+      const normalizedMap = new Map<string, any>();
+      for (const p of rawPlansData) {
+        if (!p || !p.name) continue;
+        const normName = normalizePlanName(p.name);
+        if (!normalizedMap.has(normName)) {
+          normalizedMap.set(normName, p);
+        } else {
+          // Select which one to keep
+          const existing = normalizedMap.get(normName);
+          const currentHasLink = !!(p.mercadopagoLink || p.mercadopagoLateLink);
+          const existingHasLink = !!(existing.mercadopagoLink || existing.mercadopagoLateLink);
+          const currentIsCanon = p.name === normName;
+          const existingIsCanon = existing.name === normName;
+
+          let keep = existing;
+          let remove = p;
+
+          if (currentHasLink && !existingHasLink) {
+            keep = p;
+            remove = existing;
+          } else if (!currentHasLink && existingHasLink) {
+            // keep existing
+          } else if (currentIsCanon && !existingIsCanon) {
+            keep = p;
+            remove = existing;
+          }
+
+          // Delete the duplicate document from Firestore
+          try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plans', remove.id));
+            console.log(`Consolidated duplicate plan: removed ${remove.name} in favor of ${keep.name}`);
+          } catch (err) {
+            console.error("Error clearing duplicate plan from DB:", err);
+          }
+          
+          normalizedMap.set(normName, keep);
+        }
+      }
+
+      // Step 2: Seed any of the 20 canonical default plans that don't exist yet
       const defaultPlansList = [
         { name: "INFANTIL MENSAL", price: 189.90, basePrice: 189.90, durationMonths: 1 },
         { name: "INFANTIL TRIMESTRAL", price: 168.90, basePrice: 168.90, durationMonths: 3 },
@@ -376,68 +471,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         { name: "ALUNO BLUE/ADULTO - SEMESTRAL", price: 126.90, basePrice: 126.90, durationMonths: 6 }
       ];
 
-      const existingNames = new Set(plansData.map(p => (typeof p.name === 'string' ? p.name : '').trim().toLowerCase()));
       const toAdd: any[] = [];
-
       for (const dp of defaultPlansList) {
-        if (!existingNames.has(dp.name.trim().toLowerCase())) {
+        const normDpName = normalizePlanName(dp.name);
+        if (!normalizedMap.has(normDpName)) {
           toAdd.push(dp);
-          existingNames.add(dp.name.trim().toLowerCase());
-        }
-      }
-
-      if (Array.isArray(allStudents) && allStudents.length > 0) {
-        const studentPlans = new Set(
-          allStudents
-            .map(s => (s && typeof s.plan === 'string' ? s.plan : '').trim())
-            .filter(p => p !== '')
-        );
-
-        const LOCAL_PLAN_DICT: Record<string, { price: number, duration: number }> = {
-          'infantil-mensal': { price: 189.90, duration: 1 },
-          'infantil-trimestral': { price: 168.90, duration: 3 },
-          'infantil-semestral': { price: 157.90, duration: 6 },
-          'adulto-mensal': { price: 168.90, duration: 1 },
-          'adulto-trimestral': { price: 147.90, duration: 3 },
-          'adulto-semestral': { price: 126.90, duration: 6 },
-          'mensal': { price: 168.90, duration: 1 },
-          'trimestral': { price: 147.90, duration: 3 },
-          'semestral': { price: 126.90, duration: 6 },
-          'anual': { price: 100.00, duration: 12 },
-          'plano-mensal': { price: 168.90, duration: 1 },
-          'plano-trimestral': { price: 147.90, duration: 3 },
-          'plano-semestral': { price: 126.90, duration: 6 },
-          'plano-anual': { price: 100.00, duration: 12 },
-          'combo-dupla': { price: 250.00, duration: 6 },
-          'combo-familia': { price: 362.02, duration: 6 },
-          'administracao': { price: 0.00, duration: 12 },
-          'dependente': { price: 0.00, duration: 6 },
-          'isento': { price: 0.00, duration: 12 }
-        };
-
-        for (const sp of Array.from(studentPlans)) {
-          if (!existingNames.has(sp.toLowerCase())) {
-            let price = 150.00;
-            let duration = 1;
-            const dictKey = sp.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            const matchKey = Object.keys(LOCAL_PLAN_DICT).find(k => k === dictKey || dictKey.includes(k) || k.includes(dictKey));
-            if (matchKey && LOCAL_PLAN_DICT[matchKey]) {
-              price = LOCAL_PLAN_DICT[matchKey].price;
-              duration = LOCAL_PLAN_DICT[matchKey].duration;
-            }
-            toAdd.push({
-              name: sp,
-              price: price,
-              basePrice: price,
-              durationMonths: duration
-            });
-            existingNames.add(sp.toLowerCase());
-          }
+          normalizedMap.set(normDpName, dp); // temp prevent dual checks
         }
       }
 
       if (toAdd.length > 0) {
-        console.log(`Auto-seeding ${toAdd.length} missing plans down to Firestore.`);
         await Promise.all(toAdd.map(plan => 
           addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'plans'), {
             name: plan.name,
@@ -449,8 +492,25 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
           })
         ));
         const newSnapshot = await getDocs(plansRef);
-        plansData = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const finalRawPlans = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+        normalizedMap.clear();
+        for (const p of finalRawPlans) {
+          if (p && p.name) normalizedMap.set(normalizePlanName(p.name), p);
+        }
       }
+
+      // Step 3: Get the final map values and sort them based on curated PLAN_ORDER
+      let plansData = Array.from(normalizedMap.values());
+      plansData.sort((a, b) => {
+        const nameA = normalizePlanName(a.name);
+        const nameB = normalizePlanName(b.name);
+        const idxA = PLAN_ORDER.indexOf(nameA);
+        const idxB = PLAN_ORDER.indexOf(nameB);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return nameA.localeCompare(nameB);
+      });
 
       setDbPlans(plansData);
     } catch (error) {
@@ -532,7 +592,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
 
     // Plan Filter
     if (filterPlan !== 'Todos') {
-      filtered = filtered.filter(s => s.plan && s.plan.toLowerCase().includes(filterPlan.toLowerCase()));
+      if (filterPlan === 'Infantil') {
+        filtered = filtered.filter(s => s.plan && s.plan.toLowerCase().includes('infantil'));
+      } else if (filterPlan === 'Combo') {
+        filtered = filtered.filter(s => s.plan && s.plan.toLowerCase().includes('combo'));
+      } else {
+        filtered = filtered.filter(s => s.plan && normalizePlanName(s.plan) === normalizePlanName(filterPlan));
+      }
     }
 
     // Sort by Level
@@ -1939,7 +2005,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   const planName = plan && typeof plan.name === 'string' ? plan.name : '';
                   const count = !planName ? 0 : (Array.isArray(allStudents) ? allStudents : []).filter(s => {
                     const studentPlan = s && typeof s.plan === 'string' ? s.plan : '';
-                    return studentPlan.toLowerCase().includes(planName.toLowerCase());
+                    return normalizePlanName(studentPlan) === normalizePlanName(planName);
                   }).length;
                   return (
                     <div key={plan?.id || Math.random().toString()} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col">
@@ -2173,9 +2239,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                               <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700 space-y-2 text-left">
                                 {(() => {
                                   const planStudentsList = (Array.isArray(allStudents) ? allStudents : []).filter(s => {
-                                    const sPlan = (s && typeof s.plan === 'string' ? s.plan : '').trim().toLowerCase();
-                                    const pName = planName.trim().toLowerCase();
-                                    return sPlan === pName;
+                                    const sPlan = s && typeof s.plan === 'string' ? s.plan : '';
+                                    return normalizePlanName(sPlan) === normalizePlanName(planName);
                                   });
                                   return (
                                     <>

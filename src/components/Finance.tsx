@@ -3,8 +3,39 @@ import { useState, useEffect } from 'react';
 import ReceiptModal from './ReceiptModal';
 import { collection, getDocs, updateDoc, doc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { createMPCheckout } from '../services/mercadoPagoService';
+
+export function normalizePlanName(name: string): string {
+  if (!name) return "";
+  const clean = name.trim().toUpperCase();
+  if (clean === "ADULTO SEMESTRAL" || clean === "ADULTO-SEMESTRAL" || clean === "PLANO ADULTO SEMESTRAL") return "ADULTO SEMESTRAL";
+  if (clean === "ALUNO BLUE/ADULTO - SEMESTRAL" || clean.includes("ALUNO BLUE") || clean.includes("BLUE/ADULTO") || clean.includes("BLUEFIT")) {
+    if (clean.includes("DEPENDENTE")) return "INFANTIL DEPENDENTE BLUEFIT";
+    return "ALUNO BLUE/ADULTO - SEMESTRAL";
+  }
+  if (clean === "INFANTIL SEMESTRAL" || clean === "INFANTIL-SEMESTRAL" || clean === "PLANO INFANTIL SEMESTRAL") return "INFANTIL SEMESTRAL";
+  if (clean === "ADMINISTRAÇÃO" || clean === "ADMINISTRACAO") return "ADMINISTRAÇÃO";
+  if (clean === "ADULTO SEMESTRAL 110" || clean === "ADULTO SEMESTRAL R$ 110" || clean === "ADULTO SEMESTRAL - R$ 110") return "ADULTO SEMESTRAL 110";
+  if (clean.includes("KIDS NO PIX") || clean.includes("PROMOÇÃO - INFANTIL NO PIX") || clean.includes("PROMOCAO - INFANTIL NO PIX") || clean.includes("PROMOÇÃO KIDS NO PIX") || clean.includes("KIDS NO PIX - R$ 140,00") || clean.includes("KIDS NO PIX - R$ 140")) return "PROMOÇÃO - INFANTIL NO PIX";
+  if (clean === "INFANTIL TRIMESTRAL") return "INFANTIL TRIMESTRAL";
+  if (clean === "ISENTO" || clean === "ISENTO / BOLSISTA" || clean === "ISENTO/BOLSISTA") {
+    if (clean.includes("BOLSISTA")) return "ISENTO / BOLSISTA";
+    return "ISENTO";
+  }
+  if (clean.includes("DESCONTO FAMÍLIA") || clean.includes("DESCONTO FAMILIA") || clean.includes("FAMÍLIA - INFANTIL") || clean.includes("FAMILIA - INFANTIL")) return "DESCONTO FAMÍLIA - INFANTIL (50%)";
+  if (clean.includes("INFANTIL DEPENDENTE")) return "INFANTIL DEPENDENTE BLUEFIT";
+  if (clean === "DEPENDENTE" || clean === "DEPENDENTE - COMBO FAMÍLIA" || clean === "DEPENDENTE-COMBO FAMILIA") return "DEPENDENTE - COMBO FAMÍLIA";
+  if (clean === "COMBO DUPLA" || clean === "COMBO DUPLA SEMESTRAL" || clean === "COMBO DUPLA - SEMESTRAL") return "COMBO DUPLA SEMESTRAL";
+  if (clean === "ADULTO SEMESTRAL 115" || clean === "ADULTO SEMESTRAL - R$ 115") return "ADULTO SEMESTRAL 115";
+  if (clean === "INFANTIL MENSAL") return "INFANTIL MENSAL";
+  if (clean === "ADULTO MENSAL") return "ADULTO MENSAL";
+  if (clean === "ADULTO TRIMESTRAL") return "ADULTO TRIMESTRAL";
+  if (clean === "COMBO CASAL SEMESTRAL") return "COMBO CASAL SEMESTRAL";
+  if (clean === "COMBO FAMÍLIA SEMESTRAL" || clean === "COMBO FAMILIA SEMESTRAL") return "COMBO FAMÍLIA SEMESTRAL";
+  if (clean === "OUTROS") return "OUTROS";
+  return clean;
+}
 
 const parseDateString = (dateStr: any) => {
   if (!dateStr) return new Date();
@@ -113,6 +144,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   // Try to find the matching plan from DB
   const matchedPlan = dbPlans.find(p => 
     p.name?.toLowerCase() === planName.toLowerCase() || 
+    normalizePlanName(p.name) === normalizePlanName(planName) ||
     (currentUserData?.plan && currentUserData.plan.toLowerCase().includes(p.name?.toLowerCase()))
   );
   
