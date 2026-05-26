@@ -351,10 +351,110 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     try {
       const plansRef = collection(db, 'artifacts', appId, 'public', 'data', 'plans');
       const snapshot = await getDocs(plansRef);
-      const plansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let plansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      const defaultPlansList = [
+        { name: "INFANTIL MENSAL", price: 189.90, basePrice: 189.90, durationMonths: 1 },
+        { name: "INFANTIL TRIMESTRAL", price: 168.90, basePrice: 168.90, durationMonths: 3 },
+        { name: "INFANTIL SEMESTRAL", price: 157.90, basePrice: 157.90, durationMonths: 6 },
+        { name: "ADULTO MENSAL", price: 168.90, basePrice: 168.90, durationMonths: 1 },
+        { name: "ADULTO TRIMESTRAL", price: 147.90, basePrice: 147.90, durationMonths: 3 },
+        { name: "ADULTO SEMESTRAL", price: 126.90, basePrice: 126.90, durationMonths: 6 },
+        { name: "COMBO DUPLA SEMESTRAL", price: 250.00, basePrice: 250.00, durationMonths: 6 },
+        { name: "COMBO CASAL SEMESTRAL", price: 250.00, basePrice: 250.00, durationMonths: 6 },
+        { name: "COMBO FAMÍLIA SEMESTRAL", price: 362.00, basePrice: 362.00, durationMonths: 6 },
+        { name: "ADMINISTRAÇÃO", price: 0.00, basePrice: 0.00, durationMonths: 12 },
+        { name: "DEPENDENTE - COMBO FAMÍLIA", price: 0.00, basePrice: 0.00, durationMonths: 6 },
+        { name: "ISENTO / BOLSISTA", price: 0.00, basePrice: 0.00, durationMonths: 12 },
+        { name: "OUTROS", price: 150.00, basePrice: 150.00, durationMonths: 1 },
+        { name: "ADULTO SEMESTRAL 110", price: 110.00, basePrice: 110.00, durationMonths: 6 },
+        { name: "ISENTO", price: 0.00, basePrice: 0.00, durationMonths: 12 },
+        { name: "PROMOÇÃO - INFANTIL NO PIX", price: 130.00, basePrice: 130.00, durationMonths: 1 },
+        { name: "ADULTO SEMESTRAL 115", price: 115.00, basePrice: 115.00, durationMonths: 6 },
+        { name: "INFANTIL DEPENDENTE BLUEFIT", price: 80.00, basePrice: 80.00, durationMonths: 1 },
+        { name: "DESCONTO FAMÍLIA - INFANTIL (50%)", price: 78.95, basePrice: 78.95, durationMonths: 1 },
+        { name: "ALUNO BLUE/ADULTO - SEMESTRAL", price: 126.90, basePrice: 126.90, durationMonths: 6 }
+      ];
+
+      const existingNames = new Set(plansData.map(p => (typeof p.name === 'string' ? p.name : '').trim().toLowerCase()));
+      const toAdd: any[] = [];
+
+      for (const dp of defaultPlansList) {
+        if (!existingNames.has(dp.name.trim().toLowerCase())) {
+          toAdd.push(dp);
+          existingNames.add(dp.name.trim().toLowerCase());
+        }
+      }
+
+      if (Array.isArray(allStudents) && allStudents.length > 0) {
+        const studentPlans = new Set(
+          allStudents
+            .map(s => (s && typeof s.plan === 'string' ? s.plan : '').trim())
+            .filter(p => p !== '')
+        );
+
+        const LOCAL_PLAN_DICT: Record<string, { price: number, duration: number }> = {
+          'infantil-mensal': { price: 189.90, duration: 1 },
+          'infantil-trimestral': { price: 168.90, duration: 3 },
+          'infantil-semestral': { price: 157.90, duration: 6 },
+          'adulto-mensal': { price: 168.90, duration: 1 },
+          'adulto-trimestral': { price: 147.90, duration: 3 },
+          'adulto-semestral': { price: 126.90, duration: 6 },
+          'mensal': { price: 168.90, duration: 1 },
+          'trimestral': { price: 147.90, duration: 3 },
+          'semestral': { price: 126.90, duration: 6 },
+          'anual': { price: 100.00, duration: 12 },
+          'plano-mensal': { price: 168.90, duration: 1 },
+          'plano-trimestral': { price: 147.90, duration: 3 },
+          'plano-semestral': { price: 126.90, duration: 6 },
+          'plano-anual': { price: 100.00, duration: 12 },
+          'combo-dupla': { price: 250.00, duration: 6 },
+          'combo-familia': { price: 362.02, duration: 6 },
+          'administracao': { price: 0.00, duration: 12 },
+          'dependente': { price: 0.00, duration: 6 },
+          'isento': { price: 0.00, duration: 12 }
+        };
+
+        for (const sp of Array.from(studentPlans)) {
+          if (!existingNames.has(sp.toLowerCase())) {
+            let price = 150.00;
+            let duration = 1;
+            const dictKey = sp.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const matchKey = Object.keys(LOCAL_PLAN_DICT).find(k => k === dictKey || dictKey.includes(k) || k.includes(dictKey));
+            if (matchKey && LOCAL_PLAN_DICT[matchKey]) {
+              price = LOCAL_PLAN_DICT[matchKey].price;
+              duration = LOCAL_PLAN_DICT[matchKey].duration;
+            }
+            toAdd.push({
+              name: sp,
+              price: price,
+              basePrice: price,
+              durationMonths: duration
+            });
+            existingNames.add(sp.toLowerCase());
+          }
+        }
+      }
+
+      if (toAdd.length > 0) {
+        console.log(`Auto-seeding ${toAdd.length} missing plans down to Firestore.`);
+        await Promise.all(toAdd.map(plan => 
+          addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'plans'), {
+            name: plan.name,
+            price: Number(plan.price),
+            basePrice: Number(plan.basePrice),
+            durationMonths: Number(plan.durationMonths || 12),
+            mercadopagoLink: '',
+            mercadopagoLateLink: ''
+          })
+        ));
+        const newSnapshot = await getDocs(plansRef);
+        plansData = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+
       setDbPlans(plansData);
     } catch (error) {
-      console.error("Error fetching plans:", error);
+      console.error("Error fetching or seeding plans:", error);
     }
   };
 
@@ -399,7 +499,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     if (appId) {
       fetchPlans();
     }
-  }, [appId]);
+  }, [appId, allStudents.length]);
 
   useEffect(() => {
     if (!hasStartedLoading) {
@@ -1412,21 +1512,20 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-brand-red dark:text-white"
                     >
                       <option value="Todos">Todos</option>
-                      <option value="Mensal">Mensal</option>
-                      <option value="Trimestral">Trimestral</option>
-                      <option value="Semestral">Semestral</option>
-                      <option value="Anual">Anual</option>
-                      <option value="Infantil Mensal">Infantil Mensal</option>
-                      <option value="Infantil Trimestral">Infantil Trimestral</option>
-                      <option value="Infantil Semestral">Infantil Semestral</option>
-                      <option value="Adulto Mensal">Adulto Mensal</option>
-                      <option value="Adulto Trimestral">Adulto Trimestral</option>
-                      <option value="Adulto Semestral">Adulto Semestral</option>
-                      <option value="Combo Dupla">Combo Dupla</option>
-                      <option value="Combo Família">Combo Família</option>
-                      <option value="Dependente">Dependente</option>
-                      <option value="Isento">Isento</option>
-                      <option value="Administração">Administração</option>
+                      {(Array.isArray(dbPlans) ? dbPlans : [])
+                        .map(p => (p && typeof p.name === 'string' ? p.name : ''))
+                        .concat([
+                          "Mensal", "Trimestral", "Semestral", "Anual", 
+                          "Infantil Mensal", "Infantil Trimestral", "Infantil Semestral",
+                          "Adulto Mensal", "Adulto Trimestral", "Adulto Semestral",
+                          "Combo Dupla", "Combo Família", "Dependente", "Isento", "Administração"
+                        ])
+                        .filter((val, idx, self) => val && self.findIndex(v => v.trim().toLowerCase() === val.trim().toLowerCase()) === idx)
+                        .sort((a, b) => a.localeCompare(b))
+                        .map(planNameOption => (
+                          <option key={planNameOption} value={planNameOption}>{planNameOption}</option>
+                        ))
+                      }
                       <option value="Infantil">Todos Infantis (Parcial)</option>
                       <option value="Combo">Todos Combos (Parcial)</option>
                     </select>
@@ -2051,7 +2150,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         ) : (
                           <>
                             <h4 className="font-bold text-gray-900 dark:text-white uppercase mb-4">{planName || 'Plano Sem Nome'}</h4>
-                            <div className="space-y-2 mb-6">
+                            <div className="space-y-3 mb-6">
                               <div className="flex justify-between text-lg mb-2">
                                 <span className="text-gray-400 font-bold uppercase text-[10px]">Pontualidade:</span>
                                 <span className="font-black text-green-600">R$ {typeof plan.price === 'number' ? plan.price.toFixed(2).replace('.', ',') : (plan.price || 0)}</span>
@@ -2068,6 +2167,39 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                                     {plan.mercadopagoLink ? <LinkIcon size={12} className="text-green-500" /> : <AlertTriangle size={12} className="animate-pulse" />}
                                   </p>
                                 </div>
+                              </div>
+
+                              {/* Alunos Vinculados */}
+                              <div className="mt-4 pt-4 border-t border-gray-50 dark:border-gray-700 space-y-2 text-left">
+                                {(() => {
+                                  const planStudentsList = (Array.isArray(allStudents) ? allStudents : []).filter(s => {
+                                    const sPlan = (s && typeof s.plan === 'string' ? s.plan : '').trim().toLowerCase();
+                                    const pName = planName.trim().toLowerCase();
+                                    return sPlan === pName;
+                                  });
+                                  return (
+                                    <>
+                                      <div className="flex justify-between items-center">
+                                        <p className="text-gray-400 font-bold uppercase text-[9px]">Alunos Vinculados ({planStudentsList.length}):</p>
+                                        <span className="text-[10px] font-bold text-gray-500 italic">Vigente</span>
+                                      </div>
+                                      {planStudentsList.length > 0 ? (
+                                        <div className="max-h-28 overflow-y-auto space-y-1 pr-1 border border-gray-50 dark:border-gray-950 rounded-lg p-1.5 bg-gray-50/50 dark:bg-gray-950/20 scrollbar-none">
+                                          {planStudentsList.map(student => (
+                                            <div key={student.id} className="text-[11px] font-medium flex justify-between items-center text-gray-700 dark:text-gray-300 py-0.5">
+                                              <span className="truncate max-w-[150px] uppercase font-semibold">{student.name}</span>
+                                              <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded italic leading-none ${student.paymentStatus === 'Em dia' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'}`}>
+                                                {student.paymentStatus || 'Pendente'}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-[10px] text-gray-400 italic">Nenhum aluno ativo vinculado.</p>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </>
@@ -2341,21 +2473,20 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     onChange={e => setEditFormData({...editFormData, plan: e.target.value})}
                     className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white font-bold"
                   >
-                    <option value="Mensal">Mensal</option>
-                    <option value="Trimestral">Trimestral</option>
-                    <option value="Semestral">Semestral</option>
-                    <option value="Anual">Anual</option>
-                    <option value="Infantil Mensal">Infantil Mensal</option>
-                    <option value="Infantil Trimestral">Infantil Trimestral</option>
-                    <option value="Infantil Semestral">Infantil Semestral</option>
-                    <option value="Adulto Mensal">Adulto Mensal</option>
-                    <option value="Adulto Trimestral">Adulto Trimestral</option>
-                    <option value="Adulto Semestral">Adulto Semestral</option>
-                    <option value="Combo Dupla">Combo Dupla</option>
-                    <option value="Combo Família">Combo Família</option>
-                    <option value="Dependente">Dependente</option>
-                    <option value="Isento">Isento</option>
-                    <option value="Administração">Administração</option>
+                    {(Array.isArray(dbPlans) ? dbPlans : [])
+                      .map(p => (p && typeof p.name === 'string' ? p.name : ''))
+                      .concat([
+                        "Mensal", "Trimestral", "Semestral", "Anual", 
+                        "Infantil Mensal", "Infantil Trimestral", "Infantil Semestral",
+                        "Adulto Mensal", "Adulto Trimestral", "Adulto Semestral",
+                        "Combo Dupla", "Combo Família", "Dependente", "Isento", "Administração"
+                      ])
+                      .filter((val, idx, self) => val && self.findIndex(v => v.trim().toLowerCase() === val.trim().toLowerCase()) === idx)
+                      .sort((a, b) => a.localeCompare(b))
+                      .map(planNameOption => (
+                        <option key={planNameOption} value={planNameOption}>{planNameOption}</option>
+                      ))
+                    }
                   </select>
                 </div>
                 <div>
@@ -2684,21 +2815,20 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       onChange={e => setNewStudentData({...newStudentData, plan: e.target.value})}
                       className="w-full bg-gray-50 dark:bg-gray-800/50 border-2 border-transparent focus:border-brand-red p-3.5 rounded-2xl outline-none transition-all dark:text-white font-bold"
                     >
-                      <option value="Mensal">Mensal</option>
-                      <option value="Trimestral">Trimestral</option>
-                      <option value="Semestral">Semestral</option>
-                      <option value="Anual">Anual</option>
-                      <option value="Infantil Mensal">Infantil Mensal</option>
-                      <option value="Infantil Trimestral">Infantil Trimestral</option>
-                      <option value="Infantil Semestral">Infantil Semestral</option>
-                      <option value="Adulto Mensal">Adulto Mensal</option>
-                      <option value="Adulto Trimestral">Adulto Trimestral</option>
-                      <option value="Adulto Semestral">Adulto Semestral</option>
-                      <option value="Combo Dupla">Combo Dupla</option>
-                      <option value="Combo Família">Combo Família</option>
-                      <option value="Dependente">Dependente</option>
-                      <option value="Isento">Isento</option>
-                      <option value="Administração">Administração</option>
+                      {(Array.isArray(dbPlans) ? dbPlans : [])
+                        .map(p => (p && typeof p.name === 'string' ? p.name : ''))
+                        .concat([
+                          "Mensal", "Trimestral", "Semestral", "Anual", 
+                          "Infantil Mensal", "Infantil Trimestral", "Infantil Semestral",
+                          "Adulto Mensal", "Adulto Trimestral", "Adulto Semestral",
+                          "Combo Dupla", "Combo Família", "Dependente", "Isento", "Administração"
+                        ])
+                        .filter((val, idx, self) => val && self.findIndex(v => v.trim().toLowerCase() === val.trim().toLowerCase()) === idx)
+                        .sort((a, b) => a.localeCompare(b))
+                        .map(planNameOption => (
+                          <option key={planNameOption} value={planNameOption}>{planNameOption}</option>
+                        ))
+                      }
                     </select>
                   </div>
 
