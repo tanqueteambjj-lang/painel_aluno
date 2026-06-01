@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
-export default function QrModal({ isOpen, onClose, userData, planShort, appId, showAlert }: any) {
+export default function QrModal({ isOpen, onClose, userData, planShort, appId, showAlert, onStartCheckin }: any) {
   const [checkingIn, setCheckingIn] = useState(false);
   
   if (!userData) return null;
@@ -233,24 +233,39 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
               </div>
             </div>
 
-            <div className="mt-4 w-full flex flex-col items-center gap-2">
+            <div className="mt-4 w-full flex flex-col gap-2">
               {!isBlocked && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleProximityCheckin}
-                  disabled={checkingIn}
-                  className="w-full py-3 bg-brand-dark hover:bg-black text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50"
-                >
-                  {checkingIn ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <MapPin className="w-4 h-4 text-brand-red" />
-                      Validar Presença (GPS)
-                    </>
-                  )}
-                </motion.button>
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      onClose();
+                      if (onStartCheckin) onStartCheckin();
+                    }}
+                    className="w-full py-3 bg-brand-red hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
+                  >
+                    <Camera className="w-4.5 h-4.5" />
+                    Escanear QR do Tatame (Câmera)
+                  </motion.button>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleProximityCheckin}
+                    disabled={checkingIn}
+                    className="w-full py-3 bg-brand-dark hover:bg-black text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50"
+                  >
+                    {checkingIn ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <MapPin className="w-4 h-4 text-brand-red animate-pulse" />
+                        Validar Presença (GPS)
+                      </>
+                    )}
+                  </motion.button>
+                </>
               )}
             </div>
           </motion.div>

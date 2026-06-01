@@ -172,6 +172,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (currentUserData && currentUserData.id && sessionStorage.getItem('pending_scan_checkin') === 'true') {
       sessionStorage.removeItem('pending_scan_checkin');
+      sessionStorage.setItem('external_scan_trigger', 'true');
       setIsScanCheckinModalOpen(true);
     }
   }, [currentUserData]);
@@ -2659,6 +2660,9 @@ export default function Dashboard() {
         onOpenHistory={() => {
           setIsQrModalOpen(false);
           setIsHistoryModalOpen(true);
+        }}
+        onStartCheckin={() => {
+          setIsScanCheckinModalOpen(true);
         }}
         showAlert={showAlert}
         appId={appId}

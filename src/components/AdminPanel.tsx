@@ -126,17 +126,19 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [gymLongitude, setGymLongitude] = useState(-46.6333);
   const [gymLocationRadius, setGymLocationRadius] = useState(500);
   const [gymLocationName, setGymLocationName] = useState("Sede Tanque Team");
+  const [gymTolerance, setGymTolerance] = useState(30);
 
-  const updateGymSettings = async (lat: number, lng: number, radius: number, name: string) => {
+  const updateGymSettings = async (lat: number, lng: number, radius: number, name: string, tolerance: number) => {
     try {
       const qgRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gym');
       await setDoc(qgRef, {
         latitude: lat,
         longitude: lng,
         radius: radius,
-        name: name
+        name: name,
+        tolerance: tolerance
       }, { merge: true });
-      showAlert("Sucesso", "Configurações de localização do tatame atualizadas com sucesso!", "success");
+      showAlert("Sucesso", "Configurações do tatame atualizadas com sucesso!", "success");
     } catch (err) {
       console.error("Error updating gym settings:", err);
       showAlert("Erro", "Não foi possível atualizar as configurações de localização.", "error");
@@ -970,6 +972,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         setGymLongitude(Number(data.longitude) || -46.6333);
         setGymLocationRadius(Number(data.radius) || 500);
         setGymLocationName(data.name || "Sede Tanque Team");
+        setGymTolerance(Number(data.tolerance) || 30);
       }
     }, (err) => {
       console.error("Gym settings listener error:", err);
@@ -1623,7 +1626,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-35">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase mb-1">Latitude</label>
                           <input 
@@ -1648,17 +1651,31 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase mb-1">Raio de Validação (Metros)</label>
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="number" 
-                            value={gymLocationRadius}
-                            onChange={(e) => setGymLocationRadius(parseInt(e.target.value) || 0)}
-                            placeholder="500"
-                            className="flex-1 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-semibold"
-                          />
-                          <span className="text-xs text-gray-400 font-bold">metros</span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase mb-1">Raio de Validação (Metros)</label>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="number" 
+                              value={gymLocationRadius}
+                              onChange={(e) => setGymLocationRadius(parseInt(e.target.value) || 0)}
+                              placeholder="500"
+                              className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-semibold"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase mb-1">Janela Tolerância (Minutos)</label>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="number" 
+                              value={gymTolerance}
+                              onChange={(e) => setGymTolerance(parseInt(e.target.value) || 0)}
+                              placeholder="30"
+                              className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-semibold"
+                            />
+                          </div>
                         </div>
                       </div>
 
@@ -1686,7 +1703,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         </button>
 
                         <button
-                          onClick={() => updateGymSettings(gymLatitude, gymLongitude, gymLocationRadius, gymLocationName)}
+                          onClick={() => updateGymSettings(gymLatitude, gymLongitude, gymLocationRadius, gymLocationName, gymTolerance)}
                           className="py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-1.5 shadow transition"
                         >
                           <CheckSquare size={11} /> Salvar Configs
