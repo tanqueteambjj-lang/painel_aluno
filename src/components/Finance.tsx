@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer, Shield, CreditCard, ExternalLink, Loader2, Zap } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ReceiptModal from './ReceiptModal';
-import { collection, getDocs, updateDoc, doc, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { createMPCheckout } from '../services/mercadoPagoService';
@@ -9,31 +9,82 @@ import { createMPCheckout } from '../services/mercadoPagoService';
 export function normalizePlanName(name: string): string {
   if (!name) return "";
   const clean = name.trim().toUpperCase();
-  if (clean === "ADULTO SEMESTRAL" || clean === "ADULTO-SEMESTRAL" || clean === "PLANO ADULTO SEMESTRAL") return "ADULTO SEMESTRAL";
-  if (clean === "ALUNO BLUE/ADULTO - SEMESTRAL" || clean.includes("ALUNO BLUE") || clean.includes("BLUE/ADULTO") || clean.includes("BLUEFIT")) {
+
+  // "ADMINISTRAÇÃO (ISENTO)" (4 Alunos)
+  if (clean === "ADMINISTRAÇÃO (ISENTO)" || clean === "ADMINISTRACAO (ISENTO)" || clean === "ADMINISTRAÇÃO" || clean === "ADMINISTRACAO" || clean === "ADMINISTRAÇÃO (ISENTA)" || clean === "ADMINISTRACAO (ISENTA)") {
+    return "ADMINISTRAÇÃO (ISENTO)";
+  }
+
+  // "ADULTO SEMESTRAL" (12 Alunos)
+  if (clean === "ADULTO SEMESTRAL" || clean === "ADULTO-SEMESTRAL" || clean === "PLANO ADULTO SEMESTRAL") {
+    return "ADULTO SEMESTRAL";
+  }
+
+  // "ADULTO SEMESTRAL 110" (3 Alunos)
+  if (clean === "ADULTO SEMESTRAL 110" || clean === "ADULTO SEMESTRAL R$ 110" || clean === "ADULTO SEMESTRAL - R$ 110" || clean === "ADULTO SEMESTRAL - 110" || clean === "ADULTO SEMESTRAL R$110" || clean.endsWith("SEMESTRAL 110") || clean.endsWith("SEMESTRAL R$ 110") || clean.includes("ADULTO SEMESTRAL 110") || clean === "ADULTO SEMESTRAL 110") {
+    return "ADULTO SEMESTRAL 110";
+  }
+
+  // "ADULTO SEMESTRAL 115" (2 Alunos)
+  if (clean === "ADULTO SEMESTRAL 115" || clean === "ADULTO SEMESTRAL R$ 115" || clean === "ADULTO SEMESTRAL - R$ 115" || clean === "ADULTO SEMESTRAL - 115" || clean === "ADULTO SEMESTRAL R$115" || clean.endsWith("SEMESTRAL 115") || clean.endsWith("SEMESTRAL R$ 115") || clean.includes("ADULTO SEMESTRAL 115") || clean === "ADULTO SEMESTRAL 115") {
+    return "ADULTO SEMESTRAL 115";
+  }
+
+  // "ALUNO BLUE/ADULTO - SEMESTRAL" (9 Alunos)
+  if (clean === "ALUNO BLUE/ADULTO - SEMESTRAL" || clean.includes("ALUNO BLUE") || clean.includes("BLUE/ADULTO")) {
     if (clean.includes("DEPENDENTE")) return "INFANTIL DEPENDENTE BLUEFIT";
     return "ALUNO BLUE/ADULTO - SEMESTRAL";
   }
-  if (clean === "INFANTIL SEMESTRAL" || clean === "INFANTIL-SEMESTRAL" || clean === "PLANO INFANTIL SEMESTRAL") return "INFANTIL SEMESTRAL";
-  if (clean === "ADMINISTRAÇÃO" || clean === "ADMINISTRACAO") return "ADMINISTRAÇÃO";
-  if (clean === "ADULTO SEMESTRAL 110" || clean === "ADULTO SEMESTRAL R$ 110" || clean === "ADULTO SEMESTRAL - R$ 110") return "ADULTO SEMESTRAL 110";
-  if (clean.includes("KIDS NO PIX") || clean.includes("PROMOÇÃO - INFANTIL NO PIX") || clean.includes("PROMOCAO - INFANTIL NO PIX") || clean.includes("PROMOÇÃO KIDS NO PIX") || clean.includes("KIDS NO PIX - R$ 140,00") || clean.includes("KIDS NO PIX - R$ 140")) return "PROMOÇÃO - INFANTIL NO PIX";
-  if (clean === "INFANTIL TRIMESTRAL") return "INFANTIL TRIMESTRAL";
-  if (clean === "ISENTO" || clean === "ISENTO / BOLSISTA" || clean === "ISENTO/BOLSISTA") {
-    if (clean.includes("BOLSISTA")) return "ISENTO / BOLSISTA";
-    return "ISENTO";
+
+  // "COMBO DUPLA SEMESTRAL" (3 Alunos)
+  if (clean === "COMBO DUPLA" || clean === "COMBO DUPLA SEMESTRAL" || clean === "COMBO DUPLA - SEMESTRAL" || clean === "COMBO DUPLA COLETIVO") {
+    return "COMBO DUPLA SEMESTRAL";
   }
-  if (clean.includes("DESCONTO FAMÍLIA") || clean.includes("DESCONTO FAMILIA") || clean.includes("FAMÍLIA - INFANTIL") || clean.includes("FAMILIA - INFANTIL")) return "DESCONTO FAMÍLIA - INFANTIL (50%)";
-  if (clean.includes("INFANTIL DEPENDENTE")) return "INFANTIL DEPENDENTE BLUEFIT";
-  if (clean === "DEPENDENTE" || clean === "DEPENDENTE - COMBO FAMÍLIA" || clean === "DEPENDENTE-COMBO FAMILIA") return "DEPENDENTE - COMBO FAMÍLIA";
-  if (clean === "COMBO DUPLA" || clean === "COMBO DUPLA SEMESTRAL" || clean === "COMBO DUPLA - SEMESTRAL") return "COMBO DUPLA SEMESTRAL";
-  if (clean === "ADULTO SEMESTRAL 115" || clean === "ADULTO SEMESTRAL - R$ 115") return "ADULTO SEMESTRAL 115";
+
+  // "DEPENDENTE - COMBO FAMÍLIA" (1 Aluno)
+  if (clean === "DEPENDENTE" || clean === "DEPENDENTE - COMBO FAMÍLIA" || clean === "DEPENDENTE-COMBO FAMILIA" || clean === "DEPENDENTE - COMBO FAMILIA" || clean.includes("DEPENDENTE - COMBO FAMÍLIA") || clean.includes("DEPENDENTE - COMBO FAMILIA")) {
+    return "DEPENDENTE - COMBO FAMÍLIA";
+  }
+
+  // "DESCONTO FAMÍLIA - INFANTIL (50%)" (1 Aluno)
+  if (clean.includes("DESCONTO FAMÍLIA") || clean.includes("DESCONTO FAMILIA") || clean.includes("FAMÍLIA - INFANTIL") || clean.includes("FAMILIA - INFANTIL") || clean.includes("FAMILIA (50%)") || clean.includes("FAMÍLIA (50%)") || clean.includes("DESCONTO FAMILIA - INFANTIL (50%)")) {
+    return "DESCONTO FAMÍLIA - INFANTIL (50%)";
+  }
+
+  // "INFANTIL DEPENDENTE BLUEFIT" (1 Aluno)
+  if (clean.includes("INFANTIL DEPENDENTE") || clean.includes("DEPENDENTE BLUEFIT") || clean.includes("DEPENDENTE-BLUEFIT") || clean.includes("DEPENDENTE BLUE FIT") || clean.includes("DEPENDENTE-BLUE FIT")) {
+    return "INFANTIL DEPENDENTE BLUEFIT";
+  }
+
+  // "INFANTIL SEMESTRAL" (8 Alunos)
+  if (clean === "INFANTIL SEMESTRAL" || clean === "INFANTIL-SEMESTRAL" || clean === "PLANO INFANTIL SEMESTRAL") {
+    return "INFANTIL SEMESTRAL";
+  }
+
+  // "INFANTIL TRIMESTRAL" (2 Alunos)
+  if (clean === "INFANTIL TRIMESTRAL" || clean === "INFANTIL-TRIMESTRAL") {
+    return "INFANTIL TRIMESTRAL";
+  }
+
+  // "ISENTO / BOLSISTA" (1 Aluno)
+  if (clean === "ISENTO" || clean === "ISENTO / BOLSISTA" || clean === "ISENTO/BOLSISTA" || clean.includes("ISENTO") || clean.includes("BOLSISTA")) {
+    if (clean.includes("ADMINISTRAÇÃO") || clean.includes("ADMINISTRACAO")) return "ADMINISTRAÇÃO (ISENTO)";
+    return "ISENTO / BOLSISTA";
+  }
+
+  // "PROMOÇÃO KIDS NO PIX - R$ 140,00" (2 Alunos)
+  if (clean.includes("KIDS NO PIX") || clean.includes("KIDS NO PIX - R$ 140") || clean.includes("PROMOÇÃO - INFANTIL NO PIX") || clean.includes("PROMOCAO - INFANTIL NO PIX") || clean.includes("PROMOÇÃO KIDS NO PIX") || clean.includes("PROMOÇÃO KIDS") || clean.includes("PROMOCAO KIDS") || clean.includes("PROMOÇÃO KIDS NO PIX - R$ 140,00") || clean.includes("PROMOCAO KIDS NO PIX") || clean.includes("PROMOÇÃO KIDS NO PIX")) {
+    return "PROMOÇÃO KIDS NO PIX - R$ 140,00";
+  }
+
+  // Fallbacks or legacy names:
   if (clean === "INFANTIL MENSAL") return "INFANTIL MENSAL";
   if (clean === "ADULTO MENSAL") return "ADULTO MENSAL";
   if (clean === "ADULTO TRIMESTRAL") return "ADULTO TRIMESTRAL";
   if (clean === "COMBO CASAL SEMESTRAL") return "COMBO CASAL SEMESTRAL";
   if (clean === "COMBO FAMÍLIA SEMESTRAL" || clean === "COMBO FAMILIA SEMESTRAL") return "COMBO FAMÍLIA SEMESTRAL";
   if (clean === "OUTROS") return "OUTROS";
+
   return clean;
 }
 
@@ -59,6 +110,24 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [dbPlans, setDbPlans] = useState<any[]>([]);
   const [isPaying, setIsPaying] = useState(false);
+  const [maintenanceActive, setMaintenanceActive] = useState<boolean>(true);
+  const [settingsLoading, setSettingsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    const settingsRef = doc(db, 'artifacts', 'tanqueteam-bjj', 'public', 'data', 'settings', 'finance');
+    const unsub = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setMaintenanceActive(docSnap.data().maintenanceActive !== false);
+      } else {
+        setMaintenanceActive(true); // Default to true
+      }
+      setSettingsLoading(false);
+    }, (err) => {
+      console.error("Error listening to finance settings:", err);
+      setSettingsLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     // Process successful payment redirect from Mercado Pago
@@ -232,6 +301,65 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
       discount: discountNum > 0 ? discountNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null
     });
   };
+
+  if (settingsLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 text-brand-red animate-spin" />
+      </div>
+    );
+  }
+
+  // Maintenance block requested by user
+  if (maintenanceActive) {
+    return (
+      <div className="w-full max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[2rem] p-8 sm:p-12 shadow-[0_10px_40px_rgba(0,0,0,0.03)] text-center relative overflow-hidden"
+        >
+          <div className="absolute -top-24 -left-24 w-64 h-64 bg-brand-red/5 rounded-full blur-[80px] pointer-events-none"></div>
+          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-amber-500/5 rounded-full blur-[80px] pointer-events-none"></div>
+  
+          <div className="relative z-10 flex flex-col items-center max-w-2xl mx-auto">
+            <div className="relative mb-8">
+              <div className="absolute inset-0 bg-brand-red/20 blur-2xl rounded-full w-24 h-24 -translate-y-2 animate-pulse"></div>
+              <div className="relative bg-brand-red/10 dark:bg-brand-red/5 border-2 border-brand-red p-5 rounded-[2rem] shadow-inner">
+                <Clock className="w-12 h-12 text-brand-red" />
+              </div>
+            </div>
+  
+            <h3 className="text-3xl sm:text-4xl font-extrabold italic uppercase tracking-tighter text-gray-900 dark:text-white mb-4">
+              Módulo Financeiro <span className="text-brand-red">em Manutenção</span>
+            </h3>
+            
+            <div className="w-16 h-1 bg-gradient-to-r from-brand-red to-amber-500 rounded-full mb-6"></div>
+  
+            <p className="text-gray-600 dark:text-gray-300 text-base font-medium leading-relaxed mb-8">
+              Estamos atualizando os nossos sistemas de pagamento, faturamento e histórico financeiro para trazer melhorias significativas de desempenho, novas opções de parcelamento e maior estabilidade na integração com o Mercado Pago.
+            </p>
+  
+            <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 p-5 rounded-2xl flex items-start gap-4 text-left">
+              <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider mb-1">
+                  Informação Importante
+                </p>
+                <p className="text-xs text-amber-700/90 dark:text-amber-400/80 leading-relaxed font-semibold">
+                  Esta atualização não afeta os seus planos vigentes nem o seu direito de acesso às aulas e treinos no tatame. Se sua mensalidade vence hoje ou se precisa renovar seu plano imediatamente, procure diretamente o professor ou a recepção para suporte.
+                </p>
+              </div>
+            </div>
+  
+            <p className="mt-8 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
+              <Shield className="w-4 h-4" /> Tanque Team BJJ — Comprometidos com sua evolução
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full px-1 sm:px-0">

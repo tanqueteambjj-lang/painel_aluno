@@ -1,40 +1,92 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, deleteField } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon } from 'lucide-react';
+import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, setDoc, deleteField } from 'firebase/firestore';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
+import { QRCodeSVG } from 'qrcode.react';
 
 export function normalizePlanName(name: string): string {
   if (!name) return "";
   const clean = name.trim().toUpperCase();
-  if (clean === "ADULTO SEMESTRAL" || clean === "ADULTO-SEMESTRAL" || clean === "PLANO ADULTO SEMESTRAL") return "ADULTO SEMESTRAL";
-  if (clean === "ALUNO BLUE/ADULTO - SEMESTRAL" || clean.includes("ALUNO BLUE") || clean.includes("BLUE/ADULTO") || clean.includes("BLUEFIT")) {
+
+  // "ADMINISTRAÇÃO (ISENTO)" (4 Alunos)
+  if (clean === "ADMINISTRAÇÃO (ISENTO)" || clean === "ADMINISTRACAO (ISENTO)" || clean === "ADMINISTRAÇÃO" || clean === "ADMINISTRACAO" || clean === "ADMINISTRAÇÃO (ISENTA)" || clean === "ADMINISTRACAO (ISENTA)") {
+    return "ADMINISTRAÇÃO (ISENTO)";
+  }
+
+  // "ADULTO SEMESTRAL" (12 Alunos)
+  if (clean === "ADULTO SEMESTRAL" || clean === "ADULTO-SEMESTRAL" || clean === "PLANO ADULTO SEMESTRAL") {
+    return "ADULTO SEMESTRAL";
+  }
+
+  // "ADULTO SEMESTRAL 110" (3 Alunos)
+  if (clean === "ADULTO SEMESTRAL 110" || clean === "ADULTO SEMESTRAL R$ 110" || clean === "ADULTO SEMESTRAL - R$ 110" || clean === "ADULTO SEMESTRAL - 110" || clean === "ADULTO SEMESTRAL R$110" || clean.endsWith("SEMESTRAL 110") || clean.endsWith("SEMESTRAL R$ 110") || clean.includes("ADULTO SEMESTRAL 110") || clean === "ADULTO SEMESTRAL 110") {
+    return "ADULTO SEMESTRAL 110";
+  }
+
+  // "ADULTO SEMESTRAL 115" (2 Alunos)
+  if (clean === "ADULTO SEMESTRAL 115" || clean === "ADULTO SEMESTRAL R$ 115" || clean === "ADULTO SEMESTRAL - R$ 115" || clean === "ADULTO SEMESTRAL - 115" || clean === "ADULTO SEMESTRAL R$115" || clean.endsWith("SEMESTRAL 115") || clean.endsWith("SEMESTRAL R$ 115") || clean.includes("ADULTO SEMESTRAL 115") || clean === "ADULTO SEMESTRAL 115") {
+    return "ADULTO SEMESTRAL 115";
+  }
+
+  // "ALUNO BLUE/ADULTO - SEMESTRAL" (9 Alunos)
+  if (clean === "ALUNO BLUE/ADULTO - SEMESTRAL" || clean.includes("ALUNO BLUE") || clean.includes("BLUE/ADULTO")) {
     if (clean.includes("DEPENDENTE")) return "INFANTIL DEPENDENTE BLUEFIT";
     return "ALUNO BLUE/ADULTO - SEMESTRAL";
   }
-  if (clean === "INFANTIL SEMESTRAL" || clean === "INFANTIL-SEMESTRAL" || clean === "PLANO INFANTIL SEMESTRAL") return "INFANTIL SEMESTRAL";
-  if (clean === "ADMINISTRAÇÃO" || clean === "ADMINISTRACAO") return "ADMINISTRAÇÃO";
-  if (clean === "ADULTO SEMESTRAL 110" || clean === "ADULTO SEMESTRAL R$ 110" || clean === "ADULTO SEMESTRAL - R$ 110") return "ADULTO SEMESTRAL 110";
-  if (clean.includes("KIDS NO PIX") || clean.includes("PROMOÇÃO - INFANTIL NO PIX") || clean.includes("PROMOCAO - INFANTIL NO PIX") || clean.includes("PROMOÇÃO KIDS NO PIX") || clean.includes("KIDS NO PIX - R$ 140,00") || clean.includes("KIDS NO PIX - R$ 140")) return "PROMOÇÃO - INFANTIL NO PIX";
-  if (clean === "INFANTIL TRIMESTRAL") return "INFANTIL TRIMESTRAL";
-  if (clean === "ISENTO" || clean === "ISENTO / BOLSISTA" || clean === "ISENTO/BOLSISTA") {
-    if (clean.includes("BOLSISTA")) return "ISENTO / BOLSISTA";
-    return "ISENTO";
+
+  // "COMBO DUPLA SEMESTRAL" (3 Alunos)
+  if (clean === "COMBO DUPLA" || clean === "COMBO DUPLA SEMESTRAL" || clean === "COMBO DUPLA - SEMESTRAL" || clean === "COMBO DUPLA COLETIVO") {
+    return "COMBO DUPLA SEMESTRAL";
   }
-  if (clean.includes("DESCONTO FAMÍLIA") || clean.includes("DESCONTO FAMILIA") || clean.includes("FAMÍLIA - INFANTIL") || clean.includes("FAMILIA - INFANTIL")) return "DESCONTO FAMÍLIA - INFANTIL (50%)";
-  if (clean.includes("INFANTIL DEPENDENTE")) return "INFANTIL DEPENDENTE BLUEFIT";
-  if (clean === "DEPENDENTE" || clean === "DEPENDENTE - COMBO FAMÍLIA" || clean === "DEPENDENTE-COMBO FAMILIA") return "DEPENDENTE - COMBO FAMÍLIA";
-  if (clean === "COMBO DUPLA" || clean === "COMBO DUPLA SEMESTRAL" || clean === "COMBO DUPLA - SEMESTRAL") return "COMBO DUPLA SEMESTRAL";
-  if (clean === "ADULTO SEMESTRAL 115" || clean === "ADULTO SEMESTRAL - R$ 115") return "ADULTO SEMESTRAL 115";
+
+  // "DEPENDENTE - COMBO FAMÍLIA" (1 Aluno)
+  if (clean === "DEPENDENTE" || clean === "DEPENDENTE - COMBO FAMÍLIA" || clean === "DEPENDENTE-COMBO FAMILIA" || clean === "DEPENDENTE - COMBO FAMILIA" || clean.includes("DEPENDENTE - COMBO FAMÍLIA") || clean.includes("DEPENDENTE - COMBO FAMILIA")) {
+    return "DEPENDENTE - COMBO FAMÍLIA";
+  }
+
+  // "DESCONTO FAMÍLIA - INFANTIL (50%)" (1 Aluno)
+  if (clean.includes("DESCONTO FAMÍLIA") || clean.includes("DESCONTO FAMILIA") || clean.includes("FAMÍLIA - INFANTIL") || clean.includes("FAMILIA - INFANTIL") || clean.includes("FAMILIA (50%)") || clean.includes("FAMÍLIA (50%)") || clean.includes("DESCONTO FAMILIA - INFANTIL (50%)")) {
+    return "DESCONTO FAMÍLIA - INFANTIL (50%)";
+  }
+
+  // "INFANTIL DEPENDENTE BLUEFIT" (1 Aluno)
+  if (clean.includes("INFANTIL DEPENDENTE") || clean.includes("DEPENDENTE BLUEFIT") || clean.includes("DEPENDENTE-BLUEFIT") || clean.includes("DEPENDENTE BLUE FIT") || clean.includes("DEPENDENTE-BLUE FIT")) {
+    return "INFANTIL DEPENDENTE BLUEFIT";
+  }
+
+  // "INFANTIL SEMESTRAL" (8 Alunos)
+  if (clean === "INFANTIL SEMESTRAL" || clean === "INFANTIL-SEMESTRAL" || clean === "PLANO INFANTIL SEMESTRAL") {
+    return "INFANTIL SEMESTRAL";
+  }
+
+  // "INFANTIL TRIMESTRAL" (2 Alunos)
+  if (clean === "INFANTIL TRIMESTRAL" || clean === "INFANTIL-TRIMESTRAL") {
+    return "INFANTIL TRIMESTRAL";
+  }
+
+  // "ISENTO / BOLSISTA" (1 Aluno)
+  if (clean === "ISENTO" || clean === "ISENTO / BOLSISTA" || clean === "ISENTO/BOLSISTA" || clean.includes("ISENTO") || clean.includes("BOLSISTA")) {
+    if (clean.includes("ADMINISTRAÇÃO") || clean.includes("ADMINISTRACAO")) return "ADMINISTRAÇÃO (ISENTO)";
+    return "ISENTO / BOLSISTA";
+  }
+
+  // "PROMOÇÃO KIDS NO PIX - R$ 140,00" (2 Alunos)
+  if (clean.includes("KIDS NO PIX") || clean.includes("KIDS NO PIX - R$ 140") || clean.includes("PROMOÇÃO - INFANTIL NO PIX") || clean.includes("PROMOCAO - INFANTIL NO PIX") || clean.includes("PROMOÇÃO KIDS NO PIX") || clean.includes("PROMOÇÃO KIDS") || clean.includes("PROMOCAO KIDS") || clean.includes("PROMOÇÃO KIDS NO PIX - R$ 140,00") || clean.includes("PROMOCAO KIDS NO PIX") || clean.includes("PROMOÇÃO KIDS NO PIX")) {
+    return "PROMOÇÃO KIDS NO PIX - R$ 140,00";
+  }
+
+  // Fallbacks or legacy names:
   if (clean === "INFANTIL MENSAL") return "INFANTIL MENSAL";
   if (clean === "ADULTO MENSAL") return "ADULTO MENSAL";
   if (clean === "ADULTO TRIMESTRAL") return "ADULTO TRIMESTRAL";
   if (clean === "COMBO CASAL SEMESTRAL") return "COMBO CASAL SEMESTRAL";
   if (clean === "COMBO FAMÍLIA SEMESTRAL" || clean === "COMBO FAMILIA SEMESTRAL") return "COMBO FAMÍLIA SEMESTRAL";
   if (clean === "OUTROS") return "OUTROS";
+
   return clean;
 }
 
@@ -48,13 +100,12 @@ export const PLAN_ORDER = [
   "COMBO DUPLA SEMESTRAL",
   "COMBO CASAL SEMESTRAL",
   "COMBO FAMÍLIA SEMESTRAL",
-  "ADMINISTRAÇÃO",
+  "ADMINISTRAÇÃO (ISENTO)",
   "DEPENDENTE - COMBO FAMÍLIA",
   "ISENTO / BOLSISTA",
   "OUTROS",
   "ADULTO SEMESTRAL 110",
-  "ISENTO",
-  "PROMOÇÃO - INFANTIL NO PIX",
+  "PROMOÇÃO KIDS NO PIX - R$ 140,00",
   "ADULTO SEMESTRAL 115",
   "INFANTIL DEPENDENTE BLUEFIT",
   "DESCONTO FAMÍLIA - INFANTIL (50%)",
@@ -68,6 +119,185 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [hasStartedLoading, setHasStartedLoading] = useState(false);
   const [extraXPValue, setExtraXPValue] = useState(100);
   const [isLinkingFamily, setIsLinkingFamily] = useState<{ studentId: string, name: string, parentId?: string } | null>(null);
+  const [maintenanceActive, setMaintenanceActive] = useState(true);
+
+  // Gym/Tatame QR checkin location and configs
+  const [gymLatitude, setGymLatitude] = useState(-23.5505);
+  const [gymLongitude, setGymLongitude] = useState(-46.6333);
+  const [gymLocationRadius, setGymLocationRadius] = useState(500);
+  const [gymLocationName, setGymLocationName] = useState("Sede Tanque Team");
+
+  const updateGymSettings = async (lat: number, lng: number, radius: number, name: string) => {
+    try {
+      const qgRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gym');
+      await setDoc(qgRef, {
+        latitude: lat,
+        longitude: lng,
+        radius: radius,
+        name: name
+      }, { merge: true });
+      showAlert("Sucesso", "Configurações de localização do tatame atualizadas com sucesso!", "success");
+    } catch (err) {
+      console.error("Error updating gym settings:", err);
+      showAlert("Erro", "Não foi possível atualizar as configurações de localização.", "error");
+    }
+  };
+
+  const handlePrintQRCode = () => {
+    const checkinUrl = `${window.location.origin}/?action=scan-checkin`;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showAlert("Bloqueador de Popups", "Por favor, libere popups para visualizar e imprimir o QR Code.", "warning");
+      return;
+    }
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Imprimir QR Code - Check-In Tatame</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;850;900&display=swap');
+            body {
+              font-family: 'Inter', sans-serif;
+              text-align: center;
+              padding: 40px;
+              color: #0c0a09;
+              background-color: #ffffff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 90vh;
+            }
+            .container {
+              border: 5px solid #ef4444;
+              border-radius: 40px;
+              padding: 50px 40px;
+              max-width: 450px;
+              width: 100%;
+              margin: 0 auto;
+              box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+            }
+            .logo-container {
+              margin-bottom: 12px;
+            }
+            .logo {
+              height: 90px;
+              object-fit: contain;
+            }
+            h1 {
+              font-size: 32px;
+              font-weight: 900;
+              margin: 10px 0 5px 0;
+              text-transform: uppercase;
+              letter-spacing: -1.5px;
+              color: #0c0a09;
+            }
+            .subtitle {
+              font-size: 11px;
+              color: #ef4444;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 3px;
+              margin-bottom: 25px;
+            }
+            .qr-box {
+              background: white;
+              padding: 18px;
+              display: inline-block;
+              border-radius: 24px;
+              box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+              margin: 10px 0;
+              border: 1px solid #e5e7eb;
+            }
+            .instructions {
+              font-size: 13px;
+              color: #4b5563;
+              line-height: 1.6;
+              margin-top: 25px;
+              font-weight: 600;
+              text-align: left;
+              background: #f9fafb;
+              padding: 16px 20px;
+              border-radius: 16px;
+              border: 1px dashed #e5e7eb;
+            }
+            .instructions strong {
+              color: #ef4444;
+              font-weight: 800;
+              display: block;
+              margin-bottom: 6px;
+              font-size: 11px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .footer {
+              margin-top: 30px;
+              font-size: 9px;
+              color: #9ca3af;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 1.5px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="logo-container">
+              <img class="logo" src="https://iili.io/qC543c7.png" alt="Logo Tanque Team">
+            </div>
+            <h1>Check-In</h1>
+            <div class="subtitle">Acesso ao Tatame</div>
+            
+            <div class="qr-box">
+              <div id="qr-svg"></div>
+            </div>
+            
+            <div class="instructions">
+              <strong>Instruções para o Aluno:</strong>
+              1. Aponte a câmera do seu celular para o QR Code.<br/>
+              2. Abra a página do aplicativo do tatame.<br/>
+              3. O sistema marcará sua presença automaticamente no horário atual!
+            </div>
+            
+            <div class="footer">
+              Tanque Team BJJ — Comprometidos com sua evolução
+            </div>
+          </div>
+          
+          <script>
+            const qrUrl = "${checkinUrl}";
+            const container = document.getElementById('qr-svg');
+            const encodedUrl = encodeURIComponent(qrUrl);
+            const qrChartUrl = "https://chart.googleapis.com/chart?chs=280x280&cht=qr&chl=" + encodedUrl + "&choe=UTF-8";
+            
+            const img = document.createElement('img');
+            img.src = qrChartUrl;
+            img.width = 280;
+            img.height = 280;
+            container.appendChild(img);
+            
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 600);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const toggleMaintenance = async (active: boolean) => {
+    try {
+      const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'finance');
+      await setDoc(settingsRef, { maintenanceActive: active }, { merge: true });
+      showAlert("Sucesso", active ? "Módulo financeiro bloqueado (em manutenção)." : "Módulo financeiro liberado para os alunos.", "success");
+    } catch (error) {
+      console.error("Error toggling maintenance:", error);
+      showAlert("Erro", "Não foi possível alterar o status de manutenção do módulo financeiro.", "error");
+    }
+  };
   
   // Students and Search
   const [students, setStudents] = useState<any[]>([]);
@@ -407,30 +637,63 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       const snapshot = await getDocs(plansRef);
       const rawPlansData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
-      // Step 1: Deduplicate local copies of plans using normalizePlanName
+      const canonicalPlansList = [
+        { name: "INFANTIL MENSAL", price: 189.90, basePrice: 189.90, durationMonths: 1 },
+        { name: "INFANTIL TRIMESTRAL", price: 168.90, basePrice: 168.90, durationMonths: 3 },
+        { name: "INFANTIL SEMESTRAL", price: 157.90, basePrice: 157.90, durationMonths: 6 },
+        { name: "ADULTO MENSAL", price: 168.90, basePrice: 168.90, durationMonths: 1 },
+        { name: "ADULTO TRIMESTRAL", price: 147.90, basePrice: 147.90, durationMonths: 3 },
+        { name: "ADULTO SEMESTRAL", price: 126.90, basePrice: 126.90, durationMonths: 6 },
+        { name: "COMBO DUPLA SEMESTRAL", price: 250.00, basePrice: 250.00, durationMonths: 6 },
+        { name: "COMBO CASAL SEMESTRAL", price: 250.00, basePrice: 250.00, durationMonths: 6 },
+        { name: "COMBO FAMÍLIA SEMESTRAL", price: 362.00, basePrice: 362.00, durationMonths: 6 },
+        { name: "ADMINISTRAÇÃO (ISENTO)", price: 0.00, basePrice: 0.00, durationMonths: 12 },
+        { name: "DEPENDENTE - COMBO FAMÍLIA", price: 0.00, basePrice: 0.00, durationMonths: 6 },
+        { name: "ISENTO / BOLSISTA", price: 0.00, basePrice: 0.00, durationMonths: 12 },
+        { name: "OUTROS", price: 150.00, basePrice: 150.00, durationMonths: 1 },
+        { name: "ADULTO SEMESTRAL 110", price: 110.00, basePrice: 110.00, durationMonths: 6 },
+        { name: "PROMOÇÃO KIDS NO PIX - R$ 140,00", price: 140.00, basePrice: 140.00, durationMonths: 6 },
+        { name: "ADULTO SEMESTRAL 115", price: 115.00, basePrice: 115.00, durationMonths: 6 },
+        { name: "INFANTIL DEPENDENTE BLUEFIT", price: 126.90, basePrice: 126.90, durationMonths: 6 },
+        { name: "DESCONTO FAMÍLIA - INFANTIL (50%)", price: 65.00, basePrice: 65.00, durationMonths: 6 },
+        { name: "ALUNO BLUE/ADULTO - SEMESTRAL", price: 126.90, basePrice: 126.90, durationMonths: 6 }
+      ];
+
+      // Step 1: Align legacy spellings and deduplicate local copies of plans using normalizePlanName
       const normalizedMap = new Map<string, any>();
       for (const p of rawPlansData) {
         if (!p || !p.name) continue;
         const normName = normalizePlanName(p.name);
-        if (!normalizedMap.has(normName)) {
-          normalizedMap.set(normName, p);
+        
+        // Find canonical name mapping
+        const canonDef = canonicalPlansList.find(dp => normalizePlanName(dp.name) === normName);
+        const properName = canonDef ? canonDef.name : normName;
+
+        // Correct spelling in database if it doesn't match the proper/canonical name exactly
+        if (p.name !== properName) {
+          try {
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plans', p.id), {
+              name: properName
+            });
+            p.name = properName;
+            console.log(`Automatically updated plan name spelling in Firestore: '${p.name}' -> '${properName}'`);
+          } catch (err) {
+            console.error("Error aligning spelling of plan in DB:", err);
+          }
+        }
+
+        if (!normalizedMap.has(properName)) {
+          normalizedMap.set(properName, p);
         } else {
           // Select which one to keep
-          const existing = normalizedMap.get(normName);
+          const existing = normalizedMap.get(properName);
           const currentHasLink = !!(p.mercadopagoLink || p.mercadopagoLateLink);
           const existingHasLink = !!(existing.mercadopagoLink || existing.mercadopagoLateLink);
-          const currentIsCanon = p.name === normName;
-          const existingIsCanon = existing.name === normName;
 
           let keep = existing;
           let remove = p;
 
           if (currentHasLink && !existingHasLink) {
-            keep = p;
-            remove = existing;
-          } else if (!currentHasLink && existingHasLink) {
-            // keep existing
-          } else if (currentIsCanon && !existingIsCanon) {
             keep = p;
             remove = existing;
           }
@@ -443,36 +706,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             console.error("Error clearing duplicate plan from DB:", err);
           }
           
-          normalizedMap.set(normName, keep);
+          normalizedMap.set(properName, keep);
         }
       }
 
-      // Step 2: Seed any of the 20 canonical default plans that don't exist yet
-      const defaultPlansList = [
-        { name: "INFANTIL MENSAL", price: 189.90, basePrice: 189.90, durationMonths: 1 },
-        { name: "INFANTIL TRIMESTRAL", price: 168.90, basePrice: 168.90, durationMonths: 3 },
-        { name: "INFANTIL SEMESTRAL", price: 157.90, basePrice: 157.90, durationMonths: 6 },
-        { name: "ADULTO MENSAL", price: 168.90, basePrice: 168.90, durationMonths: 1 },
-        { name: "ADULTO TRIMESTRAL", price: 147.90, basePrice: 147.90, durationMonths: 3 },
-        { name: "ADULTO SEMESTRAL", price: 126.90, basePrice: 126.90, durationMonths: 6 },
-        { name: "COMBO DUPLA SEMESTRAL", price: 250.00, basePrice: 250.00, durationMonths: 6 },
-        { name: "COMBO CASAL SEMESTRAL", price: 250.00, basePrice: 250.00, durationMonths: 6 },
-        { name: "COMBO FAMÍLIA SEMESTRAL", price: 362.00, basePrice: 362.00, durationMonths: 6 },
-        { name: "ADMINISTRAÇÃO", price: 0.00, basePrice: 0.00, durationMonths: 12 },
-        { name: "DEPENDENTE - COMBO FAMÍLIA", price: 0.00, basePrice: 0.00, durationMonths: 6 },
-        { name: "ISENTO / BOLSISTA", price: 0.00, basePrice: 0.00, durationMonths: 12 },
-        { name: "OUTROS", price: 150.00, basePrice: 150.00, durationMonths: 1 },
-        { name: "ADULTO SEMESTRAL 110", price: 110.00, basePrice: 110.00, durationMonths: 6 },
-        { name: "ISENTO", price: 0.00, basePrice: 0.00, durationMonths: 12 },
-        { name: "PROMOÇÃO - INFANTIL NO PIX", price: 130.00, basePrice: 130.00, durationMonths: 1 },
-        { name: "ADULTO SEMESTRAL 115", price: 115.00, basePrice: 115.00, durationMonths: 6 },
-        { name: "INFANTIL DEPENDENTE BLUEFIT", price: 80.00, basePrice: 80.00, durationMonths: 1 },
-        { name: "DESCONTO FAMÍLIA - INFANTIL (50%)", price: 78.95, basePrice: 78.95, durationMonths: 1 },
-        { name: "ALUNO BLUE/ADULTO - SEMESTRAL", price: 126.90, basePrice: 126.90, durationMonths: 6 }
-      ];
-
+      // Step 2: Seed any of the canonical default plans that don't exist yet
       const toAdd: any[] = [];
-      for (const dp of defaultPlansList) {
+      for (const dp of canonicalPlansList) {
         const normDpName = normalizePlanName(dp.name);
         if (!normalizedMap.has(normDpName)) {
           toAdd.push(dp);
@@ -711,12 +951,38 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       console.error("Achievements listener error:", err);
     });
 
+    // Settings listener for finance maintenance mode
+    const unsubSettings = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'finance'), (docSnap) => {
+      if (docSnap.exists()) {
+        setMaintenanceActive(docSnap.data().maintenanceActive !== false);
+      } else {
+        setMaintenanceActive(true); // Default to true (maintenance active)
+      }
+    }, (err) => {
+      console.error("Settings listener error:", err);
+    });
+
+    // Settings listener for Gym/Tatame Location Coordinates
+    const unsubGymSettings = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'gym'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setGymLatitude(Number(data.latitude) || -23.5505);
+        setGymLongitude(Number(data.longitude) || -46.6333);
+        setGymLocationRadius(Number(data.radius) || 500);
+        setGymLocationName(data.name || "Sede Tanque Team");
+      }
+    }, (err) => {
+      console.error("Gym settings listener error:", err);
+    });
+
     return () => {
       unsubSchedule();
       unsubBookings();
       unsubFeed();
       unsubStudents();
       unsubAchievements();
+      unsubSettings();
+      unsubGymSettings();
       clearTimeout(safetyTimeout);
     };
   }, [appId, selectedBookingDate]);
@@ -1315,6 +1581,117 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       >
                         <Plus size={18} /> Adicionar à Grade
                       </motion.button>
+                    </div>
+                  </div>
+
+                  {/* QR Code and GPS Settings Card */}
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 mt-6 space-y-6">
+                    <h3 className="font-bold text-lg dark:text-white flex items-center gap-2 border-b border-gray-150 dark:border-gray-700 pb-3">
+                      <QrCode className="text-brand-red w-5 h-5 animate-pulse" /> Presença via QR Code
+                    </h3>
+                    
+                    {/* Interactive printable QR code visualization */}
+                    <div className="flex flex-col items-center p-5 bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-gray-200/60 dark:border-gray-700 text-center">
+                      <div className="bg-white p-3 rounded-2xl shadow-md border border-gray-100">
+                        <QRCodeSVG value={`${window.location.origin}/?action=scan-checkin`} size={135} level="H" />
+                      </div>
+                      <p className="text-[10px] text-gray-400 font-bold tracking-widest mt-3 uppercase">Link de Check-in Ativo</p>
+                      <p className="text-[9px] text-zinc-500 font-mono font-bold select-all mt-1 bg-white dark:bg-gray-950 px-2.5 py-1 rounded-lg border border-gray-100 dark:border-gray-850 truncate max-w-full text-center">{window.location.origin}/?action=scan-checkin</p>
+                      
+                      <button
+                        onClick={handlePrintQRCode}
+                        className="w-full mt-4 py-2.5 bg-brand-dark hover:bg-black text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition duration-200"
+                      >
+                        <Printer size={14} className="text-brand-red" /> Visualizar e Imprimir QR Code de Parede
+                      </button>
+                    </div>
+
+                    <div className="space-y-4 pt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-3 bg-brand-red rounded-full"></span>
+                        <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Configuração Geográfica GPS</h4>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase mb-1">Nome Local / Unidade</label>
+                        <input 
+                          type="text" 
+                          value={gymLocationName}
+                          onChange={(e) => setGymLocationName(e.target.value)}
+                          placeholder="Ex: QG Tanque Team"
+                          className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-semibold"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-35">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase mb-1">Latitude</label>
+                          <input 
+                            type="number" 
+                            step="any"
+                            value={gymLatitude}
+                            onChange={(e) => setGymLatitude(parseFloat(e.target.value) || 0)}
+                            placeholder="-23.5505"
+                            className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-mono font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase mb-1">Longitude</label>
+                          <input 
+                            type="number" 
+                            step="any"
+                            value={gymLongitude}
+                            onChange={(e) => setGymLongitude(parseFloat(e.target.value) || 0)}
+                            placeholder="-46.6333"
+                            className="w-full bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-mono font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 dark:text-zinc-500 uppercase mb-1">Raio de Validação (Metros)</label>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="number" 
+                            value={gymLocationRadius}
+                            onChange={(e) => setGymLocationRadius(parseInt(e.target.value) || 0)}
+                            placeholder="500"
+                            className="flex-1 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-semibold"
+                          />
+                          <span className="text-xs text-gray-400 font-bold">metros</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            if (navigator.geolocation) {
+                              navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                  setGymLatitude(parseFloat(pos.coords.latitude.toFixed(6)));
+                                  setGymLongitude(parseFloat(pos.coords.longitude.toFixed(6)));
+                                  showAlert("Capturado", "Coordenadas GPS capturadas do seu local atual!", "success");
+                                },
+                                (err) => {
+                                  showAlert("Erro GPS", "Não foi possível coletar a localização precisa do seu aparelho. Certifique-se de ativar o GPS.", "error");
+                                }
+                              );
+                            } else {
+                              showAlert("Erro", "Seu dispositivo ou navegador não possui suporte a GPS.", "error");
+                            }
+                          }}
+                          className="py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-xl font-bold text-[10px] uppercase flex items-center justify-center gap-1.5 transition"
+                        >
+                          <MapPin size={11} className="text-brand-red" /> Capturar GPS
+                        </button>
+
+                        <button
+                          onClick={() => updateGymSettings(gymLatitude, gymLongitude, gymLocationRadius, gymLocationName)}
+                          className="py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-xl font-black text-[10px] uppercase flex items-center justify-center gap-1.5 shadow transition"
+                        >
+                          <CheckSquare size={11} /> Salvar Configs
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1972,7 +2349,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center mb-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-bold text-lg dark:text-white">Gerenciar Planos</h3>
@@ -1995,6 +2372,51 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     className="bg-brand-red text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
                   >
                     <Plus size={18} /> Novo Plano
+                  </button>
+                </div>
+              </div>
+
+              {/* Maintenance control panel */}
+              <div className="bg-gradient-to-r from-amber-500/10 to-brand-red/10 border border-amber-200/50 dark:border-brand-red/20 rounded-3xl p-6 flex flex-col lg:flex-row items-center justify-between gap-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className={`p-4 rounded-2xl ${maintenanceActive ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30' : 'bg-green-100 text-green-700 dark:bg-green-900/30'} shrink-0`}>
+                    <AlertTriangle size={24} className={maintenanceActive ? 'text-amber-500 animate-pulse' : 'text-green-500'} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white uppercase tracking-tight text-sm flex flex-wrap items-center gap-2">
+                      Manutenção do Módulo Financeiro
+                      {maintenanceActive ? (
+                        <span className="bg-amber-500 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest animate-pulse">Bloqueado para alunos</span>
+                      ) : (
+                        <span className="bg-green-600 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest">Liberado para alunos</span>
+                      )}
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed max-w-xl">
+                      Quando ativo, bloqueia o acesso dos alunos à aba Financeiro com uma mensagem explicativa. Desative para liberar o pagamento online de planos e histórico financeiro aos alunos no aplicativo.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto shrink-0">
+                  <button
+                    onClick={() => toggleMaintenance(true)}
+                    className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 w-full lg:w-auto ${
+                      maintenanceActive 
+                        ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20 scale-102 border border-transparent font-black' 
+                        : 'bg-white hover:bg-gray-50 text-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 font-bold'
+                    }`}
+                  >
+                    <Ban size={14} /> Ativar Manutenção
+                  </button>
+                  <button
+                    onClick={() => toggleMaintenance(false)}
+                    className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-300 w-full lg:w-auto ${
+                      !maintenanceActive 
+                        ? 'bg-green-600 text-white shadow-lg shadow-green-600/20 scale-102 border border-transparent font-black' 
+                        : 'bg-white hover:bg-gray-50 text-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 font-bold'
+                    }`}
+                  >
+                    <CheckSquare size={14} /> Liberar Acesso
                   </button>
                 </div>
               </div>

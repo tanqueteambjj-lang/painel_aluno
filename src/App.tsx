@@ -9,6 +9,7 @@ import Sidebar from '@/components/Sidebar';
 import QrModal from '@/components/QrModal';
 import HistoryModal from '@/components/HistoryModal';
 import ProfileEditModal from '@/components/ProfileEditModal';
+import ScanCheckinModal from '@/components/ScanCheckinModal';
 import Feed from '@/components/Feed';
 import Finance from '@/components/Finance';
 import Ranking, { RankingManual } from '@/components/Ranking';
@@ -86,6 +87,7 @@ export default function Dashboard() {
   const [isProfileSwitcherOpen, setIsProfileSwitcherOpen] = useState(false);
   
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isScanCheckinModalOpen, setIsScanCheckinModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
 
@@ -165,6 +167,14 @@ export default function Dashboard() {
     }
     prevAttendanceCount.current = attCount;
   }, [activeUserData?.attendance?.length]);
+
+  // Trigger QR Code Automatic Check-In if pending scan parameter exists on login/auth
+  useEffect(() => {
+    if (currentUserData && currentUserData.id && sessionStorage.getItem('pending_scan_checkin') === 'true') {
+      sessionStorage.removeItem('pending_scan_checkin');
+      setIsScanCheckinModalOpen(true);
+    }
+  }, [currentUserData]);
 
   useEffect(() => {
     // Check initial load safety
@@ -301,6 +311,14 @@ export default function Dashboard() {
       // 2. Check for UID in URL parameters (e.g., from external login redirect)
       const urlParams = new URLSearchParams(window.location.search);
       const urlUid = urlParams.get('uid');
+      const isScanAction = urlParams.get('action') === 'scan-checkin';
+
+      if (isScanAction) {
+        sessionStorage.setItem('pending_scan_checkin', 'true');
+        if (!urlUid) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
 
       if (urlUid) {
         try {
@@ -2644,6 +2662,14 @@ export default function Dashboard() {
         }}
         showAlert={showAlert}
         appId={appId}
+      />
+
+      <ScanCheckinModal
+        isOpen={isScanCheckinModalOpen}
+        onClose={() => setIsScanCheckinModalOpen(false)}
+        currentUserData={currentUserData}
+        appId={appId}
+        showAlert={showAlert}
       />
 
       <AnimatePresence>
