@@ -1375,6 +1375,42 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     });
   };
 
+  const addManualCheckIn = async (classItem: any, student: any) => {
+    try {
+      const alreadyChecked = (Array.isArray(bookings) ? bookings : []).some(
+        b => b && b.studentId === student.id && b.classId === classItem.id && b.date === selectedBookingDate
+      );
+      if (alreadyChecked) {
+        showAlert("Presença Duplicada", `${student.name} já tem presença confirmada neste treino hoje.`, "alert");
+        return;
+      }
+
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bookings'), {
+        studentId: student.id,
+        studentName: student.nickname || student.name,
+        studentFullName: student.name,
+        studentPhoto: student.photoBase64 || null,
+        classId: classItem.id,
+        className: classItem.name,
+        classTime: classItem.time,
+        date: selectedBookingDate,
+        timestamp: new Date().toISOString()
+      });
+
+      const attendedList = Array.isArray(student.attendance) ? student.attendance : [];
+      if (!attendedList.includes(selectedBookingDate)) {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
+          attendance: arrayUnion(selectedBookingDate)
+        });
+      }
+
+      showAlert("Sucesso", `Presença lançada com sucesso para ${student.name}!`, "success");
+    } catch (e) {
+      console.error("Error saving manual checkin:", e);
+      showAlert("Erro", "Não foi possível lançar a presença manualmente.", "error");
+    }
+  };
+
   const inactiveStudents = hasStartedLoading ? getInactiveStudents() : [];
 
   return (
@@ -1454,17 +1490,25 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-bold text-lg dark:text-white">Agendamentos do Dia</h3>
-                  <p className="text-sm text-gray-400">Veja quem agendou aula para uma data específica.</p>
+                  <h3 className="font-bold text-lg dark:text-white">Frequência e Presenças</h3>
+                  <p className="text-sm text-gray-400">Gerencie a frequência diária e lance presenças manuais.</p>
                 </div>
-                <input 
-                  type="date" 
-                  value={selectedBookingDate}
-                  onChange={(e) => setSelectedBookingDate(e.target.value)}
-                  className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
-                />
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <button
+                    onClick={handlePrintQRCode}
+                    className="px-4 py-2.5 bg-brand-red hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-sm transition"
+                  >
+                    <QrCode size={14} /> Imprimir QR Code de Parede
+                  </button>
+                  <input 
+                    type="date" 
+                    value={selectedBookingDate}
+                    onChange={(e) => setSelectedBookingDate(e.target.value)}
+                    className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-semibold"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1507,6 +1551,31 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                             </div>
                           ))
                         )}
+
+                        <div className="pt-3 border-t border-gray-100 dark:border-gray-700/60 mt-3">
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-900/40 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-250 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 outline-none transition cursor-pointer"
+                            onChange={async (e) => {
+                              const studentId = e.target.value;
+                              if (!studentId) return;
+                              const student = allStudents.find(s => s.id === studentId);
+                              if (student) {
+                                await addManualCheckIn(c, student);
+                              }
+                              e.target.value = '';
+                            }}
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Lançar presença manual...</option>
+                            {(allStudents || [])
+                              .filter(s => s && s.id && !classBookings.some(b => b.studentId === s.id))
+                              .map(s => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name} {s.nickname ? `(${s.nickname})` : ''}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
                   );

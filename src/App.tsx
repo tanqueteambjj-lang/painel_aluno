@@ -15,7 +15,7 @@ import Finance from '@/components/Finance';
 import Ranking, { RankingManual } from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
-import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Pin, Cake, TrendingUp, ThumbsUp } from 'lucide-react';
+import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Pin, Cake, TrendingUp, ThumbsUp, Camera } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -1975,23 +1975,40 @@ export default function Dashboard() {
                     );
                   })()}
 
-              {/* Check-in Button */}
-              <div className="mb-8 no-print">
+              {/* Check-in Buttons Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 no-print">
                 <motion.button 
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setIsQrModalOpen(true)} 
-                  className="w-full bg-gradient-to-r from-brand-dark to-gray-800 dark:from-gray-800 dark:to-gray-900 text-white font-bold py-4 px-6 rounded-2xl shadow-xl flex items-center justify-between transition border border-gray-700 dark:border-gray-600"
+                  className="w-full bg-gradient-to-r from-brand-dark to-gray-800 dark:from-gray-800 dark:to-gray-900 text-white font-bold py-4 px-6 rounded-2xl shadow-xl flex items-center gap-4 transition border border-gray-700 dark:border-gray-600 text-left cursor-pointer"
                   aria-label="Abrir Carteirinha Digital para Check-in"
                 >
-                  <div className="flex items-center gap-4 text-left">
-                    <div className="w-14 h-14 bg-brand-red rounded-full flex items-center justify-center shadow-inner shrink-0">
-                      <QrCode className="w-8 h-8 text-white" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <span className="block text-lg md:text-xl font-display uppercase tracking-widest text-brand-red">Carteirinha Digital</span>
-                      <span className="block text-xs md:text-sm text-gray-300 dark:text-gray-400 font-normal mt-1">Toque aqui para abrir o seu QR Code e realizar o Check-in na Recepção</span>
-                    </div>
+                  <div className="w-14 h-14 bg-brand-red rounded-full flex items-center justify-center shadow-inner shrink-0 leading-none">
+                    <QrCode className="w-8 h-8 text-white min-w-8 min-h-8" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <span className="block text-lg font-display uppercase tracking-widest text-brand-red font-black">Carteirinha Digital</span>
+                    <span className="block text-xs text-gray-300 dark:text-gray-400 font-normal mt-0.5 leading-tight">Abra seu QR Code pessoal de matrícula para validar na Recepção</span>
+                  </div>
+                </motion.button>
+
+                <motion.button 
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setIsScanCheckinModalOpen(true)} 
+                  className="w-full bg-gradient-to-r from-brand-red to-red-700 hover:from-red-600 hover:to-red-800 text-white font-bold py-4 px-6 rounded-2xl shadow-xl flex items-center gap-4 transition border border-red-650 text-left relative overflow-hidden cursor-pointer"
+                  aria-label="Escanear QR do Tatame"
+                >
+                  <span className="absolute top-2 right-2 bg-white text-brand-red font-black text-[9px] px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse leading-none shadow-sm">
+                    Presença
+                  </span>
+                  <div className="w-14 h-14 bg-white/15 rounded-full flex items-center justify-center shadow-inner shrink-0 border border-white/20 leading-none">
+                    <Camera className="w-8 h-8 text-white min-w-8 min-h-8" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <span className="block text-lg font-display uppercase tracking-widest text-white font-black">Escanear Tatame</span>
+                    <span className="block text-xs text-red-100 font-normal mt-0.5 leading-tight">Aponte a câmera para o QR de Parede do Tatame para confirmar presença</span>
                   </div>
                 </motion.button>
               </div>
@@ -2660,9 +2677,6 @@ export default function Dashboard() {
         onOpenHistory={() => {
           setIsQrModalOpen(false);
           setIsHistoryModalOpen(true);
-        }}
-        onStartCheckin={() => {
-          setIsScanCheckinModalOpen(true);
         }}
         showAlert={showAlert}
         appId={appId}

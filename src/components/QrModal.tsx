@@ -1,13 +1,10 @@
-import { X, Lock, Camera, MapPin, Loader2, CheckCircle } from 'lucide-react';
+import { X, Lock, CheckCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useState } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 
-export default function QrModal({ isOpen, onClose, userData, planShort, appId, showAlert, onStartCheckin }: any) {
-  const [checkingIn, setCheckingIn] = useState(false);
-  
+export default function QrModal({ isOpen, onClose, userData, planShort, appId, showAlert }: any) {
   if (!userData) return null;
 
   const parseDateString = (dateStr: any) => {
@@ -50,66 +47,6 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
 
   const isInactive = userData.enrollmentStatus === 'Inativo' || userData.archived;
   const isBlocked = isInactive || isPaymentPending;
-
-  const handleProximityCheckin = async () => {
-    if (!navigator.geolocation) {
-      showAlert("Erro", "Geolocalização não suportada pelo navegador.", "error");
-      return;
-    }
-
-    setCheckingIn(true);
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const { latitude, longitude } = pos.coords;
-      
-      // Coordenadas da Academia (Exemplo: Sede Tanque Team)
-      // Em produção, isso viria de uma config no Firestore.
-      const gymLat = -23.5505; 
-      const gymLng = -46.6333;
-      
-      // Cálculo de distância simples (Haversine)
-      const R = 6371e3; // Metros
-      const φ1 = latitude * Math.PI/180;
-      const φ2 = gymLat * Math.PI/180;
-      const Δφ = (gymLat - latitude) * Math.PI/180;
-      const Δλ = (gymLng - longitude) * Math.PI/180;
-
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      const distance = R * c;
-
-      // Se estiver a menos de 500m
-      if (distance <= 500) {
-        try {
-          const today = new Date().toISOString().split('T')[0];
-          
-          if (userData.attendance && userData.attendance.includes(today)) {
-             showAlert("Aviso", "Você já realizou check-in hoje!", "alert");
-             setCheckingIn(false);
-             return;
-          }
-
-          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', userData.id), {
-            attendance: arrayUnion(today)
-          });
-          
-          showAlert("Sucesso", "Check-in realizado por proximidade!", "success");
-          onClose();
-        } catch (e) {
-          console.error(e);
-          showAlert("Erro", "Falha ao processar check-in.", "error");
-        }
-      } else {
-        showAlert("Longe demais", `Você está a ${Math.round(distance)}m da academia. Aproxime-se para validar o check-in automático.`, "error");
-      }
-      setCheckingIn(false);
-    }, (err) => {
-      console.error(err);
-      showAlert("Erro", "Falha ao obter localização. Verifique as permissões.", "error");
-      setCheckingIn(false);
-    }, { timeout: 10000 });
-  };
 
   const formatName = (name: string) => {
     if (!name) return '';
@@ -233,41 +170,6 @@ export default function QrModal({ isOpen, onClose, userData, planShort, appId, s
               </div>
             </div>
 
-            <div className="mt-4 w-full flex flex-col gap-2">
-              {!isBlocked && (
-                <>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      onClose();
-                      if (onStartCheckin) onStartCheckin();
-                    }}
-                    className="w-full py-3 bg-brand-red hover:bg-red-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition"
-                  >
-                    <Camera className="w-4.5 h-4.5" />
-                    Escanear QR do Tatame (Câmera)
-                  </motion.button>
-
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleProximityCheckin}
-                    disabled={checkingIn}
-                    className="w-full py-3 bg-brand-dark hover:bg-black text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition disabled:opacity-50"
-                  >
-                    {checkingIn ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <>
-                        <MapPin className="w-4 h-4 text-brand-red animate-pulse" />
-                        Validar Presença (GPS)
-                      </>
-                    )}
-                  </motion.button>
-                </>
-              )}
-            </div>
           </motion.div>
         </motion.div>
       )}

@@ -198,14 +198,42 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
       const loadedConfig = await loadGymConfigAndBookings();
       const config = loadedConfig || gymConfig;
 
-      // Check external marker trigger
+      // Check external marker trigger (e.g. from native phone camera)
       const isFromExternalScan = sessionStorage.getItem('external_scan_trigger') === 'true';
       if (isFromExternalScan) {
         sessionStorage.removeItem('external_scan_trigger');
-        setStatus('matching');
-        await loadAndMatchClasses(config);
+        
+        setStatus('locating');
+        if (!navigator.geolocation) {
+          setStatus('error');
+          setErrorMessage("Seu celular ou navegador não possui suporte a geolocalização.");
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const { latitude, longitude } = pos.coords;
+            const distance = calculateDistance(latitude, longitude, config.latitude, config.longitude);
+            setDistanceToGym(distance);
+
+            if (distance > config.radius) {
+              setStatus('error');
+              setErrorMessage(`Você escaneou o QR Code mas está fora da área permitida do tatame (${Math.round(distance)}m). Para confirmar sua presença, você precisa estar no tatame da academia (limite: ${config.radius}m).`);
+              return;
+            }
+
+            setStatus('matching');
+            await loadAndMatchClasses(config);
+          },
+          (err) => {
+            console.error("Geolocation error during external checkin:", err);
+            setStatus('error');
+            setErrorMessage("Seu QR Code foi lido com sucesso, mas não conseguimos obter as coordenadas do seu GPS para validar se você está na academia. Habilite a localização e tente de novo.");
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
       } else {
-        setStatus('idle');
+        setStatus('scanning');
       }
     };
 
@@ -292,9 +320,36 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
                   }
                 }
                 
-                // Location verified securely through physical wall scanning success! Proceed to match classes
-                setStatus('matching');
-                await loadAndMatchClasses(gymConfig);
+                // Location verified securely in combination with QR Code scanning!
+                setStatus('locating');
+                if (!navigator.geolocation) {
+                  setStatus('error');
+                  setErrorMessage("Seu celular ou navegador não possui suporte a geolocalização para confirmar o check-in.");
+                  return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                  async (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    const distance = calculateDistance(latitude, longitude, gymConfig.latitude, gymConfig.longitude);
+                    setDistanceToGym(distance);
+
+                    if (distance > gymConfig.radius) {
+                      setStatus('error');
+                      setErrorMessage(`Localização Inválida: O QR Code foi lido com sucesso, mas você está a ${Math.round(distance)}m do tatame (limite é de ${gymConfig.radius}m). Para validar o check-in, certifique-se de estar fisicamente no tatame da academia.`);
+                      return;
+                    }
+
+                    setStatus('matching');
+                    await loadAndMatchClasses(gymConfig);
+                  },
+                  (err) => {
+                    console.error("Geolocation error during QR check-in:", err);
+                    setStatus('error');
+                    setErrorMessage("O QR Code foi lido, mas não conseguimos obter sua geolocalização (GPS) para validar sua presença. Por favor, libere as permissões de localização no seu navegador e tente de novo.");
+                  },
+                  { enableHighAccuracy: true, timeout: 8000 }
+                );
               } else {
                 showAlert("QR Code Inválido", "O código escaneado não pertence ao QR Code oficial de check-in deste tatame.", "error");
               }
@@ -443,63 +498,6 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
                 </div>
               )}
 
-              {/* IDLE CHOICE SELECTION STEP */}
-              {status === 'idle' && (
-                <div className="flex flex-col items-center py-4 space-y-6">
-                  <p className="text-zinc-500 dark:text-gray-300 text-xs font-semibold leading-relaxed max-w-sm">
-                    Para registrar e confirmar sua presença no horário de treino, você pode apontar sua câmera ou utilizar o GPS do dispositivo:
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                    <button
-                      onClick={() => setStatus('scanning')}
-                      className="flex flex-col items-center p-5 bg-brand-red/5 hover:bg-brand-red/10 border-2 border-brand-red/20 hover:border-brand-red/50 rounded-3xl transition duration-200 text-center group"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-brand-red/10 flex items-center justify-center text-brand-red mb-3 group-hover:scale-110 transition">
-                        <Camera className="w-6 h-6" />
-                      </div>
-                      <span className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-tight">Usar Câmera</span>
-                      <span className="text-[10px] text-zinc-400 font-medium mt-1.5 px-1 leading-normal">
-                        Utilize a câmera para ler o QR Code impresso fixado na parede
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={startGpsVerification}
-                      className="flex flex-col items-center p-5 bg-zinc-50 dark:bg-zinc-900/40 hover:bg-zinc-100 dark:hover:bg-zinc-900 border-2 border-gray-200 dark:border-zinc-800 hover:border-brand-red/30 rounded-3xl transition duration-200 text-center group"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 mb-3 group-hover:scale-110 transition">
-                        <MapPin className="w-6 h-6 text-brand-red animate-pulse" />
-                      </div>
-                      <span className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-tight">Usar GPS</span>
-                      <span className="text-[10px] text-zinc-400 font-medium mt-1.5 px-1 leading-normal">
-                        Confirme por geolocalização se estiver no endereço correto
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* LOCATING / GPS PROXIMITY VERIFIER */}
-              {status === 'locating' && (
-                <div className="flex flex-col items-center py-6 space-y-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-brand-red/20 blur-xl rounded-full w-14 h-14 animate-pulse"></div>
-                    <div className="relative bg-brand-red/10 border border-brand-red/30 p-3.5 rounded-2xl animate-bounce">
-                      <MapPin className="w-7 h-7 text-brand-red" />
-                    </div>
-                  </div>
-                  <h4 className="font-bold text-gray-850 dark:text-white uppercase tracking-tight text-xs">Verificando GPS...</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
-                    Validando as coordenadas de satélite do seu navegador para verificar sua presença na academia.
-                  </p>
-                  <div className="flex items-center gap-2 text-[11px] font-bold text-brand-red bg-red-50 dark:bg-brand-red/10 px-3 py-1.5 rounded-full select-none">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Obtendo sua posição física
-                  </div>
-                </div>
-              )}
-
               {/* CAMERA LIVE STREAM PREVIEW STEP */}
               {status === 'scanning' && (
                 <div className="flex flex-col items-center py-2 space-y-4">
@@ -519,11 +517,31 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
                   </div>
 
                   <button
-                    onClick={() => setStatus('idle')}
-                    className="py-2.5 px-6 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-655 text-zinc-650 dark:text-zinc-200 rounded-xl font-bold text-xs uppercase tracking-wide transition"
+                    onClick={onClose}
+                    className="py-2.5 px-6 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-650 dark:text-zinc-200 rounded-xl font-bold text-xs uppercase tracking-wide transition"
                   >
-                    Voltar opções
+                    Cancelar
                   </button>
+                </div>
+              )}
+
+              {/* LOCATING / GPS PROXIMITY VERIFIER */}
+              {status === 'locating' && (
+                <div className="flex flex-col items-center py-6 space-y-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-brand-red/20 blur-xl rounded-full w-14 h-14 animate-pulse"></div>
+                    <div className="relative bg-brand-red/10 border border-brand-red/30 p-3.5 rounded-2xl animate-bounce">
+                      <MapPin className="w-7 h-7 text-brand-red" />
+                    </div>
+                  </div>
+                  <h4 className="font-bold text-gray-850 dark:text-white uppercase tracking-tight text-xs">Consultando GPS...</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
+                    Validando sua geolocalização por proximidade para confirmar sua presença real na academia.
+                  </p>
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-brand-red bg-red-50 dark:bg-brand-red/10 px-3 py-1.5 rounded-full select-none">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Validando Proximidade
+                  </div>
                 </div>
               )}
 
@@ -532,13 +550,13 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
                 <div className="flex flex-col items-center py-8 space-y-4">
                   <div className="relative">
                     <div className="absolute inset-0 bg-brand-red/25 blur-xl rounded-full w-14 h-14 animate-pulse"></div>
-                    <div className="relative bg-brand-red/10 border border-brand-red/3s p-3 rounded-2xl">
-                      <Clock className="w-7 h-7 text-brand-red animate-spin-slow" />
+                    <div className="relative bg-brand-red/10 border border-brand-red/30 p-3 rounded-2xl">
+                      <Clock className="w-7 h-7 text-brand-red animate-spin" />
                     </div>
                   </div>
-                  <h4 className="font-bold text-gray-805 dark:text-white uppercase tracking-tight text-xs">Integridade de Localização Aprovada!</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-405 max-w-sm">
-                    Reconhecendo as grades de treinos agendados para carregar as opções disponíveis de hoje.
+                  <h4 className="font-bold text-gray-800 dark:text-white uppercase tracking-tight text-xs">Localização Validada!</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
+                    Consultando a grade de aulas de hoje para carregar suas opções de presença...
                   </p>
                 </div>
               )}
