@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, setDoc, deleteField } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -112,6 +112,24 @@ export const PLAN_ORDER = [
   "ALUNO BLUE/ADULTO - SEMESTRAL"
 ];
 
+const parseDateString = (dateStr: any) => {
+  if (!dateStr) return new Date();
+  if (dateStr.toDate) return dateStr.toDate();
+  if (typeof dateStr === 'string') {
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+      }
+    }
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return new Date(`${dateStr}T12:00:00`);
+    }
+    return new Date(dateStr);
+  }
+  return new Date(dateStr);
+};
+
 export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonate, lastMonthRankingAdulto = [], lastMonthRankingInfantil = [] }: any) {
   // 1. STATE DECLARATIONS AT THE TOP
   const [activeTab, setActiveTab] = useState('bookings');
@@ -120,6 +138,100 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [extraXPValue, setExtraXPValue] = useState(100);
   const [isLinkingFamily, setIsLinkingFamily] = useState<{ studentId: string, name: string, parentId?: string } | null>(null);
   const [maintenanceActive, setMaintenanceActive] = useState(true);
+  const [syncingPayments, setSyncingPayments] = useState(false);
+
+  const syncStudentsPaymentStatus = async (silent = false) => {
+    try {
+      if (!silent) setSyncingPayments(true);
+      
+      const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
+      const q = query(studentsRef);
+      const snapshot = await getDocs(q);
+      
+      let updatedCount = 0;
+      const today = new Date("2026-06-02T12:00:00");
+      today.setHours(0, 0, 0, 0);
+
+      const batchPromises = snapshot.docs.map(async (docSnap) => {
+        const data = docSnap.data();
+        if (!data) return;
+
+        const studentId = docSnap.id;
+        const currentStatus = data.paymentStatus || 'Pendente';
+        const isArchivedOrInactive = data.archived || data.enrollmentStatus === 'Inativo';
+
+        // Check if student belongs to a free plan or is exempt
+        const planNameLower = (data.plan || '').toLowerCase();
+        const isExempt = 
+          currentStatus === 'Isento' ||
+          planNameLower.includes('isento') ||
+          planNameLower.includes('dependente') ||
+          planNameLower.includes('administração') ||
+          planNameLower.includes('administracao') ||
+          data.planPrice === 0;
+
+        let targetStatus = currentStatus;
+
+        if (isArchivedOrInactive) {
+          return;
+        }
+
+        if (isExempt) {
+          targetStatus = 'Isento';
+        } else {
+          const dueDateValue = data.dueDate || data.nextDueDate;
+          if (dueDateValue) {
+            const dateObj = parseDateString(dueDateValue);
+            if (!isNaN(dateObj.getTime())) {
+              const due = new Date(dateObj);
+              due.setHours(0, 0, 0, 0);
+              
+              if (due.getTime() < today.getTime()) {
+                targetStatus = 'Pendente';
+              } else {
+                targetStatus = 'Em dia';
+              }
+            } else {
+              targetStatus = 'Pendente';
+            }
+          } else {
+            targetStatus = 'Pendente';
+          }
+        }
+
+        if (currentStatus !== targetStatus) {
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', studentId), {
+            paymentStatus: targetStatus
+          });
+          updatedCount++;
+        }
+      });
+
+      await Promise.all(batchPromises);
+      
+      if (!silent) {
+        showAlert(
+          "Sincronização Concluída", 
+          `Status de pagamento de todos os alunos atualizados com sucesso de acordo com a data de vencimento e a data de hoje (02/06/2026). ${updatedCount} aluno(s) corrigido(s)/atualizado(s) no sistema.`, 
+          "success"
+        );
+      }
+    } catch (err) {
+      console.error("Error syncing student statuses:", err);
+      if (!silent) {
+        showAlert("Erro na Sincronização", "Não foi possível rodar a sincronização das mensalidades.", "error");
+      }
+    } finally {
+      if (!silent) setSyncingPayments(false);
+    }
+  };
+
+  useEffect(() => {
+    if (appId) {
+      syncStudentsPaymentStatus(true);
+      fetchPlans();
+    }
+  }, [appId]);
 
   // Gym/Tatame QR checkin location and configs
   const [gymLatitude, setGymLatitude] = useState(-23.5505);
@@ -270,19 +382,27 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             const qrUrl = "${checkinUrl}";
             const container = document.getElementById('qr-svg');
             const encodedUrl = encodeURIComponent(qrUrl);
-            const qrChartUrl = "https://chart.googleapis.com/chart?chs=280x280&cht=qr&chl=" + encodedUrl + "&choe=UTF-8";
+            const qrChartUrl = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodedUrl;
             
             const img = document.createElement('img');
-            img.src = qrChartUrl;
             img.width = 280;
             img.height = 280;
-            container.appendChild(img);
+            img.style.display = 'block';
             
-            window.onload = function() {
+            img.onload = function() {
               setTimeout(function() {
                 window.print();
-              }, 600);
-            }
+              }, 250);
+            };
+            
+            img.onerror = function() {
+              // Fallback to QuickChart if QRServer fails
+              img.onerror = null; // Prevent infinite loop
+              img.src = "https://quickchart.io/qr?size=280&text=" + encodedUrl;
+            };
+            
+            img.src = qrChartUrl;
+            container.appendChild(img);
           </script>
         </body>
       </html>
@@ -1968,10 +2088,21 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <button 
-                      onClick={() => showAlert("Info", "Os dados são atualizados automaticamente.", "info")}
-                      className="bg-gray-200 dark:bg-gray-700 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300 font-bold text-sm shadow-sm transition-all"
+                      onClick={() => syncStudentsPaymentStatus(false)}
+                      disabled={syncingPayments}
+                      className="bg-brand-red select-none hover:bg-red-700 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-4 py-3 rounded-xl text-white font-bold text-sm shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
                     >
-                      Sincronizado
+                      {syncingPayments ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Buscando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          <span>Atualizar Financeiro</span>
+                        </>
+                      )}
                     </button>
                     <button 
                       onClick={() => setIsAddingStudent(true)}
@@ -2512,6 +2643,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 {(Array.isArray(dbPlans) ? dbPlans : []).map(plan => {
                   const planName = plan && typeof plan.name === 'string' ? plan.name : '';
                   const count = !planName ? 0 : (Array.isArray(allStudents) ? allStudents : []).filter(s => {
+                    if (s.archived || s.enrollmentStatus === 'Inativo') return false;
                     const studentPlan = s && typeof s.plan === 'string' ? s.plan : '';
                     return normalizePlanName(studentPlan) === normalizePlanName(planName);
                   }).length;
@@ -2523,7 +2655,130 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     </div>
                   );
                 })}
+                {(() => {
+                  const activePlanNames = (Array.isArray(dbPlans) ? dbPlans : []).map(p => normalizePlanName(p.name));
+                  const danglingStudents = (Array.isArray(allStudents) ? allStudents : []).filter(s => {
+                    if (s.archived || s.enrollmentStatus === 'Inativo') return false;
+                    const sPlanName = s && typeof s.plan === 'string' ? s.plan : '';
+                    if (!sPlanName) return true; // counted as legacy
+                    return !activePlanNames.includes(normalizePlanName(sPlanName));
+                  });
+                  if (danglingStudents.length === 0) return null;
+                  return (
+                    <div className="bg-red-50 dark:bg-red-950/20 p-4 rounded-2xl border border-red-150 dark:border-red-900/40 shadow-sm flex flex-col">
+                      <span className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest truncate">Planos Excluídos / Legados</span>
+                      <span className="text-2xl font-black text-red-650 dark:text-red-350 italic">{danglingStudents.length}</span>
+                      <span className="text-[9px] text-red-500 font-bold uppercase italic">Alunos Em Planos Antigos</span>
+                    </div>
+                  );
+                })()}
               </div>
+
+              {/* Sincronização de alunos sob planos excluídos */}
+              {(() => {
+                const activePlanNames = (Array.isArray(dbPlans) ? dbPlans : []).map(p => normalizePlanName(p.name));
+                const danglingStudents = (Array.isArray(allStudents) ? allStudents : []).filter(s => {
+                  if (s.archived || s.enrollmentStatus === 'Inativo') return false;
+                  const sPlanName = s && typeof s.plan === 'string' ? s.plan : '';
+                  if (!sPlanName) return true;
+                  return !activePlanNames.includes(normalizePlanName(sPlanName));
+                });
+
+                if (danglingStudents.length === 0) return null;
+
+                return (
+                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 p-6 rounded-3xl mb-6 space-y-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="text-red-600 dark:text-red-400 shrink-0 mt-1" size={24} />
+                      <div className="flex-1">
+                        <h4 className="font-black uppercase italic text-sm text-red-800 dark:text-red-350">Planos Excluídos ou Desatualizados Associados a Alunos</h4>
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                          Foi detectado que <b>{danglingStudents.length}</b> aluno(s) ativo(s) possuem planos que não existem na lista de planos cadastrados ou foram excluídos do sistema. Isolar e migrar estas matrículas de forma manual ou automática garantirá a precisão dos relatórios financeiros:
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-xs max-h-[160px] overflow-y-auto bg-white/40 dark:bg-black/20 p-4 rounded-2xl border border-red-100 dark:border-red-950/45 space-y-2">
+                      {danglingStudents.map(student => (
+                        <div key={student.id} className="flex justify-between items-center gap-4 border-b border-black/5 dark:border-white/5 pb-2 last:border-0 last:pb-0">
+                          <div className="font-bold text-gray-800 dark:text-gray-250">
+                            {student.name} <span className="font-normal text-gray-500 text-[10px]">({student.nickname || student.studentLogin})</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-450 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900">
+                              {student.plan || 'Sem Plano'}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                const targetPlan = prompt(
+                                  `Migrar ${student.name} para qual plano ativo?\nOpções válidas:\n` + 
+                                  dbPlans.map(p => `• ${p.name}`).join('\n'), 
+                                  "OUTROS"
+                                );
+                                if (!targetPlan) return;
+                                
+                                const foundPlan = dbPlans.find(p => p.name.trim().toLowerCase() === targetPlan.trim().toLowerCase() || normalizePlanName(p.name) === normalizePlanName(targetPlan));
+                                if (!foundPlan) {
+                                  showAlert("Erro", "O plano especificado não é um plano válido / cadastrado.", "error");
+                                  return;
+                                }
+
+                                try {
+                                  await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
+                                    plan: foundPlan.name
+                                  });
+                                  showAlert("Sucesso", `${student.name} migrado para o plano ${foundPlan.name}.`, "success");
+                                } catch (e) {
+                                  console.error(e);
+                                  showAlert("Erro", "Não foi possível migrar o aluno.", "error");
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] rounded uppercase tracking-wider transition shadow-sm cursor-pointer"
+                            >
+                              Corrigir
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Deseja migrar automaticamente todos os ${danglingStudents.length} alunos com planos inválidos para o plano "OUTROS"?`)) {
+                            return;
+                          }
+                          const outrosPlan = dbPlans.find(p => normalizePlanName(p.name) === "OUTROS");
+                          if (!outrosPlan) {
+                            showAlert("Erro", "O plano 'OUTROS' não foi encontrado. Por favor, crie esse plano primeiro ou restaure os canônicos.", "error");
+                            return;
+                          }
+
+                          try {
+                            setSyncingPayments(true);
+                            await Promise.all(danglingStudents.map(async (student) => {
+                              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
+                                plan: outrosPlan.name
+                              });
+                            }));
+                            showAlert("Sucesso", `Sincronização de planos concluída! ${danglingStudents.length} alunos foram migrados para o plano 'OUTROS'.`, "success");
+                          } catch (e) {
+                            console.error(e);
+                            showAlert("Erro", "Erro ao migrar alunos em lote.", "error");
+                          } finally {
+                            setSyncingPayments(false);
+                          }
+                        }}
+                        disabled={syncingPayments}
+                        className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition shadow cursor-pointer"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${syncingPayments ? 'animate-spin' : ''}`} />
+                        Migrar todos p/ Plano OUTROS
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Alert de ajuda para o usuário */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-2xl mb-6">
