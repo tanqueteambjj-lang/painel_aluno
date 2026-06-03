@@ -320,87 +320,175 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         <head>
           <title>Imprimir QR Code - Check-In Tatame</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;850;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+            
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            
             body {
-              font-family: 'Inter', sans-serif;
+              font-family: 'Plus Jakarta Sans', sans-serif;
               text-align: center;
-              padding: 40px;
-              color: #0c0a09;
-              background-color: #ffffff;
+              background-color: #fafafa;
+              color: #1c1917;
               display: flex;
               align-items: center;
               justify-content: center;
-              min-height: 90vh;
+              min-height: 100vh;
+              padding: 20px;
             }
+            
             .container {
-              border: 5px solid #ef4444;
-              border-radius: 40px;
-              padding: 50px 40px;
-              max-width: 450px;
+              background: #ffffff;
+              border: 3px solid #ef4444;
+              border-radius: 36px;
+              padding: 48px 40px 40px 40px;
+              max-width: 480px;
               width: 100%;
-              margin: 0 auto;
-              box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+              box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+              position: relative;
+              overflow: hidden;
             }
+            
+            /* Decorative stripe at top */
+            .container::before {
+              content: '';
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              height: 12px;
+              background: #ef4444;
+            }
+            
             .logo-container {
-              margin-bottom: 12px;
+              margin-bottom: 18px;
             }
+            
             .logo {
-              height: 90px;
+              height: 85px;
               object-fit: contain;
             }
+            
             h1 {
-              font-size: 32px;
-              font-weight: 900;
-              margin: 10px 0 5px 0;
+              font-family: 'Space Grotesk', sans-serif;
+              font-size: 38px;
+              font-weight: 700;
               text-transform: uppercase;
               letter-spacing: -1.5px;
-              color: #0c0a09;
+              color: #1c1917;
+              line-height: 1.1;
             }
+            
             .subtitle {
-              font-size: 11px;
-              color: #ef4444;
-              font-weight: 900;
-              text-transform: uppercase;
-              letter-spacing: 3px;
-              margin-bottom: 25px;
-            }
-            .qr-box {
-              background: white;
-              padding: 18px;
-              display: inline-block;
-              border-radius: 24px;
-              box-shadow: 0 10px 30px rgba(0,0,0,0.06);
-              margin: 10px 0;
-              border: 1px solid #e5e7eb;
-            }
-            .instructions {
+              font-family: 'Space Grotesk', sans-serif;
               font-size: 13px;
-              color: #4b5563;
-              line-height: 1.6;
-              margin-top: 25px;
-              font-weight: 600;
-              text-align: left;
-              background: #f9fafb;
-              padding: 16px 20px;
-              border-radius: 16px;
-              border: 1px dashed #e5e7eb;
-            }
-            .instructions strong {
               color: #ef4444;
-              font-weight: 800;
-              display: block;
-              margin-bottom: 6px;
-              font-size: 11px;
+              font-weight: 700;
               text-transform: uppercase;
-              letter-spacing: 1px;
+              letter-spacing: 4px;
+              margin-top: 6px;
+              margin-bottom: 28px;
             }
-            .footer {
-              margin-top: 30px;
-              font-size: 9px;
-              color: #9ca3af;
-              font-weight: 800;
+            
+            .qr-box {
+              background: #ffffff;
+              padding: 16px;
+              display: inline-block;
+              border-radius: 28px;
+              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+              border: 2px solid #f3f4f6;
+              margin-bottom: 28px;
+            }
+            
+            .instructions {
+              text-align: left;
+              background: #fdfdfd;
+              padding: 24px;
+              border-radius: 24px;
+              border: 1px solid #e5e7eb;
+              box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);
+            }
+            
+            .instructions-title {
+              font-family: 'Space Grotesk', sans-serif;
+              font-size: 14px;
+              font-weight: 700;
+              color: #ef4444;
               text-transform: uppercase;
               letter-spacing: 1.5px;
+              margin-bottom: 18px;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            
+            .instructions-title::before {
+              content: '';
+              display: inline-block;
+              width: 8px;
+              height: 15px;
+              background: #ef4444;
+              border-radius: 4px;
+            }
+            
+            .step {
+              display: flex;
+              gap: 12px;
+              margin-bottom: 14px;
+              font-size: 13.5px;
+              line-height: 1.5;
+              color: #374151;
+            }
+            
+            .step-number {
+              background: #ef4444;
+              color: #ffffff;
+              font-weight: 800;
+              width: 22px;
+              height: 22px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+              font-size: 12px;
+              margin-top: 1px;
+            }
+            
+            .step-text {
+              font-weight: 500;
+            }
+            
+            .step-text strong {
+              color: #111827;
+              font-weight: 700;
+            }
+            
+            .step-text .highlight-red {
+              color: #ef4444;
+              font-weight: 800;
+            }
+            
+            .step-text .highlight-location {
+              color: #15803d; /* dark green */
+              font-weight: 800;
+              background: #f0fdf4;
+              padding: 1px 4px;
+              border-radius: 4px;
+              border: 1px solid #dcfce7;
+            }
+            
+            .footer {
+              margin-top: 32px;
+              font-size: 10px;
+              color: #6b7280;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              font-family: 'Space Grotesk', sans-serif;
             }
           </style>
         </head>
@@ -417,15 +505,31 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             </div>
             
             <div class="instructions">
-              <strong>Instruções para o Aluno:</strong>
-              1. Aponte a câmera do seu celular para o QR Code.<br/>
-              2. Abra o Painel do aluno Tanque Team.<br/>
-              3. Você deverá confirmar sua presença em até <strong>${gymTolerance} minutos</strong> em relação ao horário da aula.<br/>
-              4. <strong>Importante:</strong> É obrigatório <strong>habilitar a localização (GPS)</strong> no seu aparelho celular para validar a presença.
+              <div class="instructions-title">Como confirmar presença:</div>
+              
+              <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-text">Aponte a câmera do seu celular para o <strong>QR Code</strong> acima.</div>
+              </div>
+              
+              <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-text">Abra o <strong>Painel do aluno Tanque Team</strong>.</div>
+              </div>
+              
+              <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-text">Você deverá confirmar sua presença em até <span class="highlight-red">${gymTolerance} minutos</span> em relação ao horário da aula.</div>
+              </div>
+              
+              <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-text"><strong>Importante:</strong> É obrigatório <span class="highlight-location">habilitar a localização (GPS)</span> no seu aparelho celular para validar a presença.</div>
+              </div>
             </div>
             
             <div class="footer">
-              Tanque Team BJJ — Comprometidos com sua evolução
+              Tanque Team BJJ — Evolução & Disciplina
             </div>
           </div>
           
