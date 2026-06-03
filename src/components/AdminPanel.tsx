@@ -226,6 +226,56 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
   };
 
+  const resetToSystemSchedule = async () => {
+    try {
+      setSyncingPayments(true);
+      const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'gymSchedule'));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(docSnap => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'gymSchedule', docSnap.id)));
+      await Promise.all(deletePromises);
+
+      const defaultSystemSchedule = [
+        // SEG
+        { day: 1, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "10:30", capacity: 30 },
+        { day: 1, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "18:00", capacity: 30 },
+        { day: 1, name: "Jiu-Jitsu Infantil", category: "Infantil", time: "15:00", capacity: 35 },
+        { day: 1, name: "Jiu-Jitsu Infantil", category: "Infantil", time: "16:30", capacity: 35 },
+
+        // TER
+        { day: 2, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "12:30", capacity: 30 },
+        { day: 2, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "21:00", capacity: 30 },
+
+        // QUA
+        { day: 3, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "10:30", capacity: 30 },
+        { day: 3, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "18:00", capacity: 30 },
+        { day: 3, name: "Jiu-Jitsu Infantil", category: "Infantil", time: "15:00", capacity: 35 },
+        { day: 3, name: "Jiu-Jitsu Infantil", category: "Infantil", time: "16:30", capacity: 35 },
+
+        // QUI
+        { day: 4, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "12:30", capacity: 30 },
+        { day: 4, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "21:00", capacity: 30 },
+
+        // SEX
+        { day: 5, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "10:30", capacity: 30 },
+        { day: 5, name: "Jiu-Jitsu Adulto", category: "Adulto", time: "18:00", capacity: 30 },
+        { day: 5, name: "Jiu-Jitsu Infantil", category: "Infantil", time: "15:05", capacity: 35 }, // note: 15h
+        { day: 5, name: "Jiu-Jitsu Infantil", category: "Infantil", time: "16:30", capacity: 35 }
+      ];
+
+      // Fix the Friday 15:05 back to 15:00
+      defaultSystemSchedule[14].time = "15:00";
+
+      const addPromises = defaultSystemSchedule.map(cls => addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'gymSchedule'), cls));
+      await Promise.all(addPromises);
+      showAlert("Sucesso", "Grade de horários oficiais do sistema restaurada com sucesso!", "success");
+    } catch (err) {
+      console.error(err);
+      showAlert("Erro", "Falha ao restaurar grade padrão do sistema.", "error");
+    } finally {
+      setSyncingPayments(false);
+    }
+  };
+
   useEffect(() => {
     if (appId) {
       syncStudentsPaymentStatus(true);
@@ -369,8 +419,9 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             <div class="instructions">
               <strong>Instruções para o Aluno:</strong>
               1. Aponte a câmera do seu celular para o QR Code.<br/>
-              2. Abra a página do aplicativo do tatame.<br/>
-              3. O sistema marcará sua presença automaticamente no horário atual!
+              2. Abra o Painel do aluno Tanque Team.<br/>
+              3. Você deverá confirmar sua presença em até <strong>${gymTolerance} minutos</strong> em relação ao horário da aula.<br/>
+              4. <strong>Importante:</strong> É obrigatório <strong>habilitar a localização (GPS)</strong> no seu aparelho celular para validar a presença.
             </div>
             
             <div class="footer">
@@ -1715,7 +1766,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Add New Class Form */}
                 <div className="lg:col-span-1">
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 sticky top-8">
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
                     <h3 className="font-bold text-lg mb-6 dark:text-white flex items-center gap-2">
                       <Plus className="text-brand-red" /> Novo Horário
                     </h3>
@@ -1773,6 +1824,22 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       >
                         <Plus size={18} /> Adicionar à Grade
                       </motion.button>
+
+                      <div className="pt-4 border-t border-dashed border-gray-150 dark:border-gray-700 mt-4">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">Opções Avançadas:</p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (confirm("Aviso: Isso irá redefinir e sobrescrever toda a sua grade de horários atual pelos horários oficiais do sistema Tanque Team. Deseja prosseguir?")) {
+                              await resetToSystemSchedule();
+                            }
+                          }}
+                          className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-650 text-gray-700 dark:text-gray-200 font-black text-xs uppercase tracking-wider rounded-xl transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 text-brand-red" />
+                          Restaurar Horários Oficiais
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -2228,9 +2295,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {students.map(s => (
                   <div key={s.id} className="premium-card p-5 rounded-3xl flex flex-col gap-4 relative overflow-hidden">
-                    {s.mutedUntil && new Date(s.mutedUntil) > new Date() && (
-                      <div className="absolute top-0 right-0 bg-red-500 text-white px-3 py-1 text-[9px] font-bold uppercase rounded-bl-lg">Silenciado</div>
-                    )}
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
                       <div className="flex flex-col gap-2 shrink-0 items-center">
                         <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden border-2 border-white dark:border-gray-600 shadow-sm relative group">
@@ -2513,42 +2577,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         </div>
                       </div>
 
-                      <div className="flex gap-2 w-full mb-2">
+                      <div className="flex gap-2 w-full">
                         {/* Family Connection */}
                         <button 
                           onClick={() => setIsLinkingFamily({ studentId: s.id, name: s.name, parentId: s.parentId })}
                           className={`flex-1 p-1.5 rounded flex items-center justify-center gap-1 text-[9px] font-bold uppercase transition ${s.parentId ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}
                         >
                           <Users size={12} />
-                          {s.parentId ? 'Vincular' : 'Vincular'}
+                          {s.parentId ? 'Vincular Família' : 'Vincular Família'}
                         </button>
                       </div>
-
-                      <div className="flex-1 flex gap-1 items-center">
-                        <span className="text-[9px] font-bold text-gray-400 uppercase mr-1">Silenciar:</span>
-                        {[
-                          { hours: 24, label: '1d' },
-                          { hours: 168, label: '7d' },
-                          { hours: 720, label: '30d' },
-                          { hours: 'perm', label: 'PERM' }
-                        ].map(d => (
-                          <button
-                            key={d.label}
-                            onClick={() => muteStudent(s.id, s.name, d.hours as any)}
-                            className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-1.5 rounded-lg text-[9px] font-bold flex-1 transition-colors flex items-center justify-center gap-1"
-                          >
-                            <Ban size={10} /> {d.label}
-                          </button>
-                        ))}
-                      </div>
-                      {s.mutedUntil && (
-                        <button 
-                           onClick={() => unmuteStudent(s.id, s.name)}
-                           className="px-3 py-1.5 rounded-lg text-[9px] font-bold bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 hover:bg-green-200 transition-colors"
-                        >
-                           Restaurar
-                        </button>
-                      )}
                         </div>
                       </div>
                     ))

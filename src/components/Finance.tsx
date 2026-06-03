@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer, Shield, CreditCard, ExternalLink, Loader2, Zap } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, FileText, Calendar, Receipt, Award, Printer, Shield, CreditCard, ExternalLink, Loader2, Zap, MessageSquare } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import ReceiptModal from './ReceiptModal';
 import { collection, getDocs, updateDoc, doc, arrayUnion, onSnapshot } from 'firebase/firestore';
@@ -654,6 +654,31 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                 </p>
               </div>
             )}
+          </div>
+
+          {/* WhatsApp Contact Card */}
+          <div className="mt-6 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/30 p-5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex gap-3 items-start">
+              <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-600 dark:text-emerald-400 shrink-0">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-emerald-900 dark:text-emerald-350 uppercase tracking-tight">Precisa de Suporte Financeiro?</h4>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1 leading-relaxed">
+                  Fale diretamente conosco pelo WhatsApp no número <b>(91) 98453-3817</b> para esclarecer dúvidas sobre cobranças, mensalidades ou envio de comprovantes.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const message = encodeURIComponent("Olá! Sou aluno do Tanque Team e gostaria de falar sobre meu plano/financeiro.");
+                window.open("https://wa.me/5591984533817?text=" + message, "_blank");
+              }}
+              className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.02] text-white font-bold text-xs rounded-xl uppercase tracking-wider transition shadow flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              <MessageSquare className="w-3.5 h-3.5 fill-white" />
+              Chamar WhatsApp
+            </button>
           </div>
         </div>
 
