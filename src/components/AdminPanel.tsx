@@ -887,6 +887,22 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     durationMonths: 12
   });
 
+  const [migrationModalData, setMigrationModalData] = useState<{
+    isOpen: boolean;
+    planToDeleteId: string;
+    planToDeleteName: string;
+    affectedStudents: any[];
+    selectedTargetPlanId: string;
+  }>({
+    isOpen: false,
+    planToDeleteId: '',
+    planToDeleteName: '',
+    affectedStudents: [],
+    selectedTargetPlanId: '',
+  });
+
+  const [legacyStudentTargets, setLegacyStudentTargets] = useState<{[studentId: string]: string}>({});
+
   const handleUpdatePlan = async () => {
     if (!editingPlan) return;
     try {
@@ -1060,16 +1076,73 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   };
 
   const handleDeletePlan = async (planId: string) => {
-    showConfirm("Excluir Plano", "Tem certeza que deseja excluir este plano? Alunos vinculados a este nome podem perder a referência de valor.", async () => {
-      try {
-        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plans', planId));
-        await fetchPlans();
-        showAlert("Sucesso", "Plano excluído.", "success");
-      } catch (error) {
-        console.error("Error deleting plan:", error);
-        showAlert("Erro", "Falha ao excluir plano.", "error");
-      }
+    const planObj = dbPlans.find(p => p.id === planId);
+    if (!planObj) return;
+
+    const planName = planObj.name;
+    const planStudentsList = (Array.isArray(allStudents) ? allStudents : []).filter(s => {
+      if (s.archived || s.enrollmentStatus === 'Inativo') return false;
+      const sPlan = s && typeof s.plan === 'string' ? s.plan : '';
+      return normalizePlanName(sPlan) === normalizePlanName(planName);
     });
+
+    if (planStudentsList.length > 0) {
+      const availablePlans = dbPlans.filter(p => p.id !== planId);
+      const defaultTargetPlanId = availablePlans[0]?.id || '';
+      
+      setMigrationModalData({
+        isOpen: true,
+        planToDeleteId: planId,
+        planToDeleteName: planName,
+        affectedStudents: planStudentsList,
+        selectedTargetPlanId: defaultTargetPlanId,
+      });
+    } else {
+      showConfirm("Excluir Plano", `Tem certeza que deseja excluir o plano "${planName}"?`, async () => {
+        try {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plans', planId));
+          await fetchPlans();
+          showAlert("Sucesso", "Plano excluído.", "success");
+        } catch (error) {
+          console.error("Error deleting plan:", error);
+          showAlert("Erro", "Falha ao excluir plano.", "error");
+        }
+      });
+    }
+  };
+
+  const handleMigrateAndExecuteDelete = async () => {
+    const { planToDeleteId, planToDeleteName, affectedStudents, selectedTargetPlanId } = migrationModalData;
+    if (!planToDeleteId) return;
+
+    const targetPlanObj = dbPlans.find(p => p.id === selectedTargetPlanId);
+    if (!targetPlanObj) {
+      showAlert("Erro", "Por favor, selecione um plano de destino válido para migrar os alunos.", "error");
+      return;
+    }
+
+    try {
+      setSyncingPayments(true);
+      await Promise.all(affectedStudents.map(async (student) => {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
+          plan: targetPlanObj.name
+        });
+      }));
+
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'plans', planToDeleteId));
+      setMigrationModalData(prev => ({ ...prev, isOpen: false }));
+      await fetchPlans();
+      showAlert(
+        "Sucesso", 
+        `O plano "${planToDeleteName}" foi excluído. ${affectedStudents.length} aluno(s) foram migrados com sucesso para o plano "${targetPlanObj.name}".`, 
+        "success"
+      );
+    } catch (error) {
+      console.error("Error in migrate and delete:", error);
+      showAlert("Erro", "Falha ao migrar alunos e excluir o plano.", "error");
+    } finally {
+      setSyncingPayments(false);
+    }
   };
 
   useEffect(() => {
@@ -2850,35 +2923,41 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                             <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-450 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900">
                               {student.plan || 'Sem Plano'}
                             </span>
-                            <button
-                              onClick={async () => {
-                                const targetPlan = prompt(
-                                  `Migrar ${student.name} para qual plano ativo?\nOpções válidas:\n` + 
-                                  dbPlans.map(p => `• ${p.name}`).join('\n'), 
-                                  "OUTROS"
-                                );
-                                if (!targetPlan) return;
-                                
-                                const foundPlan = dbPlans.find(p => p.name.trim().toLowerCase() === targetPlan.trim().toLowerCase() || normalizePlanName(p.name) === normalizePlanName(targetPlan));
-                                if (!foundPlan) {
-                                  showAlert("Erro", "O plano especificado não é um plano válido / cadastrado.", "error");
-                                  return;
-                                }
+                            <div className="flex items-center gap-1.5">
+                              <select
+                                value={legacyStudentTargets[student.id] || (dbPlans[0]?.name || '')}
+                                onChange={(e) => setLegacyStudentTargets(prev => ({ ...prev, [student.id]: e.target.value }))}
+                                className="bg-white dark:bg-gray-900 border border-gray-205 dark:border-gray-700/80 rounded-lg px-2 py-1 text-[10px] font-bold outline-none text-gray-800 dark:text-white"
+                              >
+                                {dbPlans.map(p => (
+                                  <option key={p.id} value={p.name}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={async () => {
+                                  const targetPlanName = legacyStudentTargets[student.id] || (dbPlans[0]?.name || '');
+                                  if (!targetPlanName) {
+                                    showAlert("Erro", "Nenhum plano válido selecionado ou disponível para migrar o aluno.", "error");
+                                    return;
+                                  }
 
-                                try {
-                                  await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
-                                    plan: foundPlan.name
-                                  });
-                                  showAlert("Sucesso", `${student.name} migrado para o plano ${foundPlan.name}.`, "success");
-                                } catch (e) {
-                                  console.error(e);
-                                  showAlert("Erro", "Não foi possível migrar o aluno.", "error");
-                                }
-                              }}
-                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] rounded uppercase tracking-wider transition shadow-sm cursor-pointer"
-                            >
-                              Corrigir
-                            </button>
+                                  try {
+                                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
+                                      plan: targetPlanName
+                                    });
+                                    showAlert("Sucesso", `${student.name} migrado para o plano ${targetPlanName}.`, "success");
+                                  } catch (e) {
+                                    console.error(e);
+                                    showAlert("Erro", "Não foi possível migrar o aluno.", "error");
+                                  }
+                                }}
+                                className="px-2.5 py-1 bg-red-650 hover:bg-red-750 text-white font-bold text-[10px] rounded-lg uppercase tracking-wider transition shadow-sm cursor-pointer"
+                              >
+                                Migrar
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -4134,6 +4213,111 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     className="flex-[2] py-4 bg-brand-red text-white rounded-2xl font-bold text-sm shadow-xl shadow-red-500/20 hover:bg-red-700 transition flex items-center justify-center gap-2"
                   >
                     <Check size={18} /> Salvar Alteração
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL DE MIGRAÇÃO DE PLANO EXCLUÍDO */}
+      <AnimatePresence>
+        {migrationModalData.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[160] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl border-t-4 border-brand-red flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/55 dark:bg-gray-950/20">
+                <div>
+                  <h3 className="text-base font-black dark:text-white uppercase italic tracking-tight text-red-650 dark:text-red-400 flex items-center gap-2">
+                    <AlertTriangle className="animate-bounce" size={20} /> Exclusão com Migração de Alunos
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">Este plano possui alunos vinculados ativos no momento.</p>
+                </div>
+                <button
+                  onClick={() => setMigrationModalData(prev => ({ ...prev, isOpen: false }))}
+                  className="p-2 text-gray-400 hover:text-red-500 transition"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-2xl p-4 text-xs text-red-800 dark:text-red-300 space-y-2">
+                  <p>
+                    Você solicitou a exclusão do plano <b>&quot;{migrationModalData.planToDeleteName}&quot;</b>.
+                  </p>
+                  <p>
+                    Existem <b>{migrationModalData.affectedStudents.length}</b> aluno(s) ativo(s) que ficarão sem referência de plano se ele for apagado. Para continuar, selecione um plano ativo de destino abaixo para migrá-los automaticamente:
+                  </p>
+                </div>
+
+                {/* Seleção do plano destino */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Plano Ativo de Destino</label>
+                  <select
+                    value={migrationModalData.selectedTargetPlanId}
+                    onChange={(e) => setMigrationModalData(prev => ({ ...prev, selectedTargetPlanId: e.target.value }))}
+                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white font-bold"
+                  >
+                    {dbPlans
+                      .filter(p => p.id !== migrationModalData.planToDeleteId)
+                      .map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} (R$ {typeof p.price === 'number' ? p.price.toFixed(2) : p.price})
+                        </option>
+                      ))}
+                    {dbPlans.filter(p => p.id !== migrationModalData.planToDeleteId).length === 0 && (
+                      <option value="">Nenhum outro plano disponível!</option>
+                    )}
+                  </select>
+                  {dbPlans.filter(p => p.id !== migrationModalData.planToDeleteId).length === 0 && (
+                    <p className="text-[10px] text-brand-red mt-1 font-bold">
+                      Aviso: Crie outro plano primeiro antes de excluir o único plano existente com estudantes vinculados!
+                    </p>
+                  )}
+                </div>
+
+                {/* Lista de estudantes afetados */}
+                <div>
+                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase mb-2">Alunos a serem Migrados ({migrationModalData.affectedStudents.length}):</p>
+                  <div className="max-h-36 overflow-y-auto border border-gray-100 dark:border-gray-800 rounded-xl p-3 bg-gray-50/50 dark:bg-gray-950/20 space-y-1.5 scrollbar-thin">
+                    {migrationModalData.affectedStudents.map(student => (
+                      <div key={student.id} className="text-xs flex justify-between items-center text-gray-700 dark:text-gray-300">
+                        <span className="font-bold uppercase">{student.name}</span>
+                        <span className="text-[10px] text-gray-400 italic">Mudar plano</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setMigrationModalData(prev => ({ ...prev, isOpen: false }))}
+                    className="flex-1 py-3.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-2xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleMigrateAndExecuteDelete}
+                    disabled={syncingPayments || dbPlans.filter(p => p.id !== migrationModalData.planToDeleteId).length === 0}
+                    className="flex-[2] py-3.5 bg-brand-red text-white rounded-2xl font-bold text-sm shadow-xl shadow-red-500/20 hover:bg-red-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
+                  >
+                    {syncingPayments ? (
+                      <RefreshCw size={16} className="animate-spin" />
+                    ) : (
+                      <Check size={16} />
+                    )}
+                    Migrar Alunos e Excluir
                   </button>
                 </div>
               </div>
