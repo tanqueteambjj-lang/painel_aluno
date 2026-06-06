@@ -157,8 +157,12 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
 
     setIsPaying(true);
     try {
-      // RECURRING PAYMENT (Always use the initial price link)
+      // RECURRING PAYMENT (Always use the configured recurrence links)
       if (recurring) {
+        if (isLate && matchedPlan?.mercadopagoLateLink) {
+          window.location.href = matchedPlan.mercadopagoLateLink;
+          return;
+        }
         if (matchedPlan?.mercadopagoLink) {
           window.location.href = matchedPlan.mercadopagoLink;
           return;
@@ -168,10 +172,22 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
       }
 
       // ONE-TIME PAYMENT (Avulso)
-      // If late and has a specific late link, use it
-      if (isLate && matchedPlan?.mercadopagoLateLink) {
-        window.location.href = matchedPlan.mercadopagoLateLink;
-        return;
+      if (!recurring) {
+        if (isLate) {
+          if (matchedPlan?.mercadopagoAvulsoLateLink) {
+            window.location.href = matchedPlan.mercadopagoAvulsoLateLink;
+            return;
+          }
+          if (matchedPlan?.mercadopagoLateLink) {
+            window.location.href = matchedPlan.mercadopagoLateLink;
+            return;
+          }
+        } else {
+          if (matchedPlan?.mercadopagoAvulsoLink) {
+            window.location.href = matchedPlan.mercadopagoAvulsoLink;
+            return;
+          }
+        }
       }
 
       // Otherwise, use dynamic checkout (handles both on-time and late prices)
