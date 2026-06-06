@@ -118,7 +118,17 @@ export default function Dashboard() {
   const getPlanInfoFromData = (data: any) => {
     const rawPlanKey = data?.plan || 'N/A';
     const basePlanName = rawPlanKey.split(' - R$')[0].trim();
-    const planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    let planKey = basePlanName.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    // Canonical aliasing for system check values
+    if (planKey.includes('administracao')) {
+      planKey = 'administracao';
+    } else if (planKey.includes('dependente')) {
+      planKey = 'dependente';
+    } else if (planKey.includes('isento')) {
+      planKey = 'isento';
+    }
+    
     return { planKey, basePlanName, planInfo: PLAN_DICT[planKey] || { short: basePlanName.toUpperCase(), price: undefined } };
   };
 

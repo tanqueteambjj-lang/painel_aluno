@@ -53,6 +53,13 @@ exports.createPaymentPreference = onCall({ cors: true }, async (request) => {
       const studentData = studentSnap.data();
       const rawPlanKey = studentData.plan || 'N/A';
       planKey = rawPlanKey.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (planKey.includes('administracao')) {
+        planKey = 'administracao';
+      } else if (planKey.includes('dependente')) {
+        planKey = 'dependente';
+      } else if (planKey.includes('isento')) {
+        planKey = 'isento';
+      }
 
       planInfo = PLAN_DICT[planKey];
       if (!planInfo) {
@@ -128,7 +135,14 @@ exports.mercadopagoWebhook = onRequest(async (req, res) => {
           if (studentSnap.exists) {
             const studentData = studentSnap.data();
             const rawPlanKey = studentData.plan || 'N/A';
-            const planKey = rawPlanKey.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            let planKey = rawPlanKey.toLowerCase().replace(/\s+/g, '-').normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (planKey.includes('administracao')) {
+              planKey = 'administracao';
+            } else if (planKey.includes('dependente')) {
+              planKey = 'dependente';
+            } else if (planKey.includes('isento')) {
+              planKey = 'isento';
+            }
             const planInfo = PLAN_DICT[planKey];
             
             let newDueDate = new Date();
