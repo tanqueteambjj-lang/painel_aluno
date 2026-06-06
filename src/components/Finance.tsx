@@ -180,7 +180,9 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
       }
 
       await createMPCheckout({
-        title: `Pagamento Avulso - ${planName} - Tanque Team BJJ`,
+        title: isLate 
+          ? `Atrasado Avulso - ${planName} - Tanque Team BJJ` 
+          : `Em Dia com Valor Promocional Avulso - ${planName} - Tanque Team BJJ`,
         price: planPrice,
         studentId: currentUserData.id,
         studentEmail: currentUserData.email || 'administrativo@tanqueteambjj.com.br',
@@ -441,7 +443,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4">
                     <div className="flex flex-col">
                       <span className={`text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase italic w-fit mb-1 shadow-sm ${isLate ? 'bg-amber-500 text-white' : 'bg-brand-red text-white'}`}>
-                        {isLate ? 'Vencimento Excedido' : 'Valor em Dia'}
+                        {isLate ? 'Atrasado Avulso' : 'Em Dia com Valor Promocional Avulso'}
                       </span>
                       <span className="text-gray-400 text-[10px] uppercase font-bold italic tracking-wider">
                         {isLate ? (
@@ -455,8 +457,10 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                       <span className={`font-black text-2xl sm:text-3xl italic leading-none block ${isLate ? 'text-amber-500' : 'text-brand-red'}`}>
                         R$ {planPrice.toFixed(2).replace('.', ',')}
                       </span>
-                      {isLate && (
-                        <span className="text-[9px] text-amber-500/70 font-bold uppercase tracking-tighter">Valor Integral c/ Atraso</span>
+                      {isLate ? (
+                        <span className="text-[9px] text-amber-500/70 font-bold uppercase tracking-tighter">Atrasado Avulso</span>
+                      ) : (
+                        <span className="text-[9px] text-brand-red/70 font-bold uppercase tracking-tighter">Valor Promocional Avulso</span>
                       )}
                     </div>
                   </div>
@@ -492,7 +496,7 @@ export default function Finance({ currentUserData, planInfo, showAlert }: any) {
                     className="w-full bg-white/10 border border-white/20 text-white px-4 sm:px-8 py-3 w-full sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase italic tracking-tighter text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPaying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4 opacity-70" />}
-                    Pagamento Avulso - R$ {planPrice.toFixed(2).replace('.', ',')}
+                    {isLate ? "Pagamento Avulso (Atrasado)" : "Pagamento Avulso (Promocional)"} - R$ {planPrice.toFixed(2).replace('.', ',')}
                   </motion.button>
                 </div>
 
