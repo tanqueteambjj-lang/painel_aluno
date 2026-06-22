@@ -490,6 +490,91 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
               letter-spacing: 2px;
               font-family: 'Space Grotesk', sans-serif;
             }
+
+            @media print {
+              @page {
+                size: portrait;
+                margin: 0;
+              }
+              html, body {
+                height: 100%;
+                overflow: hidden;
+              }
+              body {
+                background-color: #ffffff !important;
+                background: #ffffff !important;
+                min-height: 100vh !important;
+                height: 100vh !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .container {
+                border: 3px solid #ef4444 !important;
+                border-radius: 28px !important;
+                padding: 24px 28px 18px 28px !important;
+                max-width: 380px !important;
+                width: 380px !important;
+                margin: auto !important;
+                box-shadow: none !important;
+                page-break-inside: avoid !important;
+              }
+              .logo {
+                height: 55px !important;
+              }
+              .logo-container {
+                margin-bottom: 10px !important;
+              }
+              h1 {
+                font-size: 26px !important;
+              }
+              .subtitle {
+                font-size: 11px !important;
+                margin-top: 2px !important;
+                margin-bottom: 12px !important;
+              }
+              .qr-box {
+                padding: 10px !important;
+                border-radius: 18px !important;
+                margin-bottom: 12px !important;
+                border: 2px solid #ef4444 !important;
+              }
+              .qr-box img {
+                width: 160px !important;
+                height: 160px !important;
+                margin: 0 auto !important;
+              }
+              .instructions {
+                padding: 14px 18px !important;
+                border-radius: 18px !important;
+                background: #fdfdfd !important;
+                border: 1px solid #e5e7eb !important;
+              }
+              .instructions-title {
+                font-size: 11px !important;
+                margin-bottom: 10px !important;
+              }
+              .step {
+                gap: 8px !important;
+                margin-bottom: 6px !important;
+                font-size: 10.5px !important;
+                line-height: 1.4 !important;
+              }
+              .step-number {
+                width: 16px !important;
+                height: 16px !important;
+                font-size: 9px !important;
+                font-weight: 900 !important;
+              }
+              .footer {
+                margin-top: 14px !important;
+                font-size: 8px !important;
+              }
+            }
           </style>
         </head>
         <body>
@@ -3081,19 +3166,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                       </p>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Link de Recorrência - Atrasado (Mercado Pago)</label>
-                      <input 
-                        type="text" 
-                        value={newPlanData.mercadopagoLateLink}
-                        onChange={(e) => setNewPlanData({...newPlanData, mercadopagoLateLink: e.target.value})}
-                        placeholder="https://www.mercadopago.com.br/subscriptions/checkout?..."
-                        className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-red dark:text-white"
-                      />
-                      <p className="text-[10px] text-amber-500 mt-1 font-bold italic flex items-center gap-1">
-                        <LinkIcon size={10} /> Recorrência para o valor integral (Vencido)
-                      </p>
-                    </div>
-                    <div>
                       <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Link Avulso - Em Dia (Mercado Pago)</label>
                       <input 
                         type="text" 
@@ -3213,16 +3285,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                                   type="text" 
                                   value={editingPlan.mercadopagoLink || ''}
                                   onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLink: e.target.value})}
-                                  placeholder="https://..."
-                                  className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white mb-2"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[8px] font-bold text-gray-400 uppercase mb-0.5">Recorrência - Atrasado (Mercado Pago)</label>
-                                <input 
-                                  type="text" 
-                                  value={editingPlan.mercadopagoLateLink || ''}
-                                  onChange={(e) => setEditingPlan({...editingPlan, mercadopagoLateLink: e.target.value})}
                                   placeholder="https://..."
                                   className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-xs outline-none dark:text-white mb-2"
                                 />
