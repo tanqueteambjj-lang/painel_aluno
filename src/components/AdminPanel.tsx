@@ -624,11 +624,6 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 <div class="step-number">3</div>
                 <div class="step-text">Você deverá confirmar sua presença em até <span class="highlight-red">${gymTolerance} minutos</span> em relação ao horário da aula.</div>
               </div>
-              
-              <div class="step">
-                <div class="step-number">4</div>
-                <div class="step-text"><strong>Importante:</strong> É obrigatório <span class="highlight-location">habilitar a localização (GPS)</span> no seu aparelho celular para validar a presença.</div>
-              </div>
             </div>
             
             <div class="footer">
@@ -1854,11 +1849,32 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         timestamp: new Date().toISOString()
       });
 
-      const attendedList = Array.isArray(student.attendance) ? student.attendance : [];
-      if (!attendedList.includes(selectedBookingDate)) {
+      const novoLog = {
+        date: selectedBookingDate,                      // Ex: "2026-06-22"
+        time: `${classItem.time} - ${classItem.name}`, // Ex: "19:00 - Jiu-Jitsu"
+        timestamp: new Date().toISOString(),
+        method: "sistema_externo",              // Nome do integrador
+        by: "api"
+      };
+
+      try {
         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', student.id), {
-          attendance: arrayUnion(selectedBookingDate)
+          attendance: arrayUnion(selectedBookingDate),
+          attendanceLog: arrayUnion(novoLog)
         });
+      } catch (err) {
+        console.error("Error updating dynamic path manual checkin:", err);
+      }
+
+      if (appId !== 'tanqueteam-bjj') {
+        try {
+          await updateDoc(doc(db, 'artifacts', 'tanqueteam-bjj', 'public', 'data', 'students', student.id), {
+            attendance: arrayUnion(selectedBookingDate),
+            attendanceLog: arrayUnion(novoLog)
+          });
+        } catch (err) {
+          console.error("Error updating backup path manual checkin:", err);
+        }
       }
 
       showAlert("Sucesso", `Presença lançada com sucesso para ${student.name}!`, "success");

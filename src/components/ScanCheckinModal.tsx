@@ -13,11 +13,12 @@ interface ScanCheckinModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserData: any;
+  familyMembers?: any[];
   appId: string;
   showAlert: (title: string, message: string, type: 'success' | 'error' | 'alert' | 'info') => void;
 }
 
-export default function ScanCheckinModal({ isOpen, onClose, currentUserData, appId, showAlert }: ScanCheckinModalProps) {
+export default function ScanCheckinModal({ isOpen, onClose, currentUserData, familyMembers = [], appId, showAlert }: ScanCheckinModalProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'locating' | 'scanning' | 'matching' | 'confirm_class' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [distanceToGym, setDistanceToGym] = useState<number | null>(null);
@@ -32,7 +33,14 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
     tolerance: 30
   });
   const [countdown, setCountdown] = useState(4);
+  const [checkinProfile, setCheckinProfile] = useState<any>(currentUserData);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCheckinProfile(currentUserData);
+    }
+  }, [isOpen, currentUserData]);
 
   // Helper to format local date as "YYYY-MM-DD"
   const getLocalDateString = () => {
@@ -92,6 +100,54 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
     }, 1000);
   };
 
+  const loadBookingsForProfile = async (profileId: string) => {
+    try {
+      const todayString = getLocalDateString();
+      const qBookings = query(
+        collection(db, 'artifacts', appId, 'public', 'data', 'bookings'),
+        where('studentId', '==', profileId),
+        where('date', '==', todayString)
+      );
+      const bookingSnap = await getDocs(qBookings);
+      const bookedIds: string[] = [];
+      bookingSnap.forEach(doc => {
+        bookedIds.push(doc.data().classId);
+      });
+      setBookedClassIds(bookedIds);
+      return bookedIds;
+    } catch (err) {
+      console.error("Error loading bookings for profile:", err);
+      return [];
+    }
+  };
+
+  const handleProfileChange = async (profile: any) => {
+    stopCountdown();
+    setCheckinProfile(profile);
+    setSelectedClass(null);
+    
+    // Fetch bookings first
+    const bookedIds = await loadBookingsForProfile(profile.id);
+
+    // Now check if exactly 1 available class for this profile
+    const availableClasses = classesToday.filter(c => {
+      if (bookedIds.includes(c.id)) return false;
+      if (!c.time) return false;
+      const [hours, mins] = c.time.split(':').map(Number);
+      const classMinutes = hours * 60 + mins;
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const tolerance = Number(gymConfig.tolerance) || 30;
+      return currentMinutes >= classMinutes - tolerance && currentMinutes <= classMinutes + tolerance;
+    });
+
+    if (availableClasses.length === 1) {
+      setSelectedClass(availableClasses[0]);
+    } else {
+      setSelectedClass(null);
+    }
+  };
+
   // Main config and dynamic data initializer
   const loadGymConfigAndBookings = async () => {
     try {
@@ -120,18 +176,7 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
 
       // 2. Load already booked classes for today
       if (currentUserData?.id) {
-        const todayString = getLocalDateString();
-        const qBookings = query(
-          collection(db, 'artifacts', appId, 'public', 'data', 'bookings'),
-          where('studentId', '==', currentUserData.id),
-          where('date', '==', todayString)
-        );
-        const bookingSnap = await getDocs(qBookings);
-        const bookedIds: string[] = [];
-        bookingSnap.forEach(doc => {
-          bookedIds.push(doc.data().classId);
-        });
-        setBookedClassIds(bookedIds);
+        await loadBookingsForProfile(currentUserData.id);
       }
 
       return currentGymConfig;
@@ -172,15 +217,17 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
         return checkStatus === 'available';
       });
 
-      if (availableClasses.length === 1) {
-        // Exactly one class is available now for check-in! Let's auto-confirm
+      const hasFamily = (familyMembers && familyMembers.length > 0);
+
+      if (availableClasses.length === 1 && !hasFamily) {
+        // Exactly one class is available now for check-in and no family! Let's auto-confirm
         setSelectedClass(availableClasses[0]);
         setStatus('confirm_class');
         startCountdown(availableClasses[0]);
       } else {
-        // Either multiple matches or none available right now - let them pick manually
+        // Either multiple matches, none available, or they have family (requires choosing profile)
         setStatus('confirm_class');
-        setSelectedClass(null); // Force selection from list
+        setSelectedClass(availableClasses.length === 1 ? availableClasses[0] : null);
       }
     } catch (err) {
       console.error("Error loading schedules:", err);
@@ -202,36 +249,8 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
       const isFromExternalScan = sessionStorage.getItem('external_scan_trigger') === 'true';
       if (isFromExternalScan) {
         sessionStorage.removeItem('external_scan_trigger');
-        
-        setStatus('locating');
-        if (!navigator.geolocation) {
-          setStatus('error');
-          setErrorMessage("Seu celular ou navegador não possui suporte a geolocalização.");
-          return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const { latitude, longitude } = pos.coords;
-            const distance = calculateDistance(latitude, longitude, config.latitude, config.longitude);
-            setDistanceToGym(distance);
-
-            if (distance > config.radius) {
-              setStatus('error');
-              setErrorMessage(`Você escaneou o QR Code mas está fora da área permitida do tatame (${Math.round(distance)}m). Para confirmar sua presença, você precisa estar no tatame da academia (limite: ${config.radius}m).`);
-              return;
-            }
-
-            setStatus('matching');
-            await loadAndMatchClasses(config);
-          },
-          (err) => {
-            console.error("Geolocation error during external checkin:", err);
-            setStatus('error');
-            setErrorMessage("Seu QR Code foi lido com sucesso, mas não conseguimos obter as coordenadas do seu GPS para validar se você está na academia. Habilite a localização e tente de novo.");
-          },
-          { enableHighAccuracy: true, timeout: 8000 }
-        );
+        setStatus('matching');
+        await loadAndMatchClasses(config);
       } else {
         setStatus('scanning');
       }
@@ -320,36 +339,8 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
                   }
                 }
                 
-                // Location verified securely in combination with QR Code scanning!
-                setStatus('locating');
-                if (!navigator.geolocation) {
-                  setStatus('error');
-                  setErrorMessage("Seu celular ou navegador não possui suporte a geolocalização para confirmar o check-in.");
-                  return;
-                }
-
-                navigator.geolocation.getCurrentPosition(
-                  async (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    const distance = calculateDistance(latitude, longitude, gymConfig.latitude, gymConfig.longitude);
-                    setDistanceToGym(distance);
-
-                    if (distance > gymConfig.radius) {
-                      setStatus('error');
-                      setErrorMessage(`Localização Inválida: O QR Code foi lido com sucesso, mas você está a ${Math.round(distance)}m do tatame (limite é de ${gymConfig.radius}m). Para validar o check-in, certifique-se de estar fisicamente no tatame da academia.`);
-                      return;
-                    }
-
-                    setStatus('matching');
-                    await loadAndMatchClasses(gymConfig);
-                  },
-                  (err) => {
-                    console.error("Geolocation error during QR check-in:", err);
-                    setStatus('error');
-                    setErrorMessage("O QR Code foi lido, mas não conseguimos obter sua geolocalização (GPS) para validar sua presença. Por favor, libere as permissões de localização no seu navegador e tente de novo.");
-                  },
-                  { enableHighAccuracy: true, timeout: 8000 }
-                );
+                setStatus('matching');
+                await loadAndMatchClasses(gymConfig);
               } else {
                 showAlert("QR Code Inválido", "O código escaneado não pertence ao QR Code oficial de check-in deste tatame.", "error");
               }
@@ -400,10 +391,10 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
       
       // 1. Add Booking document
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bookings'), {
-        studentId: currentUserData.id,
-        studentName: currentUserData.nickname || currentUserData.name,
-        studentFullName: currentUserData.name,
-        studentPhoto: currentUserData.photoBase64 || null,
+        studentId: checkinProfile.id,
+        studentName: checkinProfile.nickname || checkinProfile.name,
+        studentFullName: checkinProfile.name,
+        studentPhoto: checkinProfile.photoBase64 || null,
         classId: classItem.id,
         className: classItem.name,
         classTime: classItem.time,
@@ -411,12 +402,33 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
         timestamp: new Date().toISOString()
       });
 
-      // 2. Update Student attendance days array
-      const attendedList = Array.isArray(currentUserData.attendance) ? currentUserData.attendance : [];
-      if (!attendedList.includes(todayString)) {
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', currentUserData.id), {
-          attendance: arrayUnion(todayString)
+      // 2. Update Student attendance days array and attendanceLog
+      const novoLog = {
+        date: todayString,                      // Ex: "2026-06-22"
+        time: `${classItem.time} - ${classItem.name}`, // Ex: "19:00 - Jiu-Jitsu"
+        timestamp: new Date().toISOString(),
+        method: "sistema_externo",              // Nome do integrador
+        by: "api"
+      };
+
+      try {
+        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', checkinProfile.id), {
+          attendance: arrayUnion(todayString),
+          attendanceLog: arrayUnion(novoLog)
         });
+      } catch (err) {
+        console.error("Error updating dynamic path:", err);
+      }
+
+      if (appId !== 'tanqueteam-bjj') {
+        try {
+          await updateDoc(doc(db, 'artifacts', 'tanqueteam-bjj', 'public', 'data', 'students', checkinProfile.id), {
+            attendance: arrayUnion(todayString),
+            attendanceLog: arrayUnion(novoLog)
+          });
+        } catch (err) {
+          console.error("Error updating backup path:", err);
+        }
       }
 
       setBookedClassIds(prev => [...prev, classItem.id]);
@@ -554,7 +566,7 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
                       <Clock className="w-7 h-7 text-brand-red animate-spin" />
                     </div>
                   </div>
-                  <h4 className="font-bold text-gray-800 dark:text-white uppercase tracking-tight text-xs">Localização Validada!</h4>
+                  <h4 className="font-bold text-gray-800 dark:text-white uppercase tracking-tight text-xs">QR Code Validado!</h4>
                   <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
                     Consultando a grade de aulas de hoje para carregar suas opções de presença...
                   </p>
@@ -564,6 +576,44 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
               {/* CONFIRMATION / MANUAL RANGE SELECTION LIST */}
               {status === 'confirm_class' && (
                 <div className="space-y-5 text-left">
+                  {/* Profile Selection Bar for family members */}
+                  {[currentUserData, ...(familyMembers || [])].filter(Boolean).length > 1 && (
+                    <div className="bg-zinc-50 dark:bg-gray-750/30 p-3 rounded-2xl border border-gray-150 dark:border-gray-700/60 mb-1">
+                      <p className="text-[10px] font-black uppercase text-zinc-400 dark:text-zinc-500 tracking-wider mb-2 text-center">
+                        Confirmar presença para:
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2 max-h-24 overflow-y-auto custom-scrollbar">
+                        {[currentUserData, ...(familyMembers || [])].filter(Boolean).map((p) => {
+                          const isSelected = checkinProfile?.id === p.id;
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => handleProfileChange(p)}
+                              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all shadow-sm ${
+                                isSelected 
+                                  ? 'bg-brand-red text-white scale-105' 
+                                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-750 border border-gray-200 dark:border-gray-700'
+                              }`}
+                            >
+                              {p.photoBase64 ? (
+                                <img 
+                                  src={p.photoBase64} 
+                                  alt={p.name} 
+                                  className="w-4 h-4 rounded-full object-cover border border-black/10"
+                                />
+                              ) : (
+                                <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] uppercase font-black ${isSelected ? 'bg-white text-brand-red' : 'bg-brand-red text-white'}`}>
+                                  {p.name?.charAt(0)}
+                                </div>
+                              )}
+                              <span>{p.nickname || p.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedClass ? (
                     // Exact unique match found in window range -> countdown automatic confirm
                     <div className="bg-brand-red/5 border-2 border-brand-red/20 dark:border-brand-red/30 rounded-[2rem] p-6 text-center space-y-4 relative overflow-hidden">
@@ -734,7 +784,7 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, app
 
                     <div className="flex justify-between text-xs pb-2 border-b border-gray-100 dark:border-zinc-800/80">
                       <span className="text-gray-400 font-bold uppercase tracking-wider">Atleta</span>
-                      <span className="font-extrabold text-gray-800 dark:text-zinc-200 uppercase truncate max-w-[200px]">{currentUserData.nickname || currentUserData.name}</span>
+                      <span className="font-extrabold text-gray-800 dark:text-zinc-200 uppercase truncate max-w-[200px]">{checkinProfile.nickname || checkinProfile.name}</span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs">

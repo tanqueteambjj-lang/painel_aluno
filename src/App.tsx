@@ -151,6 +151,16 @@ export default function Dashboard() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const lastViewedIdRef = useRef<string | null>(null);
 
+  // Auto-close level up window in 7 seconds
+  useEffect(() => {
+    if (showLevelUp) {
+      const timer = setTimeout(() => {
+        setShowLevelUp(false);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [showLevelUp]);
+
   // Sync prevAttendanceCount
   useEffect(() => {
     if (activeUserData?.attendance) {
@@ -1684,24 +1694,27 @@ export default function Dashboard() {
   const LevelUpOverlay = () => (
     <AnimatePresence>
       {showLevelUp && (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.5, y: 50 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 1.5, y: -100 }}
-          className="fixed inset-0 z-[1000] flex items-center justify-center pointer-events-none"
-        >
-          <div className="bg-gradient-to-br from-yellow-400 via-orange-500 to-brand-red p-1 rounded-3xl shadow-[0_0_50px_rgba(249,115,22,0.5)]">
-            <div className="bg-white dark:bg-gray-900 px-10 py-8 rounded-[1.4rem] flex flex-col items-center text-center">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          {/* Click backdrop to close */}
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setShowLevelUp(false)} />
+          
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.5, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 1.5, y: -100 }}
+            className="relative z-10 bg-gradient-to-br from-yellow-400 via-orange-500 to-brand-red p-1 rounded-3xl shadow-[0_0_50px_rgba(249,115,22,0.5)] max-w-sm w-full"
+          >
+            <div className="bg-white dark:bg-gray-900 px-6 py-8 sm:px-10 sm:py-10 rounded-[1.4rem] flex flex-col items-center text-center">
               <motion.div
                 animate={{ rotate: [0, 10, -10, 10, 0], scale: [1, 1.2, 1] }}
                 transition={{ duration: 0.5, repeat: 2 }}
               >
-                <Trophy className="w-20 h-20 text-yellow-500 mb-4" />
+                <Trophy className="w-16 h-16 sm:w-20 sm:h-20 text-yellow-500 mb-4" />
               </motion.div>
-              <h2 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600 uppercase italic tracking-tighter">LEVEL UP!</h2>
-              <p className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest text-sm mt-1">Você subiu para o nível</p>
-              <div className="text-6xl font-black text-brand-dark dark:text-white mt-2">{userLevel}</div>
-              <div className="mt-4 flex gap-1">
+              <h2 className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-orange-600 uppercase italic tracking-tighter">LEVEL UP!</h2>
+              <p className="text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest text-xs sm:text-sm mt-1">Você subiu para o nível</p>
+              <div className="text-5xl sm:text-6xl font-black text-brand-dark dark:text-white mt-1 sm:mt-2">{userLevel}</div>
+              <div className="mt-3 sm:mt-4 flex gap-1">
                 {[...Array(5)].map((_, i) => (
                   <motion.div
                     key={i}
@@ -1709,14 +1722,22 @@ export default function Dashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 + (i * 0.1) }}
                   >
-                    <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                    <Star className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 fill-yellow-400" />
                   </motion.div>
                 ))}
               </div>
+
+              <button
+                onClick={() => setShowLevelUp(false)}
+                className="mt-6 sm:mt-8 w-full py-2.5 sm:py-3 bg-gradient-to-r from-brand-red to-orange-600 hover:from-brand-red/90 hover:to-orange-700 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 transform hover:scale-[1.02]"
+              >
+                Fechar / Fechar
+              </button>
             </div>
-          </div>
-          {/* Partículas simples (opcional) */}
-          <div className="absolute inset-0 overflow-hidden">
+          </motion.div>
+
+          {/* Partículas simples */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
              {[...Array(20)].map((_, i) => (
                <motion.div
                  key={i}
@@ -1736,7 +1757,7 @@ export default function Dashboard() {
                />
              ))}
           </div>
-        </motion.div>
+        </div>
       )}
     </AnimatePresence>
   );
@@ -2696,6 +2717,7 @@ export default function Dashboard() {
         isOpen={isScanCheckinModalOpen}
         onClose={() => setIsScanCheckinModalOpen(false)}
         currentUserData={currentUserData}
+        familyMembers={familyMembers}
         appId={appId}
         showAlert={showAlert}
       />
