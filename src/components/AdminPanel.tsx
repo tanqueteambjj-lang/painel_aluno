@@ -494,7 +494,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             @media print {
               @page {
                 size: portrait;
-                margin: 0;
+                margin: 10mm;
               }
               html, body {
                 height: 100%;
@@ -514,65 +514,83 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                 print-color-adjust: exact !important;
               }
               .container {
-                border: 3px solid #ef4444 !important;
-                border-radius: 28px !important;
-                padding: 24px 28px 18px 28px !important;
-                max-width: 380px !important;
-                width: 380px !important;
+                border: 4px solid #ef4444 !important;
+                border-radius: 36px !important;
+                padding: 36px 40px !important;
+                max-width: 600px !important;
+                width: 92% !important;
+                height: 94% !important;
+                max-height: 94vh !important;
                 margin: auto !important;
                 box-shadow: none !important;
                 page-break-inside: avoid !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                box-sizing: border-box !important;
               }
               .logo {
-                height: 55px !important;
+                height: 80px !important;
               }
               .logo-container {
-                margin-bottom: 10px !important;
+                margin-bottom: 0 !important;
               }
               h1 {
-                font-size: 26px !important;
+                font-size: 38px !important;
+                margin: 0 !important;
+                line-height: 1.1 !important;
               }
               .subtitle {
-                font-size: 11px !important;
-                margin-top: 2px !important;
-                margin-bottom: 12px !important;
+                font-size: 14px !important;
+                margin-top: 4px !important;
+                margin-bottom: 0 !important;
+                letter-spacing: 4px !important;
               }
               .qr-box {
-                padding: 10px !important;
-                border-radius: 18px !important;
-                margin-bottom: 12px !important;
-                border: 2px solid #ef4444 !important;
+                padding: 16px !important;
+                border-radius: 24px !important;
+                margin: 0 !important;
+                border: 3px solid #ef4444 !important;
+                background: #ffffff !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
               }
               .qr-box img {
-                width: 160px !important;
-                height: 160px !important;
+                width: 250px !important;
+                height: 250px !important;
                 margin: 0 auto !important;
               }
               .instructions {
-                padding: 14px 18px !important;
-                border-radius: 18px !important;
-                background: #fdfdfd !important;
+                width: 100% !important;
+                padding: 20px 24px !important;
+                border-radius: 20px !important;
+                background: #fafafa !important;
                 border: 1px solid #e5e7eb !important;
+                box-shadow: none !important;
+                margin: 0 !important;
               }
               .instructions-title {
-                font-size: 11px !important;
-                margin-bottom: 10px !important;
+                font-size: 13px !important;
+                margin-bottom: 12px !important;
               }
               .step {
-                gap: 8px !important;
-                margin-bottom: 6px !important;
-                font-size: 10.5px !important;
+                gap: 10px !important;
+                margin-bottom: 8px !important;
+                font-size: 11.5px !important;
                 line-height: 1.4 !important;
               }
               .step-number {
-                width: 16px !important;
-                height: 16px !important;
-                font-size: 9px !important;
-                font-weight: 900 !important;
+                width: 18px !important;
+                height: 18px !important;
+                font-size: 10px !important;
+                font-weight: 800 !important;
               }
               .footer {
-                margin-top: 14px !important;
-                font-size: 8px !important;
+                margin-top: 0 !important;
+                font-size: 9px !important;
+                letter-spacing: 2.5px !important;
               }
             }
           </style>
