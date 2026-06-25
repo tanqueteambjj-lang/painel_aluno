@@ -6,7 +6,6 @@ import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, getDocs, collection, query, where, addDoc, updateDoc, onSnapshot, increment, arrayUnion } from 'firebase/firestore';
 import Login from '@/components/Login';
 import Sidebar from '@/components/Sidebar';
-import QrModal from '@/components/QrModal';
 import HistoryModal from '@/components/HistoryModal';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import ScanCheckinModal from '@/components/ScanCheckinModal';
@@ -86,7 +85,6 @@ export default function Dashboard() {
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   const [isProfileSwitcherOpen, setIsProfileSwitcherOpen] = useState(false);
   
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isScanCheckinModalOpen, setIsScanCheckinModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
@@ -2007,23 +2005,7 @@ export default function Dashboard() {
                   })()}
 
               {/* Check-in Buttons Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 no-print">
-                <motion.button 
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsQrModalOpen(true)} 
-                  className="w-full bg-gradient-to-r from-brand-dark to-gray-800 dark:from-gray-800 dark:to-gray-900 text-white font-bold py-4 px-6 rounded-2xl shadow-xl flex items-center gap-4 transition border border-gray-700 dark:border-gray-600 text-left cursor-pointer"
-                  aria-label="Abrir Carteirinha Digital para Check-in"
-                >
-                  <div className="w-14 h-14 bg-brand-red rounded-full flex items-center justify-center shadow-inner shrink-0 leading-none">
-                    <QrCode className="w-8 h-8 text-white min-w-8 min-h-8" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <span className="block text-lg font-display uppercase tracking-widest text-brand-red font-black">Carteirinha Digital</span>
-                    <span className="block text-xs text-gray-300 dark:text-gray-400 font-normal mt-0.5 leading-tight">Abra seu QR Code pessoal de matrícula para validar na Recepção</span>
-                  </div>
-                </motion.button>
-
+              <div className="mb-8 no-print">
                 <motion.button 
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
@@ -2699,19 +2681,6 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
-
-      <QrModal 
-        isOpen={isQrModalOpen} 
-        onClose={() => setIsQrModalOpen(false)} 
-        userData={currentUserData} 
-        planShort={planInfo.short} 
-        onOpenHistory={() => {
-          setIsQrModalOpen(false);
-          setIsHistoryModalOpen(true);
-        }}
-        showAlert={showAlert}
-        appId={appId}
-      />
 
       <ScanCheckinModal
         isOpen={isScanCheckinModalOpen}
