@@ -99,11 +99,12 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
         const textPart = rawText.substring(0, lastCommaIndex).trim();
         const authorPart = rawText.substring(lastCommaIndex + 1).trim();
         const upperAuthor = authorPart.toUpperCase();
-        const commonTitles = ['MESTRE', 'PROFESSOR', 'PROF', 'COACH', 'SENSEI', 'INSTRUTOR', 'SALES', 'ALUNO'];
+        const commonTitles = ['MESTRE', 'PROFESSOR', 'PROF', 'COACH', 'SENSEI', 'INSTRUTOR', 'SALES', 'ALUNO', 'SILVA'];
         const hasTitle = commonTitles.some(title => upperAuthor.includes(title));
         
         if (authorPart.length > 0 && authorPart.length < 35 && (hasTitle || /^[A-Z\s]+$/.test(authorPart))) {
-          return { parsedText: textPart, parsedInstructor: authorPart };
+          const finalInst = (defaultInstructor === 'Sistema' || defaultInstructor === 'Professor' || !defaultInstructor) ? authorPart : defaultInstructor;
+          return { parsedText: textPart, parsedInstructor: finalInst };
         }
       }
 
@@ -113,11 +114,12 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
         const textPart = rawText.substring(0, lastDashIndex).trim();
         const authorPart = rawText.substring(lastDashIndex + 3).trim();
         const upperAuthor = authorPart.toUpperCase();
-        const commonTitles = ['MESTRE', 'PROFESSOR', 'PROF', 'COACH', 'SENSEI', 'INSTRUTOR', 'SALES', 'ALUNO'];
+        const commonTitles = ['MESTRE', 'PROFESSOR', 'PROF', 'COACH', 'SENSEI', 'INSTRUTOR', 'SALES', 'ALUNO', 'SILVA'];
         const hasTitle = commonTitles.some(title => upperAuthor.includes(title));
         
         if (authorPart.length > 0 && authorPart.length < 35 && (hasTitle || /^[A-Z\s]+$/.test(authorPart))) {
-          return { parsedText: textPart, parsedInstructor: authorPart };
+          const finalInst = (defaultInstructor === 'Sistema' || defaultInstructor === 'Professor' || !defaultInstructor) ? authorPart : defaultInstructor;
+          return { parsedText: textPart, parsedInstructor: finalInst };
         }
       }
 
@@ -128,7 +130,8 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
         const textPart = rawText.substring(0, match.index).trim();
         const authorPart = rawText.substring(match.index + match[0].length).trim();
         if (authorPart.length > 0 && authorPart.length < 35) {
-          return { parsedText: textPart, parsedInstructor: authorPart };
+          const finalInst = (defaultInstructor === 'Sistema' || defaultInstructor === 'Professor' || !defaultInstructor) ? authorPart : defaultInstructor;
+          return { parsedText: textPart, parsedInstructor: finalInst };
         }
       }
 
@@ -146,7 +149,9 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
         if (!seenKeys.has(uniqueKey) && rawText) {
           seenKeys.add(uniqueKey);
 
-          const defaultInst = item.instructor || item.teacher || item.professor || item.by || 'Professor';
+          // author contains the name of the professor or admin who inserted the annotation.
+          // Otherwise, check other fields or default to 'Sistema'.
+          const defaultInst = item.author || item.instructor || item.teacher || item.professor || item.by || 'Sistema';
           const { parsedText, parsedInstructor } = parseTextAndInstructor(rawText, defaultInst);
 
           list.push({
@@ -173,7 +178,9 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
         if (!seenKeys.has(uniqueKey) && rawText) {
           seenKeys.add(uniqueKey);
 
-          const defaultInst = item.instructor || item.teacher || item.professor || item.by || 'Sistema';
+          // author contains the name of the professor or admin who inserted the annotation.
+          // Otherwise, check other fields or default to 'Sistema'.
+          const defaultInst = item.author || item.instructor || item.teacher || item.professor || item.by || 'Sistema';
           const { parsedText, parsedInstructor } = parseTextAndInstructor(rawText, defaultInst);
 
           list.push({
