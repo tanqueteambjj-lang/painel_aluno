@@ -2599,7 +2599,12 @@ export default function Dashboard() {
                     <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">Histórico Técnico e Frequência</p>
                   </div>
                 </div>
-                <StudentProgress activeUserData={activeUserData} renderBeltSVG={renderBeltSVG} />
+                <StudentProgress 
+                  activeUserData={activeUserData} 
+                  renderBeltSVG={renderBeltSVG} 
+                  userLevel={userLevel}
+                  userXP={userXP}
+                />
               </motion.div>
             )}
 

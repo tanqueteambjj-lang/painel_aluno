@@ -13,6 +13,30 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
     const tabLabel = activeTab === 'xp' ? "Nível (XP)" : "Treinos (Frequência)";
     const dateNow = new Date().toLocaleDateString('pt-BR');
 
+    // Dynamic previous month name helper
+    const getPreviousMonthName = () => {
+      const months = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+      ];
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      return months[d.getMonth()];
+    };
+    const prevMonthName = getPreviousMonthName();
+
+    const formatPodiumDisplayName = (student: any) => {
+      if (!student) return '---';
+      const name = student.name || 'Aluno';
+      const nickname = student.nickname;
+      const parts = name.trim().split(/\s+/);
+      let shortName = name;
+      if (parts.length > 2) {
+        shortName = `${parts[0]} ${parts[parts.length - 1]}`;
+      }
+      return nickname ? `${shortName} (${nickname})` : shortName;
+    };
+
     // Filter top 3 for podium visualization
     const podium1 = lastMonthRanking?.[0] || null;
     const podium2 = lastMonthRanking?.[1] || null;
@@ -54,7 +78,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
           <div class="photo-wrapper border-silver">
             ${getAvatarImg(podium2?.photoBase64)}
           </div>
-          <div class="podium-name">${podium2 ? formatDisplayName(podium2) : '---'}</div>
+          <div class="podium-name">${podium2 ? formatPodiumDisplayName(podium2) : '---'}</div>
           <div class="podium-score">${podium2 ? (activeTab === 'xp' ? `${podium2.xp || 0} XP` : `${podium2.classes || 0} Treinos`) : ''}</div>
           <div class="podium-step step-silver">2</div>
         </div>
@@ -65,7 +89,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
           <div class="photo-wrapper border-gold">
             ${getAvatarImg(podium1?.photoBase64)}
           </div>
-          <div class="podium-name font-large">${podium1 ? formatDisplayName(podium1) : '---'}</div>
+          <div class="podium-name font-large">${podium1 ? formatPodiumDisplayName(podium1) : '---'}</div>
           <div class="podium-score text-gold">${podium1 ? (activeTab === 'xp' ? `${podium1.xp || 0} XP` : `${podium1.classes || 0} Treinos`) : ''}</div>
           <div class="podium-step step-gold">1</div>
         </div>
@@ -76,7 +100,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
           <div class="photo-wrapper border-bronze">
             ${getAvatarImg(podium3?.photoBase64)}
           </div>
-          <div class="podium-name">${podium3 ? formatDisplayName(podium3) : '---'}</div>
+          <div class="podium-name">${podium3 ? formatPodiumDisplayName(podium3) : '---'}</div>
           <div class="podium-score">${podium3 ? (activeTab === 'xp' ? `${podium3.xp || 0} XP` : `${podium3.classes || 0} Treinos`) : ''}</div>
           <div class="podium-step step-bronze">3</div>
         </div>
@@ -91,7 +115,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
                 ${getAvatarImg(student.photoBase64)}
               </div>
               <div class="rest-info">
-                <span class="rest-name">${formatDisplayName(student)}</span>
+                <span class="rest-name">${formatPodiumDisplayName(student)}</span>
                 <span class="rest-score">${activeTab === 'xp' ? `${student.xp || 0} XP` : `${student.classes || 0} Treinos`}</span>
               </div>
             </div>
@@ -145,11 +169,15 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               padding: 0;
             }
             
+            @page {
+              margin: 12mm 15mm;
+            }
+
             body {
               font-family: 'Plus Jakarta Sans', sans-serif;
               color: #1c1917;
               background-color: #ffffff;
-              padding: 40px;
+              padding: 20px;
               line-height: 1.4;
             }
 
@@ -185,6 +213,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               }
               body {
                 padding: 0;
+                margin: 0;
               }
             }
 
@@ -270,15 +299,17 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               display: flex;
               align-items: flex-end;
               justify-content: center;
-              gap: 15px;
+              gap: 12px;
               margin: 30px auto;
+              width: 100%;
               max-width: 650px;
-              height: 250px;
+              height: 260px;
               padding-bottom: 10px;
             }
 
             .podium-card {
               flex: 1;
+              width: 32%;
               background-color: #fafaf9;
               border: 1px solid #e7e5e4;
               border-radius: 16px;
@@ -290,6 +321,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               text-align: center;
               position: relative;
               box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+              min-width: 0;
             }
 
             .podium-1st {
@@ -329,6 +361,8 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
             .photo-wrapper {
               width: 64px;
               height: 64px;
+              min-width: 64px;
+              min-height: 64px;
               border-radius: 50%;
               overflow: hidden;
               background: #e7e5e4;
@@ -337,11 +371,14 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               align-items: center;
               justify-content: center;
               border: 3px solid transparent;
+              flex-shrink: 0;
             }
 
             .photo-wrapper-small {
               width: 32px;
               height: 32px;
+              min-width: 32px;
+              min-height: 32px;
               border-radius: 50%;
               overflow: hidden;
               background: #e7e5e4;
@@ -349,6 +386,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               align-items: center;
               justify-content: center;
               border: 1.5px solid #cbd5e1;
+              flex-shrink: 0;
             }
 
             .border-gold { border-color: #f59e0b; }
@@ -359,6 +397,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               width: 100%;
               height: 100%;
               object-fit: cover;
+              border-radius: 50%;
             }
 
             .student-photo-placeholder {
@@ -369,6 +408,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
               justify-content: center;
               background-color: #e7e5e4;
               color: #78716c;
+              border-radius: 50%;
             }
 
             .student-photo-placeholder svg {
@@ -377,17 +417,25 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
             }
 
             .podium-name {
-              font-size: 12px;
+              font-size: 11px;
               font-weight: 800;
               color: #1c1917;
               width: 100%;
-              white-space: nowrap;
+              white-space: normal;
+              word-break: break-word;
+              overflow-wrap: break-word;
+              line-height: 1.25;
+              height: 2.5em;
+              display: -webkit-box;
+              -webkit-line-clamp: 2;
+              -webkit-box-orient: vertical;
               overflow: hidden;
-              text-overflow: ellipsis;
+              margin-bottom: 6px;
+              text-transform: uppercase;
             }
 
             .font-large {
-              font-size: 14px;
+              font-size: 12.5px;
             }
 
             .podium-score {
@@ -676,7 +724,7 @@ export default function Ranking({ currentUserData, ranking, lastMonthRanking, is
           <!-- SECTION 1: PODIUM DO MÊS PASSADO -->
           <div class="section-header">
             <span class="section-icon">🏆</span>
-            <h4 class="section-title">Pódio Consolidado do Mês Anterior</h4>
+            <h4 class="section-title">Pódio Consolidado do Mês Anterior (${prevMonthName})</h4>
           </div>
           
           ${podiumHTML}

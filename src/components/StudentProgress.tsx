@@ -17,9 +17,11 @@ import { motion, AnimatePresence } from 'motion/react';
 interface StudentProgressProps {
   activeUserData: any;
   renderBeltSVG: (beltStr: string) => React.ReactNode;
+  userLevel?: number;
+  userXP?: number;
 }
 
-export default function StudentProgress({ activeUserData, renderBeltSVG }: StudentProgressProps) {
+export default function StudentProgress({ activeUserData, renderBeltSVG, userLevel, userXP }: StudentProgressProps) {
   const [activeSubTab, setActiveSubTab] = useState<'attendance' | 'notes'>('attendance');
 
   // 1. Enrollment date
@@ -88,22 +90,71 @@ export default function StudentProgress({ activeUserData, renderBeltSVG }: Stude
     const list: any[] = [];
     const seenKeys = new Set<string>();
 
+    const parseTextAndInstructor = (rawText: string, defaultInstructor: string) => {
+      if (!rawText) return { parsedText: '', parsedInstructor: defaultInstructor };
+
+      // 1. Try splitting by last ", " or ","
+      const lastCommaIndex = rawText.lastIndexOf(',');
+      if (lastCommaIndex !== -1) {
+        const textPart = rawText.substring(0, lastCommaIndex).trim();
+        const authorPart = rawText.substring(lastCommaIndex + 1).trim();
+        const upperAuthor = authorPart.toUpperCase();
+        const commonTitles = ['MESTRE', 'PROFESSOR', 'PROF', 'COACH', 'SENSEI', 'INSTRUTOR', 'SALES', 'ALUNO'];
+        const hasTitle = commonTitles.some(title => upperAuthor.includes(title));
+        
+        if (authorPart.length > 0 && authorPart.length < 35 && (hasTitle || /^[A-Z\s]+$/.test(authorPart))) {
+          return { parsedText: textPart, parsedInstructor: authorPart };
+        }
+      }
+
+      // 2. Try splitting by " - "
+      const lastDashIndex = rawText.lastIndexOf(' - ');
+      if (lastDashIndex !== -1) {
+        const textPart = rawText.substring(0, lastDashIndex).trim();
+        const authorPart = rawText.substring(lastDashIndex + 3).trim();
+        const upperAuthor = authorPart.toUpperCase();
+        const commonTitles = ['MESTRE', 'PROFESSOR', 'PROF', 'COACH', 'SENSEI', 'INSTRUTOR', 'SALES', 'ALUNO'];
+        const hasTitle = commonTitles.some(title => upperAuthor.includes(title));
+        
+        if (authorPart.length > 0 && authorPart.length < 35 && (hasTitle || /^[A-Z\s]+$/.test(authorPart))) {
+          return { parsedText: textPart, parsedInstructor: authorPart };
+        }
+      }
+
+      // 3. Try splitting by case-insensitive " por "
+      const porRegex = /\s+por\s+/i;
+      const match = rawText.match(porRegex);
+      if (match && match.index !== undefined) {
+        const textPart = rawText.substring(0, match.index).trim();
+        const authorPart = rawText.substring(match.index + match[0].length).trim();
+        if (authorPart.length > 0 && authorPart.length < 35) {
+          return { parsedText: textPart, parsedInstructor: authorPart };
+        }
+      }
+
+      return { parsedText: rawText, parsedInstructor: defaultInstructor };
+    };
+
     // Parse progressHistory
     const rawProgressHistory = activeUserData?.progressHistory || [];
     if (Array.isArray(rawProgressHistory)) {
       rawProgressHistory.forEach((item: any, idx) => {
         if (!item) return;
         const date = item.date || item.timestamp || '';
-        const text = item.text || item.note || item.comment || item.description || '';
-        const uniqueKey = `history-${date}-${text}-${idx}`;
-        if (!seenKeys.has(uniqueKey) && text) {
+        const rawText = item.text || item.note || item.comment || item.description || '';
+        const uniqueKey = `history-${date}-${rawText}-${idx}`;
+        if (!seenKeys.has(uniqueKey) && rawText) {
           seenKeys.add(uniqueKey);
+
+          const defaultInst = item.instructor || item.teacher || item.professor || item.by || 'Professor';
+          const { parsedText, parsedInstructor } = parseTextAndInstructor(rawText, defaultInst);
+
           list.push({
             ...item,
             id: uniqueKey,
             date: date,
-            text: text,
-            instructor: item.instructor || item.teacher || item.professor || item.by || 'Professor',
+            text: parsedText,
+            instructor: parsedInstructor,
             type: item.type || 'evaluation',
             title: item.title || 'Avaliação Técnica'
           });
@@ -117,16 +168,20 @@ export default function StudentProgress({ activeUserData, renderBeltSVG }: Stude
       rawProgressLog.forEach((item: any, idx) => {
         if (!item) return;
         const date = item.date || item.timestamp || '';
-        const text = item.text || item.note || item.comment || '';
-        const uniqueKey = `log-${date}-${text}-${idx}`;
-        if (!seenKeys.has(uniqueKey) && text) {
+        const rawText = item.text || item.note || item.comment || '';
+        const uniqueKey = `log-${date}-${rawText}-${idx}`;
+        if (!seenKeys.has(uniqueKey) && rawText) {
           seenKeys.add(uniqueKey);
+
+          const defaultInst = item.instructor || item.teacher || item.professor || item.by || 'Sistema';
+          const { parsedText, parsedInstructor } = parseTextAndInstructor(rawText, defaultInst);
+
           list.push({
             ...item,
             id: uniqueKey,
             date: date,
-            text: text,
-            instructor: item.instructor || item.teacher || item.professor || item.by || 'Sistema',
+            text: parsedText,
+            instructor: parsedInstructor,
             type: item.type || 'graduation',
             title: item.type === 'graduation' ? 'Graduação de Faixa' : 'Anotação do Professor'
           });
@@ -302,7 +357,8 @@ export default function StudentProgress({ activeUserData, renderBeltSVG }: Stude
                 Nível do Atleta
               </span>
               <span className="font-bold text-gray-800 dark:text-zinc-200">
-                Nível {Math.floor(Math.sqrt((activeUserData?.extraXP || 0) / 100)) + 1}
+                Nível {userLevel !== undefined ? userLevel : (Math.floor(Math.sqrt((activeUserData?.extraXP || 0) / 100)) + 1)}
+                {userXP !== undefined && <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">({userXP} XP)</span>}
               </span>
             </div>
           </div>
@@ -555,7 +611,7 @@ export default function StudentProgress({ activeUserData, renderBeltSVG }: Stude
                             </p>
                             {event.instructor && (
                               <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase mt-0.5">
-                                por: {event.instructor}
+                                Por: {event.instructor}
                               </p>
                             )}
                           </div>
