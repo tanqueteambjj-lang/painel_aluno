@@ -1,4 +1,4 @@
-import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield, CreditCard } from 'lucide-react';
+import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield, CreditCard, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, isAdmin }: any) {
@@ -33,6 +33,16 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
           {hasUnreadNotices && (
             <span className="absolute top-3 right-4 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" aria-label="Avisos não lidos"></span>
           )}
+        </motion.button>
+        <motion.button 
+          whileHover={{ scale: 1.02, x: 4 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => { setView('progress'); setIsMobileMenuOpen(false); }} 
+          className={`flex items-center px-4 py-3 rounded-lg transition-colors w-full text-left relative ${view === 'progress' ? 'bg-brand-red text-white shadow-md' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
+          aria-current={view === 'progress' ? 'page' : undefined}
+        >
+          <TrendingUp className="w-6 h-6" aria-hidden="true" />
+          <span className="font-bold ml-2">Meu Progresso</span>
         </motion.button>
         <motion.button 
           whileHover={{ scale: 1.02, x: 4 }}

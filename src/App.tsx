@@ -14,6 +14,7 @@ import Finance from '@/components/Finance';
 import Ranking, { RankingManual } from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
+import StudentProgress from '@/components/StudentProgress';
 import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Pin, Cake, TrendingUp, ThumbsUp, Camera } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
@@ -2576,6 +2577,29 @@ export default function Dashboard() {
                   lastMonthRankingAdulto={lastMonthRankingAdulto}
                   lastMonthRankingInfantil={lastMonthRankingInfantil}
                 />
+              </motion.div>
+            )}
+
+            {/* PROGRESS VIEW */}
+            {view === 'progress' && activeUserData && (
+              <motion.div
+                key="progress"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+              >
+                <div className="mb-6 text-left flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 pb-3">
+                  <TrendingUp className="w-8 h-8 text-brand-red" />
+                  <div>
+                    <h1 className="text-3xl font-black text-gray-900 dark:text-white uppercase leading-none tracking-tighter italic">
+                      Meu Progresso
+                    </h1>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-1">Histórico Técnico e Frequência</p>
+                  </div>
+                </div>
+                <StudentProgress activeUserData={activeUserData} renderBeltSVG={renderBeltSVG} />
               </motion.div>
             )}
 
