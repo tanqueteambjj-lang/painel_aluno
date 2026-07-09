@@ -4,7 +4,7 @@ import { doc, getDoc, getDocs, collection, query, addDoc, updateDoc, arrayUnion,
 import { 
   MapPin, Clock, CheckCircle, AlertTriangle, X, ShieldAlert, 
   CheckSquare, Loader2, Award, Zap, Trophy, Flame, FlameKindling, 
-  Info, Camera, RefreshCw, Smartphone
+  Info, Camera, RefreshCw, Smartphone, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -711,14 +711,25 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
 
                   {/* Alert Banner for Expiration or Imminent Expiration */}
                   {isExpired && (
-                    <div className="bg-red-500/10 border-2 border-red-500/25 text-red-700 dark:text-red-400 p-4 rounded-3xl flex items-start gap-3 mb-2 animate-pulse">
-                      <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-xs font-black uppercase tracking-wider mb-0.5 text-red-600 dark:text-red-400">Mensalidade Vencida</p>
-                        <p className="text-[11px] font-semibold leading-relaxed">
-                          Sua mensalidade está vencida desde <span className="font-bold">{formattedDueDate}</span> ({Math.abs(daysUntilDue || 0)} {Math.abs(daysUntilDue || 0) === 1 ? 'dia' : 'dias'} de atraso). Por favor, regularize na recepção para liberar o check-in.
-                        </p>
+                    <div className="bg-red-500/10 border-2 border-red-500/25 text-red-700 dark:text-red-400 p-4 rounded-3xl flex flex-col gap-3 mb-2">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5 animate-pulse" />
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wider mb-0.5 text-red-600 dark:text-red-400">Mensalidade Vencida</p>
+                          <p className="text-[11px] font-semibold leading-relaxed">
+                            Sua mensalidade está vencida desde <span className="font-bold">{formattedDueDate}</span> ({Math.abs(daysUntilDue || 0)} {Math.abs(daysUntilDue || 0) === 1 ? 'dia' : 'dias'} de atraso). Por favor, regularize para liberar o check-in.
+                          </p>
+                        </div>
                       </div>
+                      <button
+                        onClick={() => {
+                          const message = encodeURIComponent(`Olá! Sou o(a) aluno(a) ${checkinProfile?.nickname || checkinProfile?.name || currentUserData?.name || ''} e preciso de suporte financeiro pois meu check-in consta como bloqueado por mensalidade vencida.`);
+                          window.open("https://wa.me/5591984533817?text=" + message, "_blank");
+                        }}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition"
+                      >
+                        <MessageSquare className="w-4 h-4 fill-white" /> Contatar Suporte Financeiro
+                      </button>
                     </div>
                   )}
 
@@ -761,8 +772,17 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
                             PRESENÇA BLOQUEADA
                           </p>
                           <button
+                            onClick={() => {
+                              const message = encodeURIComponent(`Olá! Sou o(a) aluno(a) ${checkinProfile?.nickname || checkinProfile?.name || currentUserData?.name || ''} e preciso de suporte financeiro pois meu check-in consta como bloqueado por mensalidade vencida.`);
+                              window.open("https://wa.me/5591984533817?text=" + message, "_blank");
+                            }}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition"
+                          >
+                            <MessageSquare className="w-4 h-4 fill-white" /> Regularizar no WhatsApp
+                          </button>
+                          <button
                             onClick={() => setSelectedClass(null)}
-                            className="py-2.5 px-5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-xs uppercase tracking-wide transition shadow-sm"
+                            className="py-2 px-4 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-[11px] uppercase tracking-wide transition shadow-sm"
                           >
                             Ver outros horários
                           </button>
