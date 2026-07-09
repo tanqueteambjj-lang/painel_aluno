@@ -18,6 +18,24 @@ interface ScanCheckinModalProps {
   showAlert: (title: string, message: string, type: 'success' | 'error' | 'alert' | 'info') => void;
 }
 
+const parseDateString = (dateStr: any) => {
+  if (!dateStr) return new Date();
+  if (dateStr.toDate) return dateStr.toDate();
+  if (typeof dateStr === 'string') {
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+      }
+    }
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return new Date(`${dateStr}T12:00:00`);
+    }
+    return new Date(dateStr);
+  }
+  return new Date(dateStr);
+};
+
 export default function ScanCheckinModal({ isOpen, onClose, currentUserData, familyMembers = [], appId, showAlert }: ScanCheckinModalProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'locating' | 'scanning' | 'matching' | 'confirm_class' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -32,9 +50,57 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
     name: "Sede Tanque Team",
     tolerance: 30
   });
-  const [countdown, setCountdown] = useState(4);
+  const [countdown, setCountdown] = useState(10);
   const [checkinProfile, setCheckinProfile] = useState<any>(currentUserData);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const getDaysUntilDue = (profile: any) => {
+    if (!profile) return null;
+    
+    // Check if free plan
+    const isFree = 
+      profile.paymentStatus === 'Isento' || 
+      profile.plan?.toLowerCase() === 'isento' || 
+      profile.plan?.toLowerCase() === 'dependente' ||
+      profile.plan?.toLowerCase() === 'administração (isento)' ||
+      profile.plan?.toLowerCase() === 'administracao (isento)' ||
+      profile.plan?.toLowerCase() === 'isento / bolsista' ||
+      profile.plan?.toLowerCase() === 'isento/bolsista';
+      
+    if (isFree) return null;
+
+    const dueDateValue = profile.dueDate || profile.nextDueDate;
+    if (!dueDateValue) return null;
+
+    try {
+      const dateObj = parseDateString(dueDateValue);
+      if (isNaN(dateObj.getTime())) return null;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const due = new Date(dateObj);
+      due.setHours(0, 0, 0, 0);
+
+      const diffTime = due.getTime() - today.getTime();
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } catch (e) {
+      console.error("Error parsing date in check-in:", e);
+      return null;
+    }
+  };
+
+  const daysUntilDue = getDaysUntilDue(checkinProfile);
+  const isExpired = daysUntilDue !== null && daysUntilDue < 0;
+  const isNearDue = daysUntilDue !== null && daysUntilDue >= 0 && daysUntilDue <= 10;
+  
+  const dueDateValue = checkinProfile?.dueDate || checkinProfile?.nextDueDate;
+  let formattedDueDate = "Não definido";
+  if (dueDateValue) {
+    const dObj = parseDateString(dueDateValue);
+    if (!isNaN(dObj.getTime())) {
+      formattedDueDate = dObj.toLocaleDateString('pt-BR');
+    }
+  }
 
   useEffect(() => {
     if (isOpen) {
@@ -87,7 +153,14 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
   // Cooldown Auto-booking starter
   const startCountdown = (classItem: any) => {
     stopCountdown();
-    setCountdown(4);
+    
+    const days = getDaysUntilDue(checkinProfile);
+    const expired = days !== null && days < 0;
+    if (expired) {
+      return; // Do not start countdown if expired
+    }
+
+    setCountdown(10);
     countdownIntervalRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
@@ -141,8 +214,17 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
       return currentMinutes >= classMinutes - tolerance && currentMinutes <= classMinutes + tolerance;
     });
 
+    const days = getDaysUntilDue(profile);
+    const expired = days !== null && days < 0;
+
     if (availableClasses.length === 1) {
       setSelectedClass(availableClasses[0]);
+      if (!expired) {
+        // Delay starting the countdown slightly so state updates settle
+        setTimeout(() => {
+          startCountdown(availableClasses[0]);
+        }, 100);
+      }
     } else {
       setSelectedClass(null);
     }
@@ -218,12 +300,16 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
       });
 
       const hasFamily = (familyMembers && familyMembers.length > 0);
+      const days = getDaysUntilDue(checkinProfile);
+      const expired = days !== null && days < 0;
 
       if (availableClasses.length === 1 && !hasFamily) {
         // Exactly one class is available now for check-in and no family! Let's auto-confirm
         setSelectedClass(availableClasses[0]);
         setStatus('confirm_class');
-        startCountdown(availableClasses[0]);
+        if (!expired) {
+          startCountdown(availableClasses[0]);
+        }
       } else {
         // Either multiple matches, none available, or they have family (requires choosing profile)
         setStatus('confirm_class');
@@ -369,6 +455,15 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
   const handleConfirmPresence = async (classItem: any) => {
     stopCountdown();
     if (!classItem) return;
+
+    // Check expiration first
+    const days = getDaysUntilDue(checkinProfile);
+    if (days !== null && days < 0) {
+      const dueDateValue = checkinProfile.dueDate || checkinProfile.nextDueDate;
+      const formattedDate = dueDateValue ? parseDateString(dueDateValue).toLocaleDateString('pt-BR') : '';
+      showAlert("Check-in Bloqueado", `Sua mensalidade está vencida desde ${formattedDate}. Por favor, regularize seu plano para marcar presença.`, "error");
+      return;
+    }
 
     // Validate rules
     const checkState = getClassCheckinStatus(classItem);
@@ -614,6 +709,31 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
                     </div>
                   )}
 
+                  {/* Alert Banner for Expiration or Imminent Expiration */}
+                  {isExpired && (
+                    <div className="bg-red-500/10 border-2 border-red-500/25 text-red-700 dark:text-red-400 p-4 rounded-3xl flex items-start gap-3 mb-2 animate-pulse">
+                      <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wider mb-0.5 text-red-600 dark:text-red-400">Mensalidade Vencida</p>
+                        <p className="text-[11px] font-semibold leading-relaxed">
+                          Sua mensalidade está vencida desde <span className="font-bold">{formattedDueDate}</span> ({Math.abs(daysUntilDue || 0)} {Math.abs(daysUntilDue || 0) === 1 ? 'dia' : 'dias'} de atraso). Por favor, regularize na recepção para liberar o check-in.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {isNearDue && (
+                    <div className="bg-amber-500/10 border-2 border-amber-500/25 text-amber-700 dark:text-amber-400 p-4 rounded-3xl flex items-start gap-3 mb-2">
+                      <Info className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-wider mb-0.5 text-amber-600 dark:text-amber-400 font-bold">Atenção ao Vencimento</p>
+                        <p className="text-[11px] font-semibold leading-relaxed">
+                          Falta pouco para o vencimento do seu plano! Vence em <span className="font-bold">{formattedDueDate}</span> (restam {daysUntilDue} {daysUntilDue === 1 ? 'dia' : 'dias'}).
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {selectedClass ? (
                     // Exact unique match found in window range -> countdown automatic confirm
                     <div className="bg-brand-red/5 border-2 border-brand-red/20 dark:border-brand-red/30 rounded-[2rem] p-6 text-center space-y-4 relative overflow-hidden">
@@ -632,30 +752,49 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
                         </p>
                       </div>
 
-                      {/* Countdown Circular progress effect */}
-                      <div className="flex flex-col items-center justify-center py-2.5">
-                        <div className="w-16 h-16 rounded-full border-4 border-brand-red border-t-transparent flex items-center justify-center font-black text-xl text-brand-red animate-spin-slow">
-                          <span className="font-display inline-block animate-pulse">{countdown}s</span>
+                      {isExpired ? (
+                        <div className="flex flex-col items-center justify-center py-4 space-y-3">
+                          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-500">
+                            <ShieldAlert className="w-6 h-6 animate-bounce" />
+                          </div>
+                          <p className="text-xs font-black text-red-650 dark:text-red-400 uppercase tracking-wider">
+                            PRESENÇA BLOQUEADA
+                          </p>
+                          <button
+                            onClick={() => setSelectedClass(null)}
+                            className="py-2.5 px-5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-200 rounded-xl font-bold text-xs uppercase tracking-wide transition shadow-sm"
+                          >
+                            Ver outros horários
+                          </button>
                         </div>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-3.5 font-bold animate-pulse">
-                          Autenticando check-in automático...
-                        </p>
-                      </div>
+                      ) : (
+                        <>
+                          {/* Countdown Circular progress effect */}
+                          <div className="flex flex-col items-center justify-center py-2.5">
+                            <div className="w-16 h-16 rounded-full border-4 border-brand-red border-t-transparent flex items-center justify-center font-black text-xl text-brand-red animate-spin-slow">
+                              <span className="font-display inline-block animate-pulse">{countdown}s</span>
+                            </div>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-3.5 font-bold animate-pulse">
+                              Autenticando check-in automático...
+                            </p>
+                          </div>
 
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        <button
-                          onClick={skipCountdown}
-                          className="py-3 bg-brand-red hover:bg-red-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition"
-                        >
-                          <CheckCircle className="w-4 h-4" /> Confirmar Já
-                        </button>
-                        <button
-                          onClick={() => setSelectedClass(null)}
-                          className="py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200 rounded-2xl font-bold text-xs border border-transparent transition"
-                        >
-                          Trocar Horário
-                        </button>
-                      </div>
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <button
+                              onClick={skipCountdown}
+                              className="py-3 bg-brand-red hover:bg-red-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition"
+                            >
+                              <CheckCircle className="w-4 h-4" /> Confirmar Já
+                            </button>
+                            <button
+                              onClick={() => setSelectedClass(null)}
+                              className="py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200 rounded-2xl font-bold text-xs border border-transparent transition"
+                            >
+                              Trocar Horário
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ) : (
                     // Needs selection (either multiple eligible, or outside periods)
@@ -674,13 +813,17 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
                       <div className="max-h-56 overflow-y-auto space-y-2.5 pr-1.5 custom-scrollbar">
                         {classesToday.map(c => {
                           const itemStatus = getClassCheckinStatus(c);
-                          const isSelectionEnabled = itemStatus === 'available';
+                          const isSelectionEnabled = itemStatus === 'available' && !isExpired;
 
                           return (
                             <button
                               key={c.id}
                               disabled={false} // Allow click to show explanation feedback popups!
                               onClick={() => {
+                                if (isExpired) {
+                                  showAlert("Mensalidade Vencida", "Sua mensalidade está vencida. Regularize seu plano para poder realizar check-ins.", "error");
+                                  return;
+                                }
                                 if (itemStatus === 'already_booked') {
                                   showAlert("Presença Cadastrada", "Você já está confirmado nesta aula.", "info");
                                 } else if (itemStatus === 'too_early') {
@@ -738,7 +881,7 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
                         })}
                       </div>
 
-                      {selectedClass && (
+                      {selectedClass && !isExpired && (
                         <motion.button
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
