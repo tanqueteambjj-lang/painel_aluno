@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Calendar, 
   Award, 
@@ -893,46 +894,39 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
               <div className="bg-white text-gray-900 p-8 sm:p-12 rounded-2xl shadow-sm border border-gray-200 mx-auto max-w-2xl font-sans" id="printable-area-preview">
                 {/* Stylesheet specifically for printing */}
                 <style dangerouslySetInnerHTML={{__html: `
+                  /* Hide print portal on screen */
+                  .print-only-portal {
+                    display: none !important;
+                  }
+
                   @media print {
-                    /* Hide screen container elements */
-                    body * {
-                      visibility: hidden;
-                    }
-                    #printable-sheet, #printable-sheet * {
-                      visibility: visible !important;
-                    }
-                    #printable-sheet {
-                      position: absolute !important;
-                      left: 0 !important;
-                      top: 0 !important;
-                      width: 100% !important;
-                      margin: 0 !important;
-                      padding: 20px !important;
-                      box-shadow: none !important;
-                      border: none !important;
-                      background: white !important;
-                      color: black !important;
-                    }
-                    /* Reset layout constraints on all parents during printing */
-                    .fixed, .inset-0, .backdrop-blur-sm, .overflow-hidden, .overflow-y-auto, .max-h-\\[90vh\\] {
-                      position: relative !important;
-                      overflow: visible !important;
-                      max-height: none !important;
-                      background: transparent !important;
-                      backdrop-filter: none !important;
-                      box-shadow: none !important;
-                      border: none !important;
-                      padding: 0 !important;
-                    }
-                    #printable-area-preview {
-                      padding: 0 !important;
-                      margin: 0 !important;
-                      box-shadow: none !important;
-                      border: none !important;
-                      background: transparent !important;
-                    }
-                    .no-print {
+                    /* Hide everything inside the main react app root and screen overlays */
+                    #root, .fixed, .no-print {
                       display: none !important;
+                    }
+
+                    /* Show and format our portal container perfectly */
+                    .print-only-portal {
+                      display: block !important;
+                      position: static !important;
+                      width: 100% !important;
+                      height: auto !important;
+                      margin: 0 !important;
+                      padding: 24px !important;
+                      background: white !important;
+                      color: #111827 !important;
+                    }
+
+                    html, body {
+                      background: white !important;
+                      color: #111827 !important;
+                      height: auto !important;
+                      overflow: visible !important;
+                    }
+
+                    .break-inside-avoid {
+                      page-break-inside: avoid !important;
+                      break-inside: avoid !important;
                     }
                   }
                 `}} />
@@ -1098,6 +1092,151 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
             </div>
           </div>
         </div>
+      )}
+
+      {showReportModal && createPortal(
+        <div className="print-only-portal font-sans bg-white text-gray-900 p-8">
+          <div className="space-y-6">
+            {/* Report Header */}
+            <div className="border-b-4 border-black pb-4 flex flex-row justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-black uppercase tracking-tight text-black">
+                  TANQUE TEAM - BJJ
+                </h1>
+                <p className="text-[10px] font-black uppercase tracking-widest text-red-600">
+                  Prontuário Oficial do Atleta
+                </p>
+              </div>
+              <div className="text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                <p>Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
+                <p>Ficha de Rendimento Desportivo</p>
+              </div>
+            </div>
+
+            {/* Student Dossier Grid */}
+            <div className="grid grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200 text-xs">
+              <div>
+                <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Atleta</span>
+                <span className="font-extrabold text-gray-850">{activeUserData?.name || "Atleta Tanque Team"}</span>
+              </div>
+              <div>
+                <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Graduação</span>
+                <span className="font-extrabold text-red-600">{activeUserData?.belt || "Faixa Branca"}</span>
+              </div>
+              <div>
+                <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Início</span>
+                <span className="font-extrabold text-gray-850">{getEnrollmentDate()}</span>
+              </div>
+              <div>
+                <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Frequência Total</span>
+                <span className="font-extrabold text-gray-850">{attendanceDates.length} Aulas</span>
+              </div>
+            </div>
+
+            {/* Stats & KPIs */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="p-3 border border-gray-200 rounded-xl bg-white">
+                <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Frequência Geral</span>
+                <span className="text-lg font-black text-gray-800">{attendanceDates.length}</span>
+              </div>
+              <div className="p-3 border border-gray-200 rounded-xl bg-white">
+                <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Sequência Atual</span>
+                <span className="text-lg font-black text-gray-800">{currentStreak} dias</span>
+              </div>
+              <div className="p-3 border border-gray-200 rounded-xl bg-white">
+                <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Nível Conquistado</span>
+                <span className="text-lg font-black text-gray-800">
+                  Nvl {userLevel !== undefined ? userLevel : (Math.floor(Math.sqrt((activeUserData?.extraXP || 0) / 100)) + 1)}
+                </span>
+              </div>
+            </div>
+
+            {/* Monthly Attendance breakdown */}
+            <div className="space-y-2 break-inside-avoid">
+              <h3 className="text-xs font-black uppercase text-black tracking-wider border-b border-gray-200 pb-1">
+                I. Distribuição de Presenças por Mês
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {groupedAttendance.map(({ monthLabel, count }) => (
+                  <div key={monthLabel} className="flex justify-between items-center bg-gray-50 px-3 py-1.5 rounded-lg text-[11px] border border-gray-100">
+                    <span className="font-bold text-gray-600">{monthLabel}</span>
+                    <span className="font-black text-red-600">{count} {count === 1 ? 'treino' : 'treinos'}</span>
+                  </div>
+                ))}
+                {groupedAttendance.length === 0 && (
+                  <p className="text-[11px] text-gray-400 italic font-semibold">Nenhum treino registrado até o momento.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Detailed attendance dates log */}
+            <div className="space-y-2 break-inside-avoid">
+              <h3 className="text-xs font-black uppercase text-black tracking-wider border-b border-gray-200 pb-1">
+                II. Histórico Detalhado de Treinos
+              </h3>
+              {attendanceDates.length === 0 ? (
+                <p className="text-xs text-gray-400 italic font-semibold">Nenhuma presença confirmada.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 text-[10px]">
+                  {attendanceDates.slice().reverse().map((dateStr, idx) => {
+                    const details = formatAttendanceDate(dateStr);
+                    const logs = attendanceLogs.filter(l => l?.date === dateStr);
+                    const timeStr = logs.map(l => l.time).join(', ') || 'Presencial';
+                    return (
+                      <div key={idx} className="p-2 border border-gray-150 rounded-lg bg-gray-50/40 flex flex-col justify-between">
+                        <span className="font-bold text-gray-800">{details.formatted}</span>
+                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{details.weekday} • {timeStr}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Instructor progress notes & evaluations */}
+            <div className="space-y-2 break-inside-avoid">
+              <h3 className="text-xs font-black uppercase text-black tracking-wider border-b border-gray-200 pb-1">
+                III. Evolução Técnica & Observações do Professor
+              </h3>
+              {progressEvents.length === 0 ? (
+                <p className="text-xs text-gray-400 italic font-semibold">Nenhuma evolução ou nota técnica cadastrada pelo instrutor.</p>
+              ) : (
+                <div className="space-y-3.5">
+                  {progressEvents.map((event: any, idx: number) => (
+                    <div key={idx} className="text-[10px] space-y-1 bg-gray-50/50 p-3 rounded-lg border border-gray-150 break-inside-avoid">
+                      <div className="flex justify-between items-start font-bold">
+                        <span className="text-gray-800 uppercase tracking-tight">Avaliação Técnica / Graduação</span>
+                        <span className="text-red-600">{event.date}</span>
+                      </div>
+                      <p className="text-gray-600 leading-relaxed italic">&ldquo;{event.text || event.note || event.comment}&rdquo;</p>
+                      {(event.degrees !== undefined || event.degree !== undefined) && (
+                        <p className="text-[9px] font-black uppercase tracking-wider text-yellow-600 mt-0.5">
+                          ★ Grau concedido: {event.degrees || event.degree}º Grau
+                        </p>
+                      )}
+                      {event.instructor && (
+                        <p className="text-[8px] text-gray-400 font-extrabold uppercase text-right">Avaliado por: {event.instructor}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Endorsement and Signatures */}
+            <div className="pt-12 grid grid-cols-2 gap-8 text-center text-[10px] font-semibold text-gray-500 uppercase tracking-wider break-inside-avoid">
+              <div className="space-y-1.5">
+                <div className="border-b border-gray-400 w-full h-8" />
+                <span>Assinatura do Aluno / Responsável</span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="border-b border-gray-400 w-full h-8" />
+                <span>Tanque Team - Coordenador</span>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
