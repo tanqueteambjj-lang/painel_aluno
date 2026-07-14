@@ -146,8 +146,10 @@ export default function Dashboard() {
 
   const totalAtt = activeUserData?.attendance ? activeUserData.attendance.length : 0;
   
-  const [prevLevel, setPrevLevel] = useState(0);
+   const [prevLevel, setPrevLevel] = useState(0);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [showGraduationCelebration, setShowGraduationCelebration] = useState(false);
+  const [celebratedBelt, setCelebratedBelt] = useState("");
   const lastViewedIdRef = useRef<string | null>(null);
 
   // Auto-close level up window in 7 seconds
@@ -159,6 +161,69 @@ export default function Dashboard() {
       return () => clearTimeout(timer);
     }
   }, [showLevelUp]);
+
+  // Sync graduation changes to trigger the celebration animation once
+  useEffect(() => {
+    if (!activeUserData || !activeUserData.id || !activeUserData.belt) return;
+
+    const storageKey = `last_celebrated_belt_${activeUserData.id}`;
+    const storedBelt = localStorage.getItem(storageKey);
+
+    if (storedBelt) {
+      if (storedBelt !== activeUserData.belt) {
+        // Belt or degree has been upgraded/changed!
+        setCelebratedBelt(activeUserData.belt);
+        setShowGraduationCelebration(true);
+        localStorage.setItem(storageKey, activeUserData.belt);
+        
+        // Fire celebration confetti
+        confetti({
+          particleCount: 200,
+          spread: 80,
+          origin: { y: 0.5 },
+          colors: ['#EF4444', '#000000', '#FFFFFF', '#fbbf24', '#3b82f6']
+        });
+        
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+          audio.volume = 0.5;
+          audio.play().catch(err => console.debug("Audio play failed:", err));
+        } catch (e) {
+          console.debug("Audio play blocked or unavailable:", e);
+        }
+      }
+    } else {
+      // Establish baseline on first load
+      localStorage.setItem(storageKey, activeUserData.belt);
+
+      // Check if they had a very recent graduation in their progressLog, e.g. last 7 days.
+      // If so, we can celebrate it as a nice welcome!
+      const progressLog = Array.isArray(activeUserData.progressLog) ? activeUserData.progressLog : [];
+      const hasRecentGrad = progressLog.some((log: any) => {
+        if (log.type !== 'graduation') return false;
+        try {
+          const gradDate = parseDateString(log.date);
+          const diffTime = Math.abs(new Date().getTime() - gradDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays <= 7;
+        } catch (err) {
+          return false;
+        }
+      });
+
+      if (hasRecentGrad) {
+        setCelebratedBelt(activeUserData.belt);
+        setShowGraduationCelebration(true);
+        
+        confetti({
+          particleCount: 200,
+          spread: 80,
+          origin: { y: 0.5 },
+          colors: ['#EF4444', '#000000', '#FFFFFF', '#fbbf24', '#3b82f6']
+        });
+      }
+    }
+  }, [activeUserData?.id, activeUserData?.belt]);
 
   // Sync prevAttendanceCount
   useEffect(() => {
@@ -1738,24 +1803,109 @@ export default function Dashboard() {
           {/* Partículas simples */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
              {[...Array(20)].map((_, i) => (
-               <motion.div
-                 key={i}
-                 className="absolute w-2 h-2 bg-yellow-400 rounded-full"
-                 initial={{ 
-                   x: "50%", 
-                   y: "50%",
-                   opacity: 1
-                 }}
-                 animate={{ 
-                   x: `${Math.random() * 100}%`, 
-                   y: `${Math.random() * 100}%`,
-                   opacity: 0,
-                   scale: Math.random() * 2
-                 }}
-                 transition={{ duration: 2, ease: "easeOut" }}
-               />
+                <motion.div
+                  key={i}
+                  className="absolute w-2 h-2 bg-yellow-400 rounded-full"
+                  initial={{ 
+                    x: "50%", 
+                    y: "50%",
+                    opacity: 1
+                  }}
+                  animate={{ 
+                    x: `${Math.random() * 100}%`, 
+                    y: `${Math.random() * 100}%`,
+                    opacity: 0,
+                    scale: Math.random() * 2
+                  }}
+                  transition={{ duration: 2, ease: "easeOut" }}
+                />
              ))}
           </div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
+  const GraduationCelebrationOverlay = () => (
+    <AnimatePresence>
+      {showGraduationCelebration && (
+        <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setShowGraduationCelebration(false)} />
+          
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 1.1, y: -50 }}
+            className="relative z-10 bg-gradient-to-br from-amber-400 via-brand-red to-orange-600 p-1 rounded-[2.5rem] shadow-[0_0_80px_rgba(249,115,22,0.4)] max-w-md w-full"
+          >
+            <div className="bg-gray-900 dark:bg-gray-950 px-6 py-8 sm:px-8 sm:py-10 rounded-[2.35rem] flex flex-col items-center text-center text-white border border-white/5 relative overflow-hidden">
+              
+              {/* Radial background glow */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none" />
+
+              {/* Icon / Floating Elements */}
+              <motion.div
+                animate={{ 
+                  y: [0, -10, 0],
+                  rotate: [0, 5, -5, 5, 0]
+                }}
+                transition={{ 
+                  y: { duration: 3, repeat: Infinity, ease: "easeInOut" },
+                  rotate: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+                }}
+                className="mb-4 bg-amber-500/10 p-4 rounded-3xl border border-amber-500/20"
+              >
+                <Award className="w-16 h-16 text-amber-400" />
+              </motion.div>
+
+              <h2 className="text-xs font-black tracking-[0.25em] text-amber-400 uppercase italic">GRADUAÇÃO RECONHECIDA</h2>
+              
+              <h1 className="text-2xl sm:text-3xl font-black mt-2 uppercase tracking-tight text-white line-clamp-1">
+                {activeUserData?.nickname || activeUserData?.name || "Guerreiro"}
+              </h1>
+
+              <p className="text-gray-400 text-xs sm:text-sm mt-3 max-w-xs leading-relaxed">
+                Parabéns pelo seu novo nível de técnica e dedicação! O tatame honra o seu esforço, disciplina e evolução contínua no Jiu-Jitsu.
+              </p>
+
+              {/* Belt Graphic Representation */}
+              <div className="w-full max-w-[280px] mt-6 mb-4">
+                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Sua Nova Graduação:</div>
+                <div className="relative group rounded-xl overflow-hidden shadow-2xl border-2 border-white/10 h-10 w-full bg-black/40">
+                  {renderBeltSVG(celebratedBelt)}
+                </div>
+                <div className="mt-2.5 text-base sm:text-lg font-black text-amber-300 tracking-wide uppercase italic">
+                  {celebratedBelt}
+                </div>
+              </div>
+
+              {/* Decorative Stars */}
+              <div className="flex gap-1.5 mt-2">
+                {[...Array(5)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.4 + (i * 0.1) }}
+                  >
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Action Button */}
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowGraduationCelebration(false)}
+                className="mt-8 w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-xs sm:text-sm uppercase tracking-widest rounded-2xl shadow-xl transition-all duration-200 transform"
+              >
+                OSS! CONTINUAR
+              </motion.button>
+              
+              <p className="text-[9px] text-gray-600 mt-4 font-mono uppercase tracking-wider">TANQUE TEAM BJJ</p>
+            </div>
+          </motion.div>
         </div>
       )}
     </AnimatePresence>
@@ -1764,6 +1914,7 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen overflow-hidden relative w-full bg-gray-50 dark:bg-brand-dark text-gray-900 dark:text-gray-100 transition-colors duration-200">
       <LevelUpOverlay />
+      <GraduationCelebrationOverlay />
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-black/60 z-30 md:hidden backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
