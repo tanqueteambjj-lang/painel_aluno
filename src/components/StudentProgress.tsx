@@ -864,10 +864,10 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
 
       {/* 4. Complete and Organized Printable Report Modal */}
       {showReportModal && (
-        <div className="fixed inset-0 bg-black/60 dark:bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] no-print">
+        <div className="fixed inset-0 bg-black/60 dark:bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]">
           <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-150 dark:border-zinc-800">
             {/* Modal Header */}
-            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between bg-gray-50/50 dark:bg-zinc-850/35">
+            <div className="p-6 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between bg-gray-50/50 dark:bg-zinc-850/35 no-print">
               <div className="flex items-center gap-2.5">
                 <Printer className="w-5 h-5 text-brand-red" />
                 <div>
@@ -899,12 +899,12 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
                       visibility: hidden;
                     }
                     #printable-sheet, #printable-sheet * {
-                      visibility: visible;
+                      visibility: visible !important;
                     }
                     #printable-sheet {
-                      position: absolute;
-                      left: 0;
-                      top: 0;
+                      position: absolute !important;
+                      left: 0 !important;
+                      top: 0 !important;
                       width: 100% !important;
                       margin: 0 !important;
                       padding: 20px !important;
@@ -912,6 +912,24 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
                       border: none !important;
                       background: white !important;
                       color: black !important;
+                    }
+                    /* Reset layout constraints on all parents during printing */
+                    .fixed, .inset-0, .backdrop-blur-sm, .overflow-hidden, .overflow-y-auto, .max-h-\\[90vh\\] {
+                      position: relative !important;
+                      overflow: visible !important;
+                      max-height: none !important;
+                      background: transparent !important;
+                      backdrop-filter: none !important;
+                      box-shadow: none !important;
+                      border: none !important;
+                      padding: 0 !important;
+                    }
+                    #printable-area-preview {
+                      padding: 0 !important;
+                      margin: 0 !important;
+                      box-shadow: none !important;
+                      border: none !important;
+                      background: transparent !important;
                     }
                     .no-print {
                       display: none !important;
@@ -925,7 +943,7 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
                   <div className="border-b-4 border-brand-dark pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                       <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-brand-dark">
-                        ALAMEDA FIGHT CLUB
+                        TANQUE TEAM - BJJ
                       </h1>
                       <p className="text-[10px] font-black uppercase tracking-widest text-brand-red">
                         Prontuário Oficial do Atleta
@@ -941,7 +959,7 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200 text-xs">
                     <div>
                       <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Atleta</span>
-                      <span className="font-extrabold text-gray-800">{activeUserData?.name || "Atleta Alameda"}</span>
+                      <span className="font-extrabold text-gray-800">{activeUserData?.name || "Atleta Tanque Team"}</span>
                     </div>
                     <div>
                       <span className="block text-[9px] font-black text-gray-400 uppercase tracking-wider">Graduação</span>
@@ -988,7 +1006,7 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
                         </div>
                       ))}
                       {groupedAttendance.length === 0 && (
-                        <p className="text-[11px] text-gray-400 italic">Nenhum treino registrado até o momento.</p>
+                        <p className="text-[11px] text-gray-400 italic font-semibold">Nenhum treino registrado até o momento.</p>
                       )}
                     </div>
                   </div>
@@ -999,7 +1017,7 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
                       II. Histórico Detalhado de Treinos
                     </h3>
                     {attendanceDates.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Nenhuma presença confirmada.</p>
+                      <p className="text-xs text-gray-400 italic font-semibold">Nenhuma presença confirmada.</p>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px]">
                         {attendanceDates.slice().reverse().map((dateStr, idx) => {
@@ -1023,7 +1041,7 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
                       III. Evolução Técnica & Observações do Professor
                     </h3>
                     {progressEvents.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Nenhuma evolução ou nota técnica cadastrada pelo instrutor.</p>
+                      <p className="text-xs text-gray-400 italic font-semibold">Nenhuma evolução ou nota técnica cadastrada pelo instrutor.</p>
                     ) : (
                       <div className="space-y-3.5">
                         {progressEvents.map((event: any, idx: number) => (
@@ -1055,7 +1073,7 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
                     </div>
                     <div className="space-y-1.5">
                       <div className="border-b border-gray-400 w-full h-8" />
-                      <span>Alameda Fight Club - Coordenador</span>
+                      <span>Tanque Team - Coordenador</span>
                     </div>
                   </div>
                 </div>
@@ -1063,7 +1081,7 @@ export default function StudentProgress({ activeUserData, renderBeltSVG, userLev
             </div>
 
             {/* Modal Footer (Screen Actions) */}
-            <div className="p-6 border-t border-gray-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-end gap-3 bg-gray-50/50 dark:bg-zinc-850/35">
+            <div className="p-6 border-t border-gray-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-end gap-3 bg-gray-50/50 dark:bg-zinc-850/35 no-print">
               <button
                 onClick={() => setShowReportModal(false)}
                 className="w-full sm:w-auto px-5 py-2.5 bg-gray-200 dark:bg-zinc-750 hover:bg-gray-300 dark:hover:bg-zinc-700 text-gray-700 dark:text-zinc-200 rounded-xl text-xs font-black uppercase tracking-wider transition cursor-pointer"
