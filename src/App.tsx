@@ -3040,6 +3040,61 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {showGraduationCelebration && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.8, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.8, y: 20, opacity: 0 }}
+              className="bg-gradient-to-b from-zinc-900 to-black text-white rounded-3xl p-8 max-w-md w-full border-2 border-brand-red/50 shadow-2xl text-center space-y-6 relative overflow-hidden"
+            >
+              <div className="absolute -top-16 -right-16 w-36 h-36 bg-brand-red/20 rounded-full blur-3xl pointer-events-none"></div>
+              <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+              <motion.div
+                animate={{ rotate: [0, -10, 10, -5, 5, 0], scale: [1, 1.1, 1] }}
+                transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 2 }}
+                className="w-20 h-20 mx-auto rounded-full bg-brand-red/20 border-2 border-brand-red flex items-center justify-center shadow-lg shadow-brand-red/30"
+              >
+                <Award className="w-10 h-10 text-brand-red animate-pulse" />
+              </motion.div>
+
+              <div className="space-y-2">
+                <span className="px-3.5 py-1 bg-amber-500 text-black font-black text-[10px] uppercase tracking-widest rounded-full italic shadow-md">
+                  🎉 Nova Graduação Confirmada!
+                </span>
+                <h3 className="font-black text-3xl tracking-tight uppercase italic pt-1 text-white">
+                  Parabéns, {activeUserData?.nickname || activeUserData?.name}!
+                </h3>
+                <p className="text-sm text-gray-300 font-medium leading-relaxed">
+                  Sua dedicação e disciplina no tatame valeram a pena. Você evoluiu para uma nova etapa da sua jornada!
+                </p>
+              </div>
+
+              <div className="bg-zinc-800/80 border border-zinc-700/80 rounded-2xl p-4.5 space-y-2 shadow-inner">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Graduação Atual / Nova Faixa</p>
+                <p className="font-black text-2xl text-brand-red uppercase tracking-wide italic">
+                  {celebratedBelt || activeUserData?.belt}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowGraduationCelebration(false)}
+                className="w-full py-4 bg-brand-red hover:bg-red-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-brand-red/30 transition transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              >
+                Oss! Comemorar & Continuar 🥋
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <HistoryModal 
         isOpen={isHistoryModalOpen} 
         onClose={() => setIsHistoryModalOpen(false)} 

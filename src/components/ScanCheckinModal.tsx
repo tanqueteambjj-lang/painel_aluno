@@ -456,15 +456,6 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
     stopCountdown();
     if (!classItem) return;
 
-    // Check expiration first
-    const days = getDaysUntilDue(checkinProfile);
-    if (days !== null && days < 0) {
-      const dueDateValue = checkinProfile.dueDate || checkinProfile.nextDueDate;
-      const formattedDate = dueDateValue ? parseDateString(dueDateValue).toLocaleDateString('pt-BR') : '';
-      showAlert("Check-in Bloqueado", `Sua mensalidade está vencida desde ${formattedDate}. Por favor, regularize seu plano para marcar presença.`, "error");
-      return;
-    }
-
     // Validate rules
     const checkState = getClassCheckinStatus(classItem);
     if (checkState === 'already_booked') {
@@ -480,10 +471,79 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
       return;
     }
 
+    // Check expiration or overdue monthly fee
+    const days = getDaysUntilDue(checkinProfile);
+    const isOverdue = (days !== null && days < 0) || 
+      checkinProfile?.paymentStatus === 'Pendente' || 
+      checkinProfile?.paymentStatus === 'Atrasado' || 
+      checkinProfile?.paymentStatus === 'Vencido';
+
     setStatus('loading');
+    const todayString = getLocalDateString(); 
+
+    if (isOverdue) {
+      // Overdue student -> Save pending checkin for admin approval, DO NOT grant attendance automatically
+      try {
+        const pendingRef = collection(db, 'artifacts', appId, 'public', 'data', 'pendingCheckins');
+        const qPending = query(pendingRef, where('studentId', '==', checkinProfile.id), where('classId', '==', classItem.id), where('date', '==', todayString));
+        const pendingSnap = await getDocs(qPending);
+        
+        if (!pendingSnap.empty) {
+          setSelectedClass(classItem);
+          setStatus('pending_approval');
+          showAlert("Solicitação em Análise", "Você já possui um check-in pendente para este treino aguardando aprovação do administrador.", "info");
+          return;
+        }
+
+        const dueDateValue = checkinProfile.dueDate || checkinProfile.nextDueDate;
+        const formattedDueDateStr = dueDateValue ? parseDateString(dueDateValue).toLocaleDateString('pt-BR') : '';
+
+        const pendingPayload = {
+          studentId: checkinProfile.id,
+          studentName: checkinProfile.nickname || checkinProfile.name,
+          studentFullName: checkinProfile.name,
+          studentPhoto: checkinProfile.photoBase64 || null,
+          studentPhone: checkinProfile.phone || '',
+          studentBelt: checkinProfile.belt || '',
+          studentPlan: checkinProfile.plan || '',
+          classId: classItem.id,
+          className: classItem.name,
+          classTime: classItem.time,
+          date: todayString,
+          timestamp: new Date().toISOString(),
+          paymentStatus: checkinProfile.paymentStatus || 'Pendente',
+          dueDate: formattedDueDateStr || dueDateValue || null,
+          status: 'pending_approval',
+          reason: 'mensalidade_em_atraso'
+        };
+
+        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'pendingCheckins'), pendingPayload);
+
+        if (appId !== 'tanqueteam-bjj') {
+          try {
+            await addDoc(collection(db, 'artifacts', 'tanqueteam-bjj', 'public', 'data', 'pendingCheckins'), pendingPayload);
+          } catch (err) {
+            console.error("Error saving pending checkin to backup path:", err);
+          }
+        }
+
+        setSelectedClass(classItem);
+        setStatus('pending_approval');
+        showAlert(
+          "Solicitação Enviada ao Administrador", 
+          "Identificamos que sua mensalidade está pendente. Seu check-in foi enviado para análise do administrador e aguarda aprovação.", 
+          "info"
+        );
+      } catch (e) {
+        console.error("Error saving pending check-in:", e);
+        setStatus('error');
+        setErrorMessage("Erro ao salvar solicitação de check-in pendente.");
+      }
+      return;
+    }
+
+    // Up-to-date student -> Add booking & grant attendance
     try {
-      const todayString = getLocalDateString(); 
-      
       // 1. Add Booking document
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bookings'), {
         studentId: checkinProfile.id,
@@ -765,20 +825,31 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
 
                       {isExpired ? (
                         <div className="flex flex-col items-center justify-center py-4 space-y-3">
-                          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center text-red-500">
-                            <ShieldAlert className="w-6 h-6 animate-bounce" />
+                          <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center text-amber-600">
+                            <Clock className="w-6 h-6 animate-pulse" />
                           </div>
-                          <p className="text-xs font-black text-red-650 dark:text-red-400 uppercase tracking-wider">
-                            PRESENÇA BLOQUEADA
-                          </p>
+                          <div className="text-center space-y-1">
+                            <p className="text-xs font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                              MENSALIDADE PENDENTE
+                            </p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                              Sua presença não será lançada automaticamente, mas você pode enviar a solicitação de check-in para o administrador confirmar.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleConfirmPresence(selectedClass)}
+                            className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition"
+                          >
+                            <Clock className="w-4 h-4" /> Enviar Check-in para Aprovação do Adm
+                          </button>
                           <button
                             onClick={() => {
-                              const message = encodeURIComponent(`Olá! Sou o(a) aluno(a) ${checkinProfile?.nickname || checkinProfile?.name || currentUserData?.name || ''} e preciso de suporte financeiro pois meu check-in consta como bloqueado por mensalidade vencida.`);
+                              const message = encodeURIComponent(`Olá! Sou o(a) aluno(a) ${checkinProfile?.nickname || checkinProfile?.name || currentUserData?.name || ''} e preciso de suporte financeiro pois meu check-in consta como pendente por mensalidade vencida.`);
                               window.open("https://wa.me/5591984533817?text=" + message, "_blank");
                             }}
-                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition"
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 transition"
                           >
-                            <MessageSquare className="w-4 h-4 fill-white" /> Regularizar no WhatsApp
+                            <MessageSquare className="w-4 h-4 fill-white" /> Suporte Financeiro no WhatsApp
                           </button>
                           <button
                             onClick={() => setSelectedClass(null)}
@@ -833,17 +904,13 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
                       <div className="max-h-56 overflow-y-auto space-y-2.5 pr-1.5 custom-scrollbar">
                         {classesToday.map(c => {
                           const itemStatus = getClassCheckinStatus(c);
-                          const isSelectionEnabled = itemStatus === 'available' && !isExpired;
+                          const isSelectionEnabled = itemStatus === 'available';
 
                           return (
                             <button
                               key={c.id}
                               disabled={false} // Allow click to show explanation feedback popups!
                               onClick={() => {
-                                if (isExpired) {
-                                  showAlert("Mensalidade Vencida", "Sua mensalidade está vencida. Regularize seu plano para poder realizar check-ins.", "error");
-                                  return;
-                                }
                                 if (itemStatus === 'already_booked') {
                                   showAlert("Presença Cadastrada", "Você já está confirmado nesta aula.", "info");
                                 } else if (itemStatus === 'too_early') {
@@ -901,18 +968,86 @@ export default function ScanCheckinModal({ isOpen, onClose, currentUserData, fam
                         })}
                       </div>
 
-                      {selectedClass && !isExpired && (
+                      {selectedClass && (
                         <motion.button
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           onClick={() => handleConfirmPresence(selectedClass)}
-                          className="w-full py-3.5 bg-brand-red hover:bg-red-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition"
+                          className={`w-full py-3.5 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition ${
+                            isExpired ? 'bg-amber-500 hover:bg-amber-600' : 'bg-brand-red hover:bg-red-700'
+                          }`}
                         >
-                          <CheckCircle className="w-4.5 h-4.5" /> Confirmar Presença às {selectedClass.time}
+                          <Clock className="w-4.5 h-4.5" /> {isExpired ? 'Solicitar Aprovação do Check-in' : `Confirmar Presença às ${selectedClass.time}`}
                         </motion.button>
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* PENDING APPROVAL STATE */}
+              {status === 'pending_approval' && selectedClass && (
+                <div className="flex flex-col items-center py-5 space-y-5 animate-scaleUp">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full w-20 h-20 animate-pulse"></div>
+                    <div className="relative bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 p-4.5 rounded-full text-amber-500">
+                      <Clock className="w-11 h-11" />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1 text-center">
+                    <h4 className="font-black text-2xl text-amber-600 dark:text-amber-500 uppercase tracking-tight italic">Solicitação Enviada!</h4>
+                    <p className="text-gray-500 dark:text-gray-400 text-xs font-semibold max-w-xs mx-auto leading-relaxed">
+                      Sua mensalidade consta em aberto. Seu check-in foi salvo e enviado para o administrador. A presença ficará pendente de confirmação.
+                    </p>
+                  </div>
+
+                  {/* Summary receipt mockup */}
+                  <div className="bg-zinc-50 dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-3xl p-5 w-full text-left space-y-3 font-medium">
+                    <div className="flex justify-between text-xs pb-2 border-b border-gray-100 dark:border-zinc-800/80">
+                      <span className="text-gray-400 font-bold uppercase tracking-wider">Treino / Aula</span>
+                      <span className="font-extrabold text-gray-800 dark:text-zinc-200 uppercase">{selectedClass.name}</span>
+                    </div>
+
+                    <div className="flex justify-between text-xs pb-2 border-b border-gray-100 dark:border-zinc-800/80">
+                      <span className="text-gray-400 font-bold uppercase tracking-wider">Horário Treino</span>
+                      <span className="font-mono font-extrabold text-gray-850 dark:text-zinc-200 uppercase">{selectedClass.time}</span>
+                    </div>
+
+                    <div className="flex justify-between text-xs pb-2 border-b border-gray-100 dark:border-zinc-800/80">
+                      <span className="text-gray-400 font-bold uppercase tracking-wider">Atleta</span>
+                      <span className="font-extrabold text-gray-800 dark:text-zinc-200 uppercase truncate max-w-[200px]">{checkinProfile.nickname || checkinProfile.name}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-400 font-bold uppercase tracking-wider">Status Presença</span>
+                      <span className="font-black text-amber-600 dark:text-amber-400 flex items-center gap-1 italic select-none bg-amber-100 dark:bg-amber-950/40 px-2.5 py-0.5 rounded-full text-[10px]">
+                        🕒 Pendente de Aprovação pelo Adm
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 w-full">
+                    <button
+                      onClick={() => {
+                        const message = encodeURIComponent(`Olá! Sou o(a) aluno(a) ${checkinProfile?.nickname || checkinProfile?.name || ''} e acabei de enviar uma solicitação de check-in para o treino das ${selectedClass?.time}. Poderia confirmar minha presença no painel, por favor?`);
+                        window.open("https://wa.me/5591984533817?text=" + message, "_blank");
+                      }}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-md flex items-center justify-center gap-2 transition"
+                    >
+                      <MessageSquare className="w-4 h-4 fill-white" /> Avisar no WhatsApp do Financeiro
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        stopCountdown();
+                        onClose();
+                      }}
+                      className="w-full py-3.5 bg-brand-dark dark:bg-zinc-700 hover:bg-black dark:hover:bg-zinc-650 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg transition"
+                    >
+                      Entendi, Voltar ao Início
+                    </button>
+                  </div>
                 </div>
               )}
 

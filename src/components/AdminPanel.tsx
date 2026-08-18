@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, setDoc, deleteField } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin, RefreshCw } from 'lucide-react';
+import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, setDoc, deleteField, arrayUnion } from 'firebase/firestore';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin, RefreshCw, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -139,6 +139,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [isLinkingFamily, setIsLinkingFamily] = useState<{ studentId: string, name: string, parentId?: string } | null>(null);
   const [maintenanceActive, setMaintenanceActive] = useState(true);
   const [syncingPayments, setSyncingPayments] = useState(false);
+  const [pendingCheckins, setPendingCheckins] = useState<any[]>([]);
 
   const syncStudentsPaymentStatus = async (silent = false) => {
     try {
@@ -316,11 +317,13 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     }
     
     printWindow.document.write(`
-      <html>
+      <!DOCTYPE html>
+      <html lang="pt-BR">
         <head>
-          <title>Imprimir QR Code - Check-In Tatame</title>
+          <meta charset="UTF-8">
+          <title>Cartaz de Check-In Tatame - Tanque Team BJJ</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap');
             
             * {
               box-sizing: border-box;
@@ -329,329 +332,615 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             }
             
             body {
-              font-family: 'Plus Jakarta Sans', sans-serif;
-              text-align: center;
-              background-color: #fafafa;
-              color: #1c1917;
+              font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+              background-color: #0f1117;
+              color: #111827;
+              min-height: 100vh;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding: 24px 16px;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            /* On-screen control bar */
+            .action-bar {
+              position: fixed;
+              top: 16px;
+              display: flex;
+              gap: 12px;
+              z-index: 100;
+              background: rgba(17, 24, 39, 0.95);
+              padding: 8px 16px;
+              border-radius: 9999px;
+              box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+              border: 1px solid rgba(255,255,255,0.15);
+              backdrop-filter: blur(10px);
+            }
+
+            .btn-print {
+              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+              color: #ffffff;
+              border: none;
+              font-weight: 800;
+              font-size: 13px;
+              padding: 10px 20px;
+              border-radius: 9999px;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+              transition: all 0.2s;
+            }
+
+            .btn-print:hover {
+              transform: scale(1.04);
+              background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+            }
+
+            .btn-close {
+              background: rgba(255,255,255,0.1);
+              color: #e5e7eb;
+              border: none;
+              font-weight: 700;
+              font-size: 13px;
+              padding: 10px 18px;
+              border-radius: 9999px;
+              cursor: pointer;
+              transition: all 0.2s;
+            }
+
+            .btn-close:hover {
+              background: rgba(255,255,255,0.2);
+              color: #ffffff;
+            }
+            
+            /* Main Poster Container */
+            .poster {
+              background: #ffffff;
+              border-radius: 36px;
+              width: 100%;
+              max-width: 580px;
+              box-shadow: 0 30px 70px -10px rgba(0, 0, 0, 0.6);
+              position: relative;
+              overflow: hidden;
+              display: flex;
+              flex-direction: column;
+              border: 4px solid #dc2626;
+              margin-top: 40px;
+            }
+
+            /* Jiu-Jitsu Black & Red Belt Top Header */
+            .belt-banner {
+              background: linear-gradient(90deg, #111827 0%, #1f2937 40%, #991b1b 40%, #dc2626 70%, #991b1b 70%, #1f2937 70%, #111827 100%);
+              color: #ffffff;
+              padding: 10px 20px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              font-family: 'Space Grotesk', sans-serif;
+              font-size: 11px;
+              font-weight: 800;
+              letter-spacing: 2px;
+              text-transform: uppercase;
+              border-bottom: 2px solid #fbbf24;
+            }
+
+            .belt-badge {
+              background: #fbbf24;
+              color: #111827;
+              padding: 2px 8px;
+              border-radius: 6px;
+              font-weight: 900;
+              letter-spacing: 1px;
+            }
+
+            /* Poster Body */
+            .poster-body {
+              padding: 32px 36px 28px 36px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              background: radial-gradient(circle at 50% 0%, #fff5f5 0%, #ffffff 60%);
+            }
+            
+            /* Brand & Logo Header */
+            .brand-header {
+              display: flex;
+              align-items: center;
+              gap: 16px;
+              margin-bottom: 16px;
+            }
+            
+            .logo-wrap {
+              width: 72px;
+              height: 72px;
+              background: #ffffff;
+              border-radius: 20px;
+              padding: 6px;
               display: flex;
               align-items: center;
               justify-content: center;
-              min-height: 100vh;
-              padding: 20px;
+              box-shadow: 0 10px 25px rgba(220, 38, 38, 0.2);
+              border: 2px solid #fee2e2;
             }
-            
-            .container {
-              background: #ffffff;
-              border: 3px solid #ef4444;
-              border-radius: 36px;
-              padding: 48px 40px 40px 40px;
-              max-width: 480px;
-              width: 100%;
-              box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
-              position: relative;
-              overflow: hidden;
-            }
-            
-            /* Decorative stripe at top */
-            .container::before {
-              content: '';
-              position: absolute;
-              top: 0;
-              left: 0;
-              right: 0;
-              height: 12px;
-              background: #ef4444;
-            }
-            
-            .logo-container {
-              margin-bottom: 18px;
-            }
-            
+
             .logo {
-              height: 85px;
+              width: 100%;
+              height: 100%;
               object-fit: contain;
             }
-            
-            h1 {
-              font-family: 'Space Grotesk', sans-serif;
-              font-size: 38px;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: -1.5px;
-              color: #1c1917;
-              line-height: 1.1;
-            }
-            
-            .subtitle {
-              font-family: 'Space Grotesk', sans-serif;
-              font-size: 13px;
-              color: #ef4444;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: 4px;
-              margin-top: 6px;
-              margin-bottom: 28px;
-            }
-            
-            .qr-box {
-              background: #ffffff;
-              padding: 16px;
-              display: inline-block;
-              border-radius: 28px;
-              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-              border: 2px solid #f3f4f6;
-              margin-bottom: 28px;
-            }
-            
-            .instructions {
+
+            .brand-text {
               text-align: left;
-              background: #fdfdfd;
-              padding: 24px;
-              border-radius: 24px;
-              border: 1px solid #e5e7eb;
-              box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);
             }
-            
-            .instructions-title {
-              font-family: 'Space Grotesk', sans-serif;
-              font-size: 14px;
-              font-weight: 700;
-              color: #ef4444;
+
+            .brand-team {
+              font-family: 'Montserrat', sans-serif;
+              font-weight: 900;
+              font-size: 20px;
+              letter-spacing: 1px;
+              text-transform: uppercase;
+              color: #111827;
+              line-height: 1.1;
+              font-style: italic;
+            }
+
+            .brand-bjj {
+              color: #dc2626;
+              font-weight: 900;
+              font-size: 13px;
+              letter-spacing: 3px;
+              text-transform: uppercase;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            }
+
+            /* Main Title & Hero Banner */
+            .title-section {
+              text-align: center;
+              margin-bottom: 22px;
+              width: 100%;
+            }
+
+            .hero-badge {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              background: linear-gradient(135deg, #dc2626, #b91c1c);
+              color: #ffffff;
+              padding: 6px 16px;
+              border-radius: 9999px;
+              font-size: 11px;
+              font-weight: 800;
               text-transform: uppercase;
               letter-spacing: 1.5px;
-              margin-bottom: 18px;
+              box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+              margin-bottom: 8px;
+            }
+            
+            .main-title {
+              font-family: 'Montserrat', sans-serif;
+              font-size: 34px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: -1px;
+              color: #111827;
+              line-height: 1.1;
+            }
+
+            .main-title span {
+              color: #dc2626;
+              position: relative;
+            }
+
+            .subtitle-tag {
+              font-size: 13px;
+              font-weight: 700;
+              color: #6b7280;
+              text-transform: uppercase;
+              letter-spacing: 1.5px;
+              margin-top: 4px;
+            }
+            
+            /* Centerpiece QR Code Box */
+            .qr-centerpiece {
+              background: linear-gradient(145deg, #ffffff, #fef2f2);
+              border: 3px solid #dc2626;
+              border-radius: 32px;
+              padding: 20px 24px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              box-shadow: 0 16px 36px rgba(220, 38, 38, 0.15), 0 4px 12px rgba(0,0,0,0.05);
+              margin-bottom: 22px;
+              position: relative;
+              width: 100%;
+              box-sizing: border-box;
+            }
+
+            .qr-scan-pill {
+              background: #111827;
+              color: #ffffff;
+              padding: 6px 18px;
+              border-radius: 9999px;
+              font-size: 11px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 1.5px;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              margin-bottom: 14px;
+              border: 1px solid #fbbf24;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            }
+
+            .qr-scan-pill .dot {
+              width: 8px;
+              height: 8px;
+              background: #ef4444;
+              border-radius: 50%;
+              box-shadow: 0 0 8px #ef4444;
+            }
+
+            .qr-frame {
+              background: #ffffff;
+              padding: 12px;
+              border-radius: 24px;
+              border: 2px solid #fee2e2;
+              position: relative;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: inset 0 2px 6px rgba(0,0,0,0.03);
+            }
+
+            /* Viewfinder corner brackets */
+            .corner {
+              position: absolute;
+              width: 18px;
+              height: 18px;
+              border-color: #dc2626;
+              border-style: solid;
+            }
+            .tl { top: -4px; left: -4px; border-width: 4px 0 0 4px; border-radius: 6px 0 0 0; }
+            .tr { top: -4px; right: -4px; border-width: 4px 4px 0 0; border-radius: 0 6px 0 0; }
+            .bl { bottom: -4px; left: -4px; border-width: 0 0 4px 4px; border-radius: 0 0 0 6px; }
+            .br { bottom: -4px; right: -4px; border-width: 0 4px 4px 0; border-radius: 0 0 6px 0; }
+
+            .qr-caption {
+              margin-top: 12px;
+              font-size: 12px;
+              font-weight: 800;
+              color: #991b1b;
+              text-transform: uppercase;
+              letter-spacing: 0.8px;
+            }
+            
+            /* Instructions Step Cards */
+            .steps-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 12px;
+              width: 100%;
+              margin-bottom: 20px;
+            }
+            
+            .step-card {
+              background: #f9fafb;
+              border-radius: 18px;
+              padding: 14px 10px;
+              text-align: center;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              border: 2px solid #f3f4f6;
+              position: relative;
+            }
+
+            .step-card.c1 { border-color: #fecaca; background: #fff5f5; }
+            .step-card.c2 { border-color: #fef08a; background: #fefce8; }
+            .step-card.c3 { border-color: #bbf7d0; background: #f0fdf4; }
+
+            .step-icon-badge {
+              width: 32px;
+              height: 32px;
+              border-radius: 12px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 15px;
+              font-weight: 900;
+              color: #ffffff;
+              margin-bottom: 8px;
+              box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            }
+
+            .c1 .step-icon-badge { background: linear-gradient(135deg, #ef4444, #dc2626); }
+            .c2 .step-icon-badge { background: linear-gradient(135deg, #f59e0b, #d97706); }
+            .c3 .step-icon-badge { background: linear-gradient(135deg, #10b981, #059669); }
+
+            .step-card-title {
+              font-size: 12px;
+              font-weight: 800;
+              text-transform: uppercase;
+              color: #111827;
+              margin-bottom: 4px;
+            }
+
+            .step-card-desc {
+              font-size: 10.5px;
+              color: #4b5563;
+              font-weight: 600;
+              line-height: 1.35;
+            }
+
+            /* Important Info Badges Strip */
+            .info-strip {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+              width: 100%;
+              background: #111827;
+              padding: 12px 18px;
+              border-radius: 18px;
+              color: #ffffff;
+              margin-bottom: 12px;
+              border-left: 5px solid #dc2626;
+            }
+
+            .info-item {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 11px;
+              font-weight: 700;
+            }
+
+            .info-item strong {
+              color: #fbbf24;
+              font-weight: 800;
+            }
+
+            .info-divider {
+              width: 1px;
+              height: 20px;
+              background: rgba(255,255,255,0.2);
+            }
+
+            /* Footer */
+            .poster-footer {
+              font-family: 'Space Grotesk', sans-serif;
+              font-size: 10px;
+              color: #6b7280;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 2px;
               display: flex;
               align-items: center;
               gap: 8px;
             }
-            
-            .instructions-title::before {
-              content: '';
-              display: inline-block;
-              width: 8px;
-              height: 15px;
-              background: #ef4444;
-              border-radius: 4px;
-            }
-            
-            .step {
-              display: flex;
-              gap: 12px;
-              margin-bottom: 14px;
-              font-size: 13.5px;
-              line-height: 1.5;
-              color: #374151;
-            }
-            
-            .step-number {
-              background: #ef4444;
-              color: #ffffff;
-              font-weight: 800;
-              width: 22px;
-              height: 22px;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-              font-size: 12px;
-              margin-top: 1px;
-            }
-            
-            .step-text {
-              font-weight: 500;
-            }
-            
-            .step-text strong {
-              color: #111827;
-              font-weight: 700;
-            }
-            
-            .step-text .highlight-red {
-              color: #ef4444;
-              font-weight: 800;
-            }
-            
-            .step-text .highlight-location {
-              color: #15803d; /* dark green */
-              font-weight: 800;
-              background: #f0fdf4;
-              padding: 1px 4px;
-              border-radius: 4px;
-              border: 1px solid #dcfce7;
-            }
-            
-            .footer {
-              margin-top: 32px;
-              font-size: 10px;
-              color: #6b7280;
-              font-weight: 700;
-              text-transform: uppercase;
-              letter-spacing: 2px;
-              font-family: 'Space Grotesk', sans-serif;
+
+            .poster-footer span {
+              color: #dc2626;
             }
 
+            /* Print media rules */
             @media print {
               @page {
-                size: portrait;
-                margin: 10mm;
+                size: A4 portrait;
+                margin: 0;
               }
               html, body {
-                height: 100%;
-                overflow: hidden;
-              }
-              body {
-                background-color: #ffffff !important;
                 background: #ffffff !important;
-                min-height: 100vh !important;
-                height: 100vh !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                background-color: #ffffff !important;
+                height: 100% !important;
+                width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+                overflow: hidden !important;
               }
-              .container {
-                border: 4px solid #ef4444 !important;
-                border-radius: 36px !important;
-                padding: 36px 40px !important;
-                max-width: 600px !important;
-                width: 92% !important;
-                height: 94% !important;
-                max-height: 94vh !important;
-                margin: auto !important;
+              .action-bar {
+                display: none !important;
+              }
+              .poster {
+                margin: 0 auto !important;
                 box-shadow: none !important;
-                page-break-inside: avoid !important;
+                border: 4px solid #dc2626 !important;
+                border-radius: 0 !important;
+                width: 100vw !important;
+                max-width: 100vw !important;
+                height: 100vh !important;
+                max-height: 100vh !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: space-between !important;
-                align-items: center !important;
-                box-sizing: border-box !important;
+                page-break-inside: avoid !important;
               }
-              .logo {
-                height: 80px !important;
+              .belt-banner {
+                padding: 12px 24px !important;
+                font-size: 12px !important;
               }
-              .logo-container {
-                margin-bottom: 0 !important;
-              }
-              h1 {
-                font-size: 38px !important;
-                margin: 0 !important;
-                line-height: 1.1 !important;
-              }
-              .subtitle {
-                font-size: 14px !important;
-                margin-top: 4px !important;
-                margin-bottom: 0 !important;
-                letter-spacing: 4px !important;
-              }
-              .qr-box {
-                padding: 16px !important;
-                border-radius: 24px !important;
-                margin: 0 !important;
-                border: 3px solid #ef4444 !important;
-                background: #ffffff !important;
+              .poster-body {
+                padding: 24px 36px 20px 36px !important;
+                flex: 1 !important;
                 display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                flex-direction: column !important;
+                justify-content: space-around !important;
+              }
+              .logo-wrap {
+                width: 76px !important;
+                height: 76px !important;
+              }
+              .main-title {
+                font-size: 38px !important;
+              }
+              .qr-centerpiece {
+                padding: 18px 24px !important;
+                margin-bottom: 16px !important;
               }
               .qr-box img {
-                width: 250px !important;
-                height: 250px !important;
-                margin: 0 auto !important;
+                width: 260px !important;
+                height: 260px !important;
               }
-              .instructions {
-                width: 100% !important;
-                padding: 20px 24px !important;
-                border-radius: 20px !important;
-                background: #fafafa !important;
-                border: 1px solid #e5e7eb !important;
-                box-shadow: none !important;
-                margin: 0 !important;
+              .steps-grid {
+                gap: 12px !important;
+                margin-bottom: 16px !important;
               }
-              .instructions-title {
-                font-size: 13px !important;
+              .info-strip {
+                padding: 12px 20px !important;
                 margin-bottom: 12px !important;
-              }
-              .step {
-                gap: 10px !important;
-                margin-bottom: 8px !important;
-                font-size: 11.5px !important;
-                line-height: 1.4 !important;
-              }
-              .step-number {
-                width: 18px !important;
-                height: 18px !important;
-                font-size: 10px !important;
-                font-weight: 800 !important;
-              }
-              .footer {
-                margin-top: 0 !important;
-                font-size: 9px !important;
-                letter-spacing: 2.5px !important;
               }
             }
           </style>
         </head>
         <body>
-          <div class="container">
-            <div class="logo-container">
-              <img class="logo" src="https://iili.io/qC543c7.png" alt="Logo Tanque Team">
-            </div>
-            <h1>Check-In</h1>
-            <div class="subtitle">Acesso ao Tatame</div>
+          <!-- Floating Action Bar (Hidden on Print) -->
+          <div class="action-bar">
+            <button class="btn-print" onclick="window.print()">
+              🖨️ Imprimir Cartaz A4
+            </button>
+            <button class="btn-close" onclick="window.close()">
+              ✕ Fechar
+            </button>
+          </div>
+
+          <!-- Main Martial Arts Poster -->
+          <div class="poster">
             
-            <div class="qr-box">
-              <div id="qr-svg"></div>
+            <!-- Jiu-Jitsu Belt Stripe Top Header -->
+            <div class="belt-banner">
+              <span>🥋 TANQUE TEAM BJJ</span>
+              <span class="belt-badge">CHECK-IN TATAME</span>
+              <span>SISTEMA OFICIAL</span>
             </div>
-            
-            <div class="instructions">
-              <div class="instructions-title">Como confirmar presença:</div>
+
+            <div class="poster-body">
               
-              <div class="step">
-                <div class="step-number">1</div>
-                <div class="step-text">Aponte a câmera do seu celular para o <strong>QR Code</strong> acima.</div>
+              <!-- Brand Logo & Header -->
+              <div class="brand-header">
+                <div class="logo-wrap">
+                  <img class="logo" src="https://iili.io/qC543c7.png" alt="Tanque Team Logo">
+                </div>
+                <div class="brand-text">
+                  <div class="brand-team">TANQUE TEAM</div>
+                  <div class="brand-bjj">
+                    <span>JIU-JITSU</span>
+                    <span style="color:#fbbf24">•</span>
+                    <span>BELEM-PA</span>
+                  </div>
+                </div>
               </div>
-              
-              <div class="step">
-                <div class="step-number">2</div>
-                <div class="step-text">Abra o <strong>Painel do aluno Tanque Team</strong>.</div>
+
+              <!-- Main Title Section -->
+              <div class="title-section">
+                <div class="hero-badge">
+                  ⚡ MARQUE SUA PRESENÇA AQUI
+                </div>
+                <h1 class="main-title">
+                  CHECK-IN NO <span>TATAME</span>
+                </h1>
+                <div class="subtitle-tag">
+                  Validação Oficial de Presença • Ganhe +50 XP
+                </div>
               </div>
-              
-              <div class="step">
-                <div class="step-number">3</div>
-                <div class="step-text">Você deverá confirmar sua presença em até <span class="highlight-red">${gymTolerance} minutos</span> em relação ao horário da aula.</div>
+
+              <!-- Centerpiece QR Code Box -->
+              <div class="qr-centerpiece">
+                <div class="qr-scan-pill">
+                  <span class="dot"></span>
+                  <span>📲 APONTE A CÂMERA DO CELULAR</span>
+                </div>
+
+                <div class="qr-frame">
+                  <div class="corner tl"></div>
+                  <div class="corner tr"></div>
+                  <div class="corner bl"></div>
+                  <div class="corner br"></div>
+                  <div id="qr-svg"></div>
+                </div>
+
+                <div class="qr-caption">
+                  ⚡ Aproxime seu celular para abrir o App
+                </div>
               </div>
-            </div>
-            
-            <div class="footer">
-              Tanque Team BJJ — Evolução & Disciplina
+
+              <!-- 3 Colorful Steps -->
+              <div class="steps-grid">
+                <div class="step-card c1">
+                  <div class="step-icon-badge">1</div>
+                  <div class="step-card-title">Aponte a Câmera</div>
+                  <div class="step-card-desc">Abra a câmera do celular e aponte para o QR Code acima.</div>
+                </div>
+
+                <div class="step-card c2">
+                  <div class="step-icon-badge">2</div>
+                  <div class="step-card-title">Acesse o Link</div>
+                  <div class="step-card-desc">Toque na notificação para abrir o portal do atleta.</div>
+                </div>
+
+                <div class="step-card c3">
+                  <div class="step-icon-badge">3</div>
+                  <div class="step-card-title">Confirme o Treino</div>
+                  <div class="step-card-desc">Selecione seu horário e confirme sua presença!</div>
+                </div>
+              </div>
+
+              <!-- Important Rules Strip -->
+              <div class="info-strip">
+                <div class="info-item">
+                  ⏱️ Tolerância: <strong>${gymTolerance} minutos</strong>
+                </div>
+                <div class="info-divider"></div>
+                <div class="info-item">
+                  🏆 Evolução: <strong>+50 XP / Treino</strong>
+                </div>
+                <div class="info-divider"></div>
+                <div class="info-item">
+                  💬 Suporte: <strong>(91) 98453-3817</strong>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="poster-footer">
+                Tanque Team Jiu-Jitsu <span>•</span> Disciplina <span>•</span> Evolução <span>•</span> Respeito
+              </div>
+
             </div>
           </div>
-          
+
           <script>
             const qrUrl = "${checkinUrl}";
             const container = document.getElementById('qr-svg');
             const encodedUrl = encodeURIComponent(qrUrl);
-            const qrChartUrl = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encodedUrl;
+            // High resolution QR code with high error correction
+            const qrChartUrl = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=0&ecc=H&data=" + encodedUrl;
             
             const img = document.createElement('img');
-            img.width = 280;
-            img.height = 280;
+            img.width = 260;
+            img.height = 260;
             img.style.display = 'block';
+            img.style.borderRadius = '14px';
+            img.alt = "QR Code Check-in Tanque Team";
             
             img.onload = function() {
               setTimeout(function() {
                 window.print();
-              }, 250);
+              }, 400);
             };
             
             img.onerror = function() {
-              // Fallback to QuickChart if QRServer fails
-              img.onerror = null; // Prevent infinite loop
-              img.src = "https://quickchart.io/qr?size=280&text=" + encodedUrl;
+              // Fallback if primary QR service fails
+              img.onerror = null;
+              img.src = "https://quickchart.io/qr?size=260&margin=0&ecLevel=H&text=" + encodedUrl;
             };
             
             img.src = qrChartUrl;
@@ -1430,6 +1719,19 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       console.error("Gym settings listener error:", err);
     });
 
+    // Pending Check-ins Listener for overdue students
+    const unsubPendingCheckins = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'pendingCheckins'), (snap) => {
+      const pendingList: any[] = [];
+      snap.forEach(docSnap => {
+        if (docSnap.exists()) {
+          pendingList.push({ id: docSnap.id, ...docSnap.data() });
+        }
+      });
+      setPendingCheckins(pendingList.sort((a,b) => (b.timestamp || '').localeCompare(a.timestamp || '')));
+    }, (err) => {
+      console.error("Pending checkins listener error:", err);
+    });
+
     return () => {
       unsubSchedule();
       unsubBookings();
@@ -1438,6 +1740,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       unsubAchievements();
       unsubSettings();
       unsubGymSettings();
+      unsubPendingCheckins();
       clearTimeout(safetyTimeout);
     };
   }, [appId, selectedBookingDate]);
@@ -1827,6 +2130,83 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     });
   };
 
+  const approvePendingCheckin = async (item: any) => {
+    showConfirm(
+      "Confirmar Presença", 
+      `Deseja confirmar a presença de ${item.studentFullName || item.studentName} no treino de ${item.className} (${item.classTime}) do dia ${item.date}?`, 
+      async () => {
+        try {
+          // 1. Add Booking document
+          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bookings'), {
+            studentId: item.studentId,
+            studentName: item.studentName,
+            studentFullName: item.studentFullName,
+            studentPhoto: item.studentPhoto || null,
+            classId: item.classId,
+            className: item.className,
+            classTime: item.classTime,
+            date: item.date,
+            timestamp: new Date().toISOString(),
+            approvedByAdmin: true
+          });
+
+          // 2. Update Student attendance days array and attendanceLog
+          const novoLog = {
+            date: item.date,
+            time: `${item.classTime} - ${item.className}`,
+            timestamp: new Date().toISOString(),
+            method: "confirmacao_admin",
+            by: "admin"
+          };
+
+          try {
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'students', item.studentId), {
+              attendance: arrayUnion(item.date),
+              attendanceLog: arrayUnion(novoLog)
+            });
+          } catch (err) {
+            console.error("Error updating student attendance:", err);
+          }
+
+          if (appId !== 'tanqueteam-bjj') {
+            try {
+              await updateDoc(doc(db, 'artifacts', 'tanqueteam-bjj', 'public', 'data', 'students', item.studentId), {
+                attendance: arrayUnion(item.date),
+                attendanceLog: arrayUnion(novoLog)
+              });
+            } catch (err) {
+              console.error("Error updating backup path:", err);
+            }
+          }
+
+          // 3. Delete doc from pendingCheckins
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'pendingCheckins', item.id));
+
+          showAlert("Sucesso", `Presença de ${item.studentFullName || item.studentName} aprovada e lançada!`, "success");
+        } catch (e) {
+          console.error("Error approving pending checkin:", e);
+          showAlert("Erro", "Falha ao aprovar a presença.", "error");
+        }
+      }
+    );
+  };
+
+  const rejectPendingCheckin = async (item: any) => {
+    showConfirm(
+      "Recusar Check-in", 
+      `Deseja recusar a solicitação de check-in de ${item.studentFullName || item.studentName}?`, 
+      async () => {
+        try {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'pendingCheckins', item.id));
+          showAlert("Sucesso", "Solicitação de check-in recusada e removida.", "success");
+        } catch (e) {
+          console.error("Error rejecting pending checkin:", e);
+          showAlert("Erro", "Falha ao recusar solicitação.", "error");
+        }
+      }
+    );
+  };
+
   const addManualCheckIn = async (classItem: any, student: any) => {
     try {
       const alreadyChecked = (Array.isArray(bookings) ? bookings : []).some(
@@ -1931,6 +2311,11 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             >
               <tab.icon size={17} className={activeTab === tab.id ? 'animate-pulse' : 'group-hover:scale-110 transition-transform'} />
               <span>{tab.label}</span>
+              {tab.id === 'bookings' && pendingCheckins.length > 0 && (
+                <span className="ml-1 px-2 py-0.5 text-[10px] bg-amber-500 text-white font-black rounded-full animate-pulse shadow-sm">
+                  {pendingCheckins.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -1983,6 +2368,93 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   />
                 </div>
               </div>
+
+              {/* PENDING CHECKINS SECTION FOR OVERDUE STUDENTS */}
+              {pendingCheckins.length > 0 && (
+                <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-6 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-amber-500 text-white rounded-xl font-bold animate-pulse">
+                        <Clock size={20} />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-base text-gray-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                          Check-ins Pendentes para Aprovação
+                          <span className="px-2.5 py-0.5 text-xs bg-amber-500 text-white font-black rounded-full">
+                            {pendingCheckins.length}
+                          </span>
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Alunos com mensalidade pendente que tentaram fazer check-in. Confirme para dar a presença ou recuse a solicitação.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {pendingCheckins.map(item => (
+                      <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-amber-200 dark:border-amber-900/40 shadow-sm flex flex-col justify-between space-y-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center font-bold text-gray-600">
+                              {item.studentPhoto ? (
+                                <img src={item.studentPhoto} alt={item.studentFullName} className="w-full h-full object-cover" />
+                              ) : (
+                                (item.studentFullName || item.studentName || '?').charAt(0)
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                                {item.studentFullName || item.studentName}
+                              </p>
+                              <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                {item.studentBelt && (
+                                  <span className="font-semibold text-brand-red">{item.studentBelt}</span>
+                                )}
+                                {item.studentPlan && (
+                                  <span>• {item.studentPlan}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-gray-50 dark:bg-gray-900/60 p-2.5 rounded-xl text-xs space-y-1">
+                            <div className="flex justify-between font-semibold">
+                              <span className="text-gray-400">Treino:</span>
+                              <span className="text-gray-800 dark:text-gray-200 font-bold">{item.className} ({item.classTime})</span>
+                            </div>
+                            <div className="flex justify-between font-semibold">
+                              <span className="text-gray-400">Data Solicitada:</span>
+                              <span className="text-gray-800 dark:text-gray-200 font-mono">{item.date}</span>
+                            </div>
+                            {item.dueDate && (
+                              <div className="flex justify-between font-semibold text-red-500">
+                                <span>Vencimento:</span>
+                                <span>{item.dueDate}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => approvePendingCheckin(item)}
+                            className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+                          >
+                            <CheckCircle size={14} /> Confirmar Presença
+                          </button>
+                          <button
+                            onClick={() => rejectPendingCheckin(item)}
+                            className="py-2 px-3 bg-gray-100 hover:bg-red-50 dark:bg-gray-700 dark:hover:bg-red-950/40 text-gray-600 hover:text-red-600 dark:text-gray-300 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center justify-center gap-1 transition cursor-pointer"
+                          >
+                            <XCircle size={14} /> Recusar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {(Array.isArray(gymSchedule) ? gymSchedule : []).filter(c => {
