@@ -46,12 +46,13 @@ export function generateReferralWhatsAppMessage(student: any): {
 
   const text = `🥋 *CONVITE ESPECIAL - TANQUE TEAM BJJ!* 🔥
 
-Fala amigo(a)! Estou treinando Jiu-Jitsu na *Tanque Team BJJ* e tenho um presente para você: um *SUPER DESCONTO EXCLUSIVO* na sua matrícula! 🥇👊
+Fala amigo(a)! Estou treinando Jiu-Jitsu na *Tanque Team BJJ* e te convido para vir treinar comigo na melhor equipe de Jiu-Jitsu! 🥇👊
 
-🎁 *Seu Cupom de Desconto:* *${referralCode}*
+Ao realizar sua matrícula, utilize o meu código de indicação:
+🎁 *Código do Indicador:* *${referralCode}*
 👤 *Indicado por:* ${studentName}
 
-Acesse o link abaixo para fazer sua matrícula com o desconto aplicado automaticamente:
+Acesse o link abaixo para fazer sua matrícula com o código preenchido automaticamente:
 👉 ${registrationUrl}
 
 Te espero no tatame! Oss! 🥋`;

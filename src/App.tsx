@@ -2883,10 +2883,10 @@ export default function Dashboard() {
                             <Gift size={16} /> Programa de Indicação Tanque Team
                           </div>
                           <h4 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">
-                            Seu Cupom de Desconto: <span className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30">{getStudentReferralCode(currentUserData)}</span>
+                            Seu Código de Indicação: <span className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30">{getStudentReferralCode(currentUserData)}</span>
                           </h4>
                           <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 max-w-xl">
-                            Compartilhe seu código com amigos. Eles ganham desconto na matrícula e você ganha desconto na sua mensalidade quando eles começarem a treinar!
+                            Compartilhe seu código com amigos. A cada amigo matriculado, você ganha desconto na mensalidade (válido 1 desconto por mês — se indicar 3 pessoas, terá desconto nos próximos 3 meses)!
                           </p>
                         </div>
                         <button

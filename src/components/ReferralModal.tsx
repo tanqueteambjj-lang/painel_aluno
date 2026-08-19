@@ -7,6 +7,7 @@ import {
   Check, 
   Gift, 
   Tag, 
+  Sparkles,
   MessageCircle 
 } from 'lucide-react';
 import { generateReferralWhatsAppMessage } from '../utils/referral';
@@ -121,10 +122,10 @@ export default function ReferralModal({ isOpen, onClose, student, showAlert }: R
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-black font-display tracking-tight uppercase italic leading-tight">
-              Indique um Amigo & Ganhe Desconto!
+              Indique Amigos & Ganhe Desconto!
             </h2>
             <p className="text-xs sm:text-sm text-emerald-100 font-medium mt-1 leading-relaxed">
-              Compartilhe seu código com amigos. Eles ganham desconto na matrícula e você ganha desconto na mensalidade!
+              Compartilhe seu código com amigos. A cada amigo que se matricular com seu código, você ganha desconto na sua mensalidade!
             </p>
           </div>
 
@@ -133,7 +134,7 @@ export default function ReferralModal({ isOpen, onClose, student, showAlert }: R
             <div className="bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-green-500/10 border-2 border-dashed border-emerald-500/40 rounded-2xl p-5 relative overflow-hidden text-center">
               <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-1.5">
                 <Tag size={14} className="text-emerald-600 dark:text-emerald-400" />
-                Seu Cupom Exclusivo de Indicação
+                Seu Código de Indicação
               </div>
 
               <div className="flex items-center justify-center gap-3 my-2">
@@ -148,7 +149,7 @@ export default function ReferralModal({ isOpen, onClose, student, showAlert }: R
                       ? 'bg-emerald-600 text-white'
                       : 'bg-gray-900 hover:bg-black dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white'
                   }`}
-                  title="Copiar código do cupom"
+                  title="Copiar código de indicação"
                 >
                   {copiedCode ? <Check size={16} /> : <Copy size={16} />}
                   <span>{copiedCode ? 'Copiado!' : 'Copiar'}</span>
@@ -156,14 +157,14 @@ export default function ReferralModal({ isOpen, onClose, student, showAlert }: R
               </div>
 
               <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">
-                Qualquer amigo que usar este cupom garante desconto imediato na matrícula.
+                O desconto é aplicado exclusivamente na sua mensalidade (aluno indicador) a cada amigo matriculado!
               </p>
             </div>
 
             {/* Direct Auto-Fill Registration Link */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                Link de Matrícula com Cupom Automático
+                Link de Matrícula com Seu Código Automático
               </label>
               <div className="flex items-center gap-2">
                 <div className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-gray-700 dark:text-gray-300 font-mono truncate select-all">
@@ -229,24 +230,39 @@ export default function ReferralModal({ isOpen, onClose, student, showAlert }: R
               </div>
             </div>
 
+            {/* Rule Callout: 1 indicação válida por mensalidade */}
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-200 text-xs">
+              <div className="p-2 bg-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                <Sparkles size={16} />
+              </div>
+              <div className="space-y-1">
+                <div className="font-black uppercase tracking-wider text-[11px] text-amber-800 dark:text-amber-300">
+                  Regra de Desconto por Mensalidade
+                </div>
+                <p className="leading-relaxed text-[11px] text-amber-900/90 dark:text-amber-200/90">
+                  <strong>Apenas 1 indicação é válida por mensalidade.</strong> Exemplo: se você indicar <strong>3 pessoas</strong> que se matricularem, você terá desconto garantido nos <strong>próximos 3 meses</strong> consecutivos (1 desconto por mês)!
+                </p>
+              </div>
+            </div>
+
             {/* How it works 3-step grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
               <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center space-y-1">
                 <div className="w-7 h-7 bg-emerald-500/10 text-emerald-600 rounded-full flex items-center justify-center font-black text-xs mx-auto">1</div>
-                <div className="text-[11px] font-bold dark:text-white">Envie o Link</div>
-                <p className="text-[10px] text-gray-400 leading-tight">Mande seu cupom via WhatsApp para amigos e familiares.</p>
+                <div className="text-[11px] font-bold dark:text-white">Envie o Convite</div>
+                <p className="text-[10px] text-gray-400 leading-tight">Envie seu código ou link via WhatsApp para amigos e familiares.</p>
               </div>
 
               <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center space-y-1">
                 <div className="w-7 h-7 bg-emerald-500/10 text-emerald-600 rounded-full flex items-center justify-center font-black text-xs mx-auto">2</div>
                 <div className="text-[11px] font-bold dark:text-white">Amigo se Matricula</div>
-                <p className="text-[10px] text-gray-400 leading-tight">Ele preenche a matrícula com desconto especial.</p>
+                <p className="text-[10px] text-gray-400 leading-tight">Seu amigo faz a matrícula informando o seu código.</p>
               </div>
 
               <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl text-center space-y-1">
                 <div className="w-7 h-7 bg-emerald-500/10 text-emerald-600 rounded-full flex items-center justify-center font-black text-xs mx-auto">3</div>
-                <div className="text-[11px] font-bold dark:text-white">Você Ganha Desconto</div>
-                <p className="text-[10px] text-gray-400 leading-tight">Desconto creditado na sua mensalidade no dojô!</p>
+                <div className="text-[11px] font-bold dark:text-white">1 Desconto / Mês</div>
+                <p className="text-[10px] text-gray-400 leading-tight">Acumulativo nos meses seguintes (ex: 3 amigos = 3 meses com desconto).</p>
               </div>
             </div>
           </div>
