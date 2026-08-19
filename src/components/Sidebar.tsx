@@ -1,7 +1,7 @@
-import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield, CreditCard, TrendingUp } from 'lucide-react';
+import { ChartLine, Users, UserCog, Moon, Sun, LogOut, X, Trophy, Calendar, Shield, CreditCard, TrendingUp, Gift, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, isAdmin }: any) {
+export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMenuOpen, toggleTheme, isDarkMode, handleLogout, hasUnreadFeed, hasUnreadNotices, isAdmin, onOpenReferralModal }: any) {
   return (
     <aside 
       className={`fixed md:relative inset-y-0 left-0 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 w-64 bg-brand-dark text-white flex flex-col shadow-2xl z-40 transition-transform duration-300 ease-in-out h-full border-r border-gray-800`}
@@ -107,6 +107,29 @@ export default function Sidebar({ view, setView, isMobileMenuOpen, setIsMobileMe
         >
           <UserCog className="w-6 h-6" aria-hidden="true" />
           <span className="ml-2 font-bold text-base">Meus Dados</span>
+        </motion.button>
+
+        <motion.button 
+          whileHover={{ scale: 1.03, x: 4 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={() => { 
+            if (onOpenReferralModal) {
+              onOpenReferralModal();
+            }
+            setIsMobileMenuOpen(false); 
+          }} 
+          className="flex items-center px-4 py-3 rounded-xl transition-all w-full text-left relative overflow-hidden group bg-gradient-to-r from-emerald-950/60 to-green-900/40 border border-emerald-500/30 hover:border-emerald-400 shadow-md shadow-emerald-900/20"
+        >
+          <Gift className="w-6 h-6 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" aria-hidden="true" />
+          <div className="ml-2.5 flex flex-col flex-1 min-w-0">
+            <span className="font-bold text-sm text-emerald-300 group-hover:text-white transition-colors truncate">Chamar Amigo</span>
+            <span className="text-[9px] text-yellow-300 font-black uppercase tracking-wider flex items-center gap-1">
+              <Sparkles size={8} /> Ganhe Desconto
+            </span>
+          </div>
+          <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-black px-2 py-0.5 rounded-full uppercase shrink-0">
+            Cupom
+          </span>
         </motion.button>
 
         {isAdmin && (

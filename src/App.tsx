@@ -15,7 +15,9 @@ import Ranking, { RankingManual } from '@/components/Ranking';
 import Scheduling from '@/components/Scheduling';
 import AdminPanel from '@/components/AdminPanel';
 import StudentProgress from '@/components/StudentProgress';
-import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Pin, Cake, TrendingUp, ThumbsUp, Camera } from 'lucide-react';
+import ReferralModal from '@/components/ReferralModal';
+import { getStudentReferralCode, generateReferralWhatsAppMessage } from '@/utils/referral';
+import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Pin, Cake, TrendingUp, ThumbsUp, Camera, Gift, Tag, Sparkles, Copy, MessageCircle } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -150,6 +152,7 @@ export default function Dashboard() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showGraduationCelebration, setShowGraduationCelebration] = useState(false);
   const [celebratedBelt, setCelebratedBelt] = useState("");
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const lastViewedIdRef = useRef<string | null>(null);
 
   // Auto-close level up window in 7 seconds
@@ -1941,6 +1944,7 @@ export default function Dashboard() {
         hasUnreadFeed={hasUnreadFeed}
         hasUnreadNotices={hasUnreadNotices}
         isAdmin={isAdmin}
+        onOpenReferralModal={() => setIsReferralModalOpen(true)}
       />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
@@ -2179,7 +2183,7 @@ export default function Dashboard() {
               </div>
 
               {/* Quick Actions */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8 no-print">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8 no-print">
                 <motion.button 
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
@@ -2190,16 +2194,36 @@ export default function Dashboard() {
                   <span className="text-xs font-bold text-gray-600 dark:text-gray-300">Família</span>
                 </motion.button>
 
-                <motion.button 
-                  whileHover={{ scale: 1.01 }}
+                {/* Chamar Amigo Button (Personalizado com Cupom e Desconto) */}
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => window.open(`https://api.whatsapp.com/send?text=E aí! Bora treinar Jiu-Jitsu na Tanque Team? 🥋🔥 Vem fazer uma aula experimental! Acesse: https://www.tanqueteambjj.com.br`, '_blank')} 
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition"
-                  aria-label="Convidar um amigo via WhatsApp"
+                  className="relative group w-full"
                 >
-                  <Share2 className="w-6 h-6" aria-hidden="true" />
-                  <span className="text-base md:text-lg">Chamar um Amigo</span>
-                </motion.button>
+                  <button 
+                    id="dashboard-referral-btn"
+                    onClick={() => setIsReferralModalOpen(true)} 
+                    className="w-full bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg shadow-green-600/20 flex flex-col items-center justify-center gap-1 transition relative overflow-hidden border border-emerald-400/30 cursor-pointer"
+                    aria-label="Convidar um amigo com cupom de desconto"
+                  >
+                    <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-lg pointer-events-none" />
+                    
+                    <div className="flex items-center gap-2 w-full justify-center">
+                      <Gift className="w-5 h-5 text-yellow-300 animate-pulse" aria-hidden="true" />
+                      <span className="text-sm md:text-base font-black uppercase tracking-tight">Chamar um Amigo</span>
+                      <span className="bg-yellow-400 text-gray-900 text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-sm">
+                        +Desconto
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-[11px] text-emerald-100 font-mono font-bold">
+                      <span>Cupom:</span>
+                      <span className="bg-black/30 px-2 py-0.5 rounded text-white border border-emerald-300/30">
+                        {getStudentReferralCode(activeUserData)}
+                      </span>
+                    </div>
+                  </button>
+                </motion.div>
 
                 <motion.button 
                   whileHover={{ scale: 1.01 }}
@@ -2849,6 +2873,33 @@ export default function Dashboard() {
                       <div className="p-3 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white font-medium shadow-sm overflow-x-auto">{currentUserData.address || '--'}</div>
                     </div>
                   </div>
+
+                  {/* PROGRAMA DE INDICAÇÃO / CUPOM DE DESCONTO */}
+                  <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
+                    <div className="bg-gradient-to-br from-emerald-500/10 via-teal-500/10 to-green-500/10 border-2 border-dashed border-emerald-500/30 rounded-2xl p-6 relative overflow-hidden">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest mb-1">
+                            <Gift size={16} /> Programa de Indicação Tanque Team
+                          </div>
+                          <h4 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight">
+                            Seu Cupom de Desconto: <span className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30">{getStudentReferralCode(currentUserData)}</span>
+                          </h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 max-w-xl">
+                            Compartilhe seu código com amigos. Eles ganham desconto na matrícula e você ganha desconto na sua mensalidade quando eles começarem a treinar!
+                          </p>
+                        </div>
+                        <button
+                          id="profile-open-referral-btn"
+                          onClick={() => setIsReferralModalOpen(true)}
+                          className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-green-600/20 flex items-center justify-center gap-2 transition shrink-0"
+                        >
+                          <Share2 size={16} />
+                          Compartilhar Convite
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
               </div>
@@ -3134,6 +3185,13 @@ export default function Dashboard() {
         message={confirmState.message}
         onConfirm={confirmState.onConfirm}
         onClose={() => setConfirmState({ ...confirmState, isOpen: false })}
+      />
+
+      <ReferralModal 
+        isOpen={isReferralModalOpen}
+        onClose={() => setIsReferralModalOpen(false)}
+        student={activeUserData}
+        showAlert={showAlert}
       />
     </div>
   );

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, setDoc, deleteField, arrayUnion } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin, RefreshCw, CheckCircle } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin, RefreshCw, CheckCircle, Gift, Copy, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 import { QRCodeSVG } from 'qrcode.react';
+import { getStudentReferralCode, generateReferralWhatsAppMessage } from '@/utils/referral';
 
 export function normalizePlanName(name: string): string {
   if (!name) return "";
@@ -1021,6 +1022,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
     dob: '',
     plan: '',
     belt: '',
+    referralCode: '',
     isGraduationInitial: false
   });
 
@@ -1163,6 +1165,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
       dob: student.dob || '',
       plan: student.plan || '',
       belt: student.belt || 'Faixa Branca - 0º Grau',
+      referralCode: student.referralCode || getStudentReferralCode(student),
       isGraduationInitial: false
     });
   };
@@ -1177,7 +1180,8 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
         studentLogin: editFormData.studentLogin,
         dob: editFormData.dob,
         plan: editFormData.plan,
-        belt: editFormData.belt
+        belt: editFormData.belt,
+        referralCode: (editFormData.referralCode || getStudentReferralCode(editingStudent)).trim().toUpperCase()
       };
 
       if (editFormData.belt !== editingStudent.belt) {
@@ -3351,11 +3355,47 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                         </div>
                       </div>
 
-                      <div className="flex gap-2 w-full">
+                      <div className="flex flex-col gap-2 w-full">
+                        {/* Referral Code Badge */}
+                        <div className="flex items-center justify-between gap-2 p-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/20 rounded-xl text-xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Gift size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">Cupom:</span>
+                            <span className="font-mono font-black text-emerald-700 dark:text-emerald-400 text-[11px] truncate">
+                              {s.referralCode || getStudentReferralCode(s)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const code = s.referralCode || getStudentReferralCode(s);
+                                navigator.clipboard.writeText(code);
+                                showAlert("Cupom Copiado", `Código ${code} copiado com sucesso!`, "success");
+                              }}
+                              className="p-1 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200/50 dark:hover:bg-emerald-900/50 rounded transition"
+                              title="Copiar Cupom"
+                            >
+                              <Copy size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const msg = generateReferralWhatsAppMessage(s);
+                                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+                              }}
+                              className="p-1 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200/50 dark:hover:bg-emerald-900/50 rounded transition"
+                              title="Enviar Convite WhatsApp"
+                            >
+                              <Share2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+
                         {/* Family Connection */}
                         <button 
                           onClick={() => setIsLinkingFamily({ studentId: s.id, name: s.name, parentId: s.parentId })}
-                          className={`flex-1 p-1.5 rounded flex items-center justify-center gap-1 text-[9px] font-bold uppercase transition ${s.parentId ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}
+                          className={`w-full p-1.5 rounded flex items-center justify-center gap-1 text-[9px] font-bold uppercase transition ${s.parentId ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}
                         >
                           <Users size={12} />
                           {s.parentId ? 'Vincular Família' : 'Vincular Família'}
@@ -4170,6 +4210,16 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                     onChange={e => setEditFormData({...editFormData, belt: e.target.value})}
                     className="w-full bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-brand-red p-3 rounded-xl outline-none transition-all dark:text-white"
                     placeholder="Ex: Faixa Azul - 1º Grau"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase mb-1">Código de Indicação / Cupom (referralCode)</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.referralCode}
+                    onChange={e => setEditFormData({...editFormData, referralCode: e.target.value.toUpperCase()})}
+                    className="w-full bg-emerald-50/50 dark:bg-emerald-950/20 border-2 border-emerald-500/30 focus:border-emerald-500 p-3 rounded-xl outline-none transition-all dark:text-white font-mono font-bold uppercase"
+                    placeholder="Ex: CARLOS-7842"
                   />
                 </div>
                 <div className="flex items-center gap-2">
