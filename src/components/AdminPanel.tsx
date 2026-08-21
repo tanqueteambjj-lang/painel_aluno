@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, deleteDoc, doc, onSnapshot, orderBy, addDoc, getDocs, updateDoc, setDoc, deleteField, arrayUnion } from 'firebase/firestore';
-import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin, RefreshCw, CheckCircle, Gift, Copy, Share2 } from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, Search, Clock, ShieldCheck, MessageSquare, Loader2, User, XCircle, Camera, Edit2, Edit3, Check, X, Star, Medal, Target, Flame, Sun, ArrowUpCircle, Award, Shield, Crown, Zap, Trophy, TrendingDown, TrendingUp, ZoomIn, ZoomOut, RotateCcw, ThumbsUp, CreditCard, Ban, CheckSquare, Square, Trash, AlertTriangle, ExternalLink, Link as LinkIcon, Printer, QrCode, MapPin, RefreshCw, CheckCircle, Gift, Copy, Share2, Activity, Eye, Smartphone, Monitor, BarChart3, Send, Sparkles, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Cropper from 'react-easy-crop';
 import { QRCodeSVG } from 'qrcode.react';
 import { getStudentReferralCode, generateReferralWhatsAppMessage } from '@/utils/referral';
+import { computeAccessMetrics, formatRelativeTime } from '@/utils/accessTracker';
+import AccessAnalytics from '@/components/AccessAnalytics';
 
 export function normalizePlanName(name: string): string {
   if (!name) return "";
@@ -973,6 +975,11 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
   const [familySearch, setFamilySearch] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [editingStudent, setEditingStudent] = useState<any | null>(null);
+  
+  // Access Analytics States
+  const [analyticsSearch, setAnalyticsSearch] = useState('');
+  const [analyticsFilter, setAnalyticsFilter] = useState<'all' | 'top' | 'today' | 'week' | 'never'>('all');
+  const [selectedAccessStudent, setSelectedAccessStudent] = useState<any | null>(null);
   
   // Custom Achievements Management
   const [customAchievements, setCustomAchievements] = useState<any[]>([]);
@@ -2295,6 +2302,7 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
             { id: 'schedule', label: 'Grade Horária', icon: Clock },
             { id: 'feed', label: 'Feed', icon: MessageSquare },
             { id: 'students', label: 'Alunos', icon: Users },
+            { id: 'analytics', label: 'Acessos ao Portal', icon: Activity },
             { id: 'plans', label: 'Planos', icon: CreditCard },
             { id: 'achievements', label: 'Conquistas', icon: Trophy },
             { id: 'churn', label: 'Evasão', icon: TrendingDown },
@@ -3392,6 +3400,25 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                           </div>
                         </div>
 
+                        {/* Portal Access Status */}
+                        <div className="flex items-center justify-between gap-2 p-2 bg-gray-50 dark:bg-gray-900/60 border border-gray-150 dark:border-gray-700/60 rounded-xl text-xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Activity size={13} className={s.accessCount ? "text-red-500" : "text-gray-400"} />
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">Portal:</span>
+                            <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200 truncate">
+                              {s.accessCount ? `${s.accessCount} login(s) • ${formatRelativeTime(s.lastAccessAt)}` : 'Nunca acessou'}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('analytics')}
+                            className="text-[9px] font-bold text-red-600 hover:underline uppercase shrink-0"
+                            title="Ver no Controle de Acessos"
+                          >
+                            Ver
+                          </button>
+                        </div>
+
                         {/* Family Connection */}
                         <button 
                           onClick={() => setIsLinkingFamily({ studentId: s.id, name: s.name, parentId: s.parentId })}
@@ -3407,6 +3434,23 @@ export default function AdminPanel({ appId, showAlert, showConfirm, onImpersonat
                   }
                 </div>
             </motion.div>
+        )}
+
+        {/* ACCESS ANALYTICS VIEW */}
+        {!loading && activeTab === 'analytics' && (
+          <motion.div
+            key="analytics"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            <AccessAnalytics 
+              students={allStudents} 
+              onImpersonate={onImpersonate} 
+              showAlert={showAlert} 
+            />
+          </motion.div>
         )}
 
         {/* PLANS VIEW */}

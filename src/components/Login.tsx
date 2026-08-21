@@ -4,6 +4,7 @@ import { signInAnonymously } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { User, Lock, Eye, EyeOff, LogIn, ArrowLeft, X, Smartphone, Share, PlusSquare, MoreVertical, Loader2, Check, Download, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { recordStudentAccess } from '@/utils/accessTracker';
 
 export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const [loginInput, setLoginInput] = useState('');
@@ -135,6 +136,9 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: () => void }
         const studentData = { id: docSnap.id, ...docSnap.data(), role: 'student' };
         localStorage.setItem('tanque_user_session', JSON.stringify(studentData));
         
+        // Track portal access
+        recordStudentAccess(db, appId, docSnap.id, docSnap.data()).catch(console.error);
+
         setLoginSuccess(true);
         setTimeout(() => {
           onLoginSuccess();

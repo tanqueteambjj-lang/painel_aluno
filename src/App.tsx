@@ -17,6 +17,7 @@ import AdminPanel from '@/components/AdminPanel';
 import StudentProgress from '@/components/StudentProgress';
 import ReferralModal from '@/components/ReferralModal';
 import { getStudentReferralCode, generateReferralWhatsAppMessage } from '@/utils/referral';
+import { recordStudentAccess } from '@/utils/accessTracker';
 import { Menu, Moon, Sun, LogOut, Users, User, UserCog, Calendar, Medal, CheckCircle, AlertTriangle, Link as LinkIcon, Star, Share2, X, Clock, QrCode, Loader2, Lock, Flame, FileText, Trophy, Award, Zap, Shield, Crown, MessageSquare, Target, ArrowUpCircle, CreditCard, ChevronRight, Pin, Cake, TrendingUp, ThumbsUp, Camera, Gift, Tag, Sparkles, Copy, MessageCircle } from 'lucide-react';
 import { AlertDialog, ConfirmDialog, AlertType, Toast } from '@/components/CustomDialogs';
 import { motion, AnimatePresence } from 'motion/react';
@@ -631,6 +632,7 @@ export default function Dashboard() {
               loadUserBookings(data.id);
               loadAdminAchievements();
               loadFamilyMembers(data);
+              recordStudentAccess(db, appId, data.id, data).catch(console.error);
             } catch (sideError) {
               console.error("Erro em efeitos colaterais:", sideError);
             }
